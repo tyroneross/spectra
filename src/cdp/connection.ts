@@ -21,7 +21,11 @@ export class CdpConnection {
     })
   }
 
-  async send<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T> {
+  async send<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+    sessionId?: string,
+  ): Promise<T> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('Not connected')
     }
@@ -31,7 +35,10 @@ export class CdpConnection {
         resolve: resolve as (v: unknown) => void,
         reject,
       })
-      this.ws!.send(JSON.stringify({ id, method, params }))
+      const msg: Record<string, unknown> = { id, method }
+      if (params) msg.params = params
+      if (sessionId) msg.sessionId = sessionId
+      this.ws!.send(JSON.stringify(msg))
     })
   }
 
