@@ -1,12 +1,12 @@
 {
   "version": "1.0.0",
   "session_id": "e86f5087-0b13-480f-9531-81be99b81a72",
-  "compaction_count": 1,
-  "current_threshold": 0.3,
-  "last_snapshot_time": 1773819426883,
-  "last_event_time": 1773819426883,
+  "compaction_count": 3,
+  "current_threshold": 0.5,
+  "last_snapshot_time": 1773822416083,
+  "last_event_time": 1773822416083,
   "snapshot_interval_minutes": 20,
   "session_history": [],
-  "restores_performed": 1,
-  "tokens_injected": 104
+  "restores_performed": 3,
+  "tokens_injected": 356
 }
