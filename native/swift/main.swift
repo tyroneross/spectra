@@ -150,26 +150,16 @@ func handleFind(_ req: Request) {
 
 func handleScreenshot(_ req: Request) {
     switch getAppPid(from: req.params) {
-    case .success(_):
-        // For now, capture the entire screen since we need CGWindowID to capture a specific window
-        // which requires additional window enumeration work
-        let tmpPath = NSTemporaryDirectory() + "spectra-screenshot-\(UUID().uuidString).png"
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = ["-x", tmpPath]  // -x = no sound
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            if process.terminationStatus == 0 {
-                sendResult(id: req.id, .dictionary(["path": .string(tmpPath)]))
-            } else {
-                sendError(id: req.id, code: -1, message: "screencapture failed with status \(process.terminationStatus)")
-            }
-        } catch {
-            sendError(id: req.id, code: -1, message: "Failed to run screencapture: \(error)")
+    case .success(let pid):
+        guard let window = getWindowInfo(pid: pid), window.id > 0 else {
+            sendError(id: req.id, code: -1, message: "No window found for app")
+            return
+        }
+        switch captureWindowScreenshot(windowId: window.id) {
+        case .success(let path):
+            sendResult(id: req.id, .dictionary(["path": .string(path), "format": .string("png")]))
+        case .failure(let err):
+            sendError(id: req.id, code: -1, message: err.message)
         }
     case .failure(let err):
         sendError(id: req.id, code: -1, message: err.message)
@@ -243,11 +233,13 @@ func handleSimTap(_ req: Request) {
 }
 
 func handleStartRecording(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "Not implemented: startRecording")
+    // ScreenCaptureKit recording — Phase 2 stretch goal
+    // For now, return not implemented
+    sendError(id: req.id, code: -1, message: "macOS video recording via ScreenCaptureKit: coming in Phase 3a")
 }
 
 func handleStopRecording(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "Not implemented: stopRecording")
+    sendError(id: req.id, code: -1, message: "No active recording")
 }
 
 // ─── Main Loop ────────────────────────────────────────────

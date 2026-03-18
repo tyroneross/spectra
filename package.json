@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "build:native": "swiftc native/swift/Types.swift native/swift/main.swift native/swift/AppTarget.swift native/swift/AXBridge.swift native/swift/SimBridge.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -o $HOME/.spectra/bin/spectra-native",
+    "build:native": "swiftc native/swift/Types.swift native/swift/main.swift native/swift/AppTarget.swift native/swift/AXBridge.swift native/swift/SimBridge.swift native/swift/MediaCapture.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -o $HOME/.spectra/bin/spectra-native",
     "build:test-app": "swiftc native/swift/TestApp/TestApp.swift -framework SwiftUI -framework AppKit -o $HOME/.spectra/bin/spectra-test-app",
     "test": "vitest run",
     "test:watch": "vitest",
