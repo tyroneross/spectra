@@ -1,10 +1,10 @@
+// src/mcp/context.ts
 import { SessionManager } from '../core/session.js'
-import { CdpDriver } from '../cdp/driver.js'
-import type { Platform } from '../core/types.js'
+import type { Driver, Platform } from '../core/types.js'
 
 export interface ToolContext {
   sessions: SessionManager
-  drivers: Map<string, CdpDriver>
+  drivers: Map<string, Driver>
 }
 
 export function createContext(): ToolContext {
@@ -14,12 +14,19 @@ export function createContext(): ToolContext {
   }
 }
 
-export function detectPlatform(target: string): Platform {
-  if (/^https?:\/\//.test(target)) return 'web'
+export interface PlatformInfo {
+  platform: Platform
+  driverType: 'cdp' | 'native' | 'sim'
+}
+
+export function detectPlatform(target: string): PlatformInfo {
+  if (/^https?:\/\//.test(target)) {
+    return { platform: 'web', driverType: 'cdp' }
+  }
   if (target.startsWith('sim:')) {
     const device = target.slice(4).toLowerCase()
-    if (device.includes('watch')) return 'watchos'
-    return 'ios'
+    const platform: Platform = device.includes('watch') ? 'watchos' : 'ios'
+    return { platform, driverType: 'sim' }
   }
-  return 'macos'
+  return { platform: 'macos', driverType: 'native' }
 }

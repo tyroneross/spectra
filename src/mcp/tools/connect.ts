@@ -1,10 +1,11 @@
+// src/mcp/tools/connect.ts
 import type { ToolContext } from '../context.js'
 import { detectPlatform } from '../context.js'
 import { CdpDriver } from '../../cdp/driver.js'
+import { NativeDriver } from '../../native/driver.js'
+import { SimDriver } from '../../native/sim.js'
 import { serializeSnapshot } from '../../core/serialize.js'
-import type { DriverTarget } from '../../core/types.js'
-
-type DriverFactory = () => CdpDriver
+import type { Driver, DriverTarget } from '../../core/types.js'
 
 export interface ConnectParams {
   target: string
@@ -22,9 +23,9 @@ export interface ConnectResult {
 export async function handleConnect(
   params: ConnectParams,
   ctx: ToolContext,
-  createDriver: DriverFactory = () => new CdpDriver(),
+  createDriver?: () => Driver,
 ): Promise<ConnectResult> {
-  const platform = detectPlatform(params.target)
+  const { platform, driverType } = detectPlatform(params.target)
 
   // Build driver target
   const driverTarget: DriverTarget = {}
@@ -44,7 +45,12 @@ export async function handleConnect(
   })
 
   // Create and connect driver
-  const driver = createDriver()
+  const driver = createDriver
+    ? createDriver()
+    : driverType === 'cdp' ? new CdpDriver()
+    : driverType === 'native' ? new NativeDriver()
+    : new SimDriver()
+
   await driver.connect(driverTarget)
   ctx.drivers.set(session.id, driver)
 
