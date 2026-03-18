@@ -26,6 +26,19 @@ enum AppTargetError: Error {
 }
 
 func findApp(name: String) -> AppInfo? {
+    // NSWorkspace must be accessed on main thread
+    var result: AppInfo? = nil
+    if Thread.isMainThread {
+        result = findAppSync(name: name)
+    } else {
+        DispatchQueue.main.sync {
+            result = findAppSync(name: name)
+        }
+    }
+    return result
+}
+
+func findAppSync(name: String) -> AppInfo? {
     let apps = NSWorkspace.shared.runningApplications
     // Try exact match first (case-insensitive)
     if let app = apps.first(where: { $0.localizedName?.lowercased() == name.lowercased() }) {
