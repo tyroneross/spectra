@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "project_path": "/Users/tyroneross/Desktop/git-folder/spectra",
+  "last_updated": 1773819426883,
+  "stats": {
+    "total_snapshots": 1,
+    "compaction_cycles": 0,
+    "last_compaction": 1773819426883,
+    "last_snapshot": 1773819426883,
+    "last_time_based": 0
+  },
+  "snapshots": [
+    {
+      "id": "SNAP_20260318_003706",
+      "timestamp": 1773819426883,
+      "trigger": "pre_compact",
+      "compaction_cycle": 0,
+      "files_changed_count": 4
+    }
+  ]
+}
