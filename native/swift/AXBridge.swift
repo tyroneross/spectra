@@ -28,6 +28,9 @@ func inferActions(role: String) -> [String] {
 
 // ─── AX Tree Walking ──────────────────────────────────────
 
+// Roles to skip entirely (don't add as elements, but still walk children for non-menu roles)
+private let menuRoles: Set<String> = ["AXMenuBar", "AXMenuBarItem", "AXMenu", "AXMenuItem"]
+
 func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth: Int = 10) -> [NativeElement] {
     guard depth < maxDepth else { return [] }
 
@@ -41,13 +44,18 @@ func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth
     }
     let role = (roleRef as? String) ?? "AXUnknown"
 
-    // Skip non-useful container roles and menu bar elements
-    // Note: AXWindow must NOT be skipped — we need to traverse into windows to find content
-    // Note: AXScrollArea, AXSplitGroup must NOT be skipped — they contain UI content
-    let skipRoles: Set<String> = ["AXApplication", "AXMenuBar", "AXMenuBarItem", "AXMenu", "AXMenuItem"]
-    let isSkipped = skipRoles.contains(role)
+    // Skip menu bar hierarchy entirely (don't even walk children)
+    if menuRoles.contains(role) { return [] }
 
-    if !isSkipped {
+    // Skip AXApplication children to prevent circular references
+    // macOS 26 reports AXApplication as child of itself — detect and skip
+    if role == "AXApplication" && depth > 0 { return [] }
+
+    let isContainer = role == "AXApplication" || role == "AXWindow" || role == "AXGroup"
+        || role == "AXScrollArea" || role == "AXSplitGroup" || role == "AXLayoutArea"
+        || role == "AXTabGroup"
+
+    if !isContainer {
         // Get label (title or description)
         var titleRef: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleRef)
@@ -107,13 +115,32 @@ func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth
         }
     }
 
-    // Walk children
+    // Walk children (standard traversal)
     var childrenRef: CFTypeRef?
     AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenRef)
     if let children = childrenRef as? [AXUIElement] {
         for (index, child) in children.enumerated() {
             let childPath = path + [index]
             elements.append(contentsOf: walkAXTree(element: child, path: childPath, depth: depth + 1, maxDepth: maxDepth))
+        }
+    }
+
+    // For AXApplication at root, also try kAXWindowsAttribute as fallback
+    // macOS 26 may not include windows in kAXChildrenAttribute
+    if role == "AXApplication" && depth == 0 {
+        var windowsRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowsRef)
+        if let windows = windowsRef as? [AXUIElement] {
+            for (index, win) in windows.enumerated() {
+                // Only walk if the window has role AXWindow (skip if it reports AXApplication — circular ref)
+                var winRoleRef: CFTypeRef?
+                AXUIElementCopyAttributeValue(win, kAXRoleAttribute as CFString, &winRoleRef)
+                let winRole = (winRoleRef as? String) ?? ""
+                if winRole == "AXWindow" {
+                    let winPath = [index]
+                    elements.append(contentsOf: walkAXTree(element: win, path: winPath, depth: depth + 1, maxDepth: maxDepth))
+                }
+            }
         }
     }
 
