@@ -177,19 +177,69 @@ func handleScreenshot(_ req: Request) {
 }
 
 func handleSimDevices(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "Not implemented: simDevices")
+    let devices = listSimDevices()
+    sendResult(id: req.id, AnyCodableValue.from(["devices": devices]))
 }
 
 func handleSimScreenshot(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "Not implemented: simScreenshot")
+    guard let udid = req.params?["deviceId"]?.stringValue else {
+        sendError(id: req.id, code: -1, message: "Missing deviceId")
+        return
+    }
+    let mask = req.params?["mask"]?.stringValue
+    switch simScreenshot(udid: udid, mask: mask) {
+    case .success(let path):
+        sendResult(id: req.id, .dictionary(["path": .string(path)]))
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
 }
 
 func handleSimRecord(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "Not implemented: simRecord")
+    guard let params = req.params,
+          let deviceId = params["deviceId"]?.stringValue,
+          let action = params["action"]?.stringValue else {
+        sendError(id: req.id, code: -1, message: "Missing deviceId or action")
+        return
+    }
+
+    if action == "start" {
+        switch simStartRecording(udid: deviceId) {
+        case .success(let recordingId):
+            sendResult(id: req.id, .dictionary(["recordingId": .string(recordingId)]))
+        case .failure(let err):
+            sendError(id: req.id, code: -1, message: err.message)
+        }
+    } else if action == "stop" {
+        guard let recordingId = params["recordingId"]?.stringValue else {
+            sendError(id: req.id, code: -1, message: "Missing recordingId for stop")
+            return
+        }
+        switch simStopRecording(recordingId: recordingId) {
+        case .success(let path):
+            sendResult(id: req.id, .dictionary(["path": .string(path)]))
+        case .failure(let err):
+            sendError(id: req.id, code: -1, message: err.message)
+        }
+    } else {
+        sendError(id: req.id, code: -1, message: "Unknown action: \(action). Use 'start' or 'stop'.")
+    }
 }
 
 func handleSimTap(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "Not implemented: simTap")
+    guard let params = req.params,
+          let deviceId = params["deviceId"]?.stringValue,
+          let x = params["x"]?.intValue,
+          let y = params["y"]?.intValue else {
+        sendError(id: req.id, code: -1, message: "Missing deviceId, x, or y")
+        return
+    }
+    switch simTap(udid: deviceId, x: x, y: y) {
+    case .success(_):
+        sendResult(id: req.id, .dictionary(["success": .bool(true)]))
+    case .failure(let err):
+        sendResult(id: req.id, .dictionary(["success": .bool(false), "error": .string(err.message)]))
+    }
 }
 
 func handleStartRecording(_ req: Request) {
