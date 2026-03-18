@@ -1,13 +1,21 @@
 type EventHandler = (params: unknown) => void
 
+const DEFAULT_TIMEOUT_MS = 30_000
+
 export class CdpConnection {
   private ws: WebSocket | null = null
   private nextId = 0
   private pending = new Map<number, {
     resolve: (value: unknown) => void
     reject: (error: Error) => void
+    timer: ReturnType<typeof setTimeout>
   }>()
   private eventHandlers = new Map<string, Set<EventHandler>>()
+  private timeoutMs: number
+
+  constructor(options?: { timeoutMs?: number }) {
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  }
 
   async connect(wsUrl: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -31,9 +39,20 @@ export class CdpConnection {
     }
     const id = ++this.nextId
     return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (this.pending.has(id)) {
+          this.pending.delete(id)
+          const secs = (this.timeoutMs / 1000).toFixed(0)
+          reject(new Error(
+            `CDP request '${method}' timed out after ${secs}s. `
+            + 'The browser may be unresponsive or the operation is taking too long.'
+          ))
+        }
+      }, this.timeoutMs)
       this.pending.set(id, {
         resolve: resolve as (v: unknown) => void,
         reject,
+        timer,
       })
       const msg: Record<string, unknown> = { id, method }
       if (params) msg.params = params
@@ -57,7 +76,8 @@ export class CdpConnection {
     const data = JSON.parse(String(event.data))
 
     if ('id' in data && this.pending.has(data.id)) {
-      const { resolve, reject } = this.pending.get(data.id)!
+      const { resolve, reject, timer } = this.pending.get(data.id)!
+      clearTimeout(timer)
       this.pending.delete(data.id)
       if (data.error) {
         reject(new Error(`CDP error ${data.error.code}: ${data.error.message}`))
@@ -73,7 +93,8 @@ export class CdpConnection {
   }
 
   private handleClose(): void {
-    for (const [, { reject }] of this.pending) {
+    for (const [, { reject, timer }] of this.pending) {
+      clearTimeout(timer)
       reject(new Error('WebSocket closed'))
     }
     this.pending.clear()
@@ -81,6 +102,9 @@ export class CdpConnection {
   }
 
   async close(): Promise<void> {
+    for (const [, { timer }] of this.pending) {
+      clearTimeout(timer)
+    }
     if (this.ws) {
       this.ws.close()
       this.ws = null

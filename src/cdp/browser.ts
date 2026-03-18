@@ -19,17 +19,21 @@ export function findChrome(): string | null {
 
 export interface BrowserOptions {
   headless?: boolean    // default: true
-  port?: number         // default: 9222
+  port?: number         // default: random ephemeral port
   userDataDir?: string  // default: ~/.spectra/chromium-profile/
+}
+
+function randomPort(): number {
+  return 49152 + Math.floor(Math.random() * (65535 - 49152))
 }
 
 export class BrowserManager {
   private process: ChildProcess | null = null
-  private port = 9222
+  private port = 0
 
   async launch(options: BrowserOptions = {}): Promise<string> {
     const headless = options.headless ?? true
-    this.port = options.port ?? 9222
+    this.port = options.port ?? randomPort()
     const userDataDir = options.userDataDir ?? join(homedir(), '.spectra', 'chromium-profile')
 
     const chromePath = findChrome()

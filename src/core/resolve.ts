@@ -6,11 +6,15 @@ export function resolve(options: ResolveOptions): ResolveResult {
   }
 
   const { intent, elements } = options
+
+  if (elements.length === 0) {
+    return { element: null as unknown as Element, confidence: 0, candidates: [] }
+  }
+
   const intentLower = intent.toLowerCase()
   const scored = scoreElements(elements, intentLower)
 
   if (scored.length === 0) {
-    // Return first element as fallback with zero confidence
     return {
       element: elements[0],
       confidence: 0,

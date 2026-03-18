@@ -11,11 +11,13 @@ describe('CdpConnection', () => {
 
   beforeEach(() => {
     MockWebSocket.reset()
+    vi.useFakeTimers()
     conn = new CdpConnection()
   })
 
   afterEach(async () => {
     await conn.close()
+    vi.useRealTimers()
   })
 
   describe('connect', () => {
@@ -126,6 +128,56 @@ describe('CdpConnection', () => {
         method: 'Network.requestWillBeSent',
         params: {},
       }))
+    })
+  })
+
+  describe('timeout', () => {
+    it('rejects with clear error after timeout', async () => {
+      conn = new CdpConnection({ timeoutMs: 5000 })
+      const connectPromise = conn.connect('ws://localhost:9222/devtools/browser/abc')
+      MockWebSocket.instances[0].simulateOpen()
+      await connectPromise
+
+      const resultPromise = conn.send('Page.navigate', { url: 'http://slow.example.com' })
+
+      // Advance past the timeout
+      vi.advanceTimersByTime(5001)
+
+      await expect(resultPromise).rejects.toThrow("CDP request 'Page.navigate' timed out after 5s")
+      await expect(resultPromise).rejects.toThrow('browser may be unresponsive')
+    })
+
+    it('clears timeout when response arrives in time', async () => {
+      conn = new CdpConnection({ timeoutMs: 5000 })
+      const connectPromise = conn.connect('ws://localhost:9222/devtools/browser/abc')
+      MockWebSocket.instances[0].simulateOpen()
+      await connectPromise
+
+      const ws = MockWebSocket.instances[0]
+      const resultPromise = conn.send('Page.navigate', { url: 'http://example.com' })
+
+      // Respond before timeout
+      ws.simulateMessage(JSON.stringify({ id: 1, result: { frameId: 'F1' } }))
+      const result = await resultPromise
+      expect(result).toEqual({ frameId: 'F1' })
+
+      // Advancing past timeout should NOT cause any rejection
+      vi.advanceTimersByTime(6000)
+    })
+
+    it('uses 30s default timeout', () => {
+      conn = new CdpConnection()
+      // Verify via a timed-out request
+      const connectPromise = conn.connect('ws://localhost:9222/devtools/browser/abc')
+      MockWebSocket.instances[0].simulateOpen()
+
+      return connectPromise.then(async () => {
+        const resultPromise = conn.send('Slow.method')
+        vi.advanceTimersByTime(29_999)
+        // Should still be pending at 29.999s
+        vi.advanceTimersByTime(2)
+        await expect(resultPromise).rejects.toThrow('timed out after 30s')
+      })
     })
   })
 

@@ -85,6 +85,23 @@ describe('BrowserManager', () => {
       expect(wsUrl).toBe('ws://127.0.0.1:9222/devtools/browser/abc')
     })
 
+    it('uses random ephemeral port when none specified', async () => {
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({
+          webSocketDebuggerUrl: 'ws://127.0.0.1:54321/devtools/browser/abc',
+        }),
+      }))
+
+      await manager.launch()
+
+      const args = vi.mocked(spawn).mock.calls[0][1] as string[]
+      const portArg = args.find((a: string) => a.startsWith('--remote-debugging-port='))!
+      const port = parseInt(portArg.split('=')[1])
+      expect(port).toBeGreaterThanOrEqual(49152)
+      expect(port).toBeLessThanOrEqual(65535)
+    })
+
     it('spawns Chrome without --headless when headless=false', async () => {
       vi.mocked(existsSync).mockReturnValue(true)
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({

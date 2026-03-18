@@ -55,6 +55,12 @@ describe('resolve', () => {
     expect(result.confidence).toBeLessThan(1.0)
   })
 
+  it('returns zero confidence for empty elements', () => {
+    const result = resolve({ intent: 'click something', elements: [], mode: 'claude' })
+    expect(result.confidence).toBe(0)
+    expect(result.candidates).toEqual([])
+  })
+
   it('throws for algorithmic mode in Phase 1', () => {
     expect(() =>
       resolve({ intent: 'click Log In', elements, mode: 'algorithmic' })

@@ -46,14 +46,30 @@ describe('InputDomain', () => {
     // Each character: keyDown + keyUp
     expect(conn.send).toHaveBeenCalledWith(
       'Input.dispatchKeyEvent',
-      expect.objectContaining({ type: 'keyDown', text: 'H' }),
+      expect.objectContaining({ type: 'keyDown', text: 'H', code: 'KeyH' }),
       'sess-1',
     )
     expect(conn.send).toHaveBeenCalledWith(
       'Input.dispatchKeyEvent',
-      expect.objectContaining({ type: 'keyUp', key: 'H' }),
+      expect.objectContaining({ type: 'keyUp', key: 'H', code: 'KeyH' }),
       'sess-1',
     )
+  })
+
+  it('uses correct key codes for non-alpha characters', async () => {
+    await input.type('1 @')
+
+    const calls = vi.mocked(conn.send).mock.calls
+    const keyCodes = calls
+      .filter(([method]) => method === 'Input.dispatchKeyEvent')
+      .map(([, params]) => (params as Record<string, unknown>).code)
+
+    // '1' → Digit1, ' ' → Space, '@' → Digit2
+    expect(keyCodes).toContain('Digit1')
+    expect(keyCodes).toContain('Space')
+    expect(keyCodes).toContain('Digit2')
+    expect(keyCodes).not.toContain('Key1')
+    expect(keyCodes).not.toContain('Key ')
   })
 })
 
