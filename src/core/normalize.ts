@@ -22,6 +22,6 @@ const MACOS_ROLES: Record<string, string> = {
 
 export function normalizeRole(rawRole: string, platform: Platform): string {
   if (platform === 'web') return WEB_ROLES[rawRole] ?? 'group'
-  if (platform === 'macos') return MACOS_ROLES[rawRole] ?? 'group'
+  // iOS and watchOS share macOS AX role naming conventions
   return MACOS_ROLES[rawRole] ?? 'group'
 }
