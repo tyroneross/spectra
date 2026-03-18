@@ -41,8 +41,10 @@ func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth
     }
     let role = (roleRef as? String) ?? "AXUnknown"
 
-    // Skip non-useful roles
-    let skipRoles: Set<String> = ["AXWindow", "AXApplication", "AXScrollArea", "AXSplitGroup", "AXLayoutArea"]
+    // Skip non-useful container roles and menu bar elements
+    // Note: AXWindow must NOT be skipped — we need to traverse into windows to find content
+    // Note: AXScrollArea, AXSplitGroup must NOT be skipped — they contain UI content
+    let skipRoles: Set<String> = ["AXApplication", "AXMenuBar", "AXMenuBarItem", "AXMenu", "AXMenuItem"]
     let isSkipped = skipRoles.contains(role)
 
     if !isSkipped {
@@ -182,6 +184,7 @@ func snapshotApp(pid: pid_t) -> Result<SnapshotResult, AXBridgeError> {
         return .failure(AXBridgeError(message: "Cannot access app (PID \(pid)). Error: \(result.rawValue)"))
     }
 
+    // Walk the entire app tree - the walkAXTree function will filter out menu bars
     let elements = walkAXTree(element: app)
 
     guard let window = getWindowInfo(pid: pid) else {
