@@ -1,15 +1,330 @@
 {
   "version": "1.0.0",
   "project_path": "/Users/tyroneross/Desktop/git-folder/spectra",
-  "last_updated": 1773822416081,
+  "last_updated": 1773850882624,
   "stats": {
-    "total_snapshots": 3,
-    "compaction_cycles": 2,
-    "last_compaction": 1773822416081,
-    "last_snapshot": 1773822416081,
-    "last_time_based": 0
+    "total_snapshots": 48,
+    "compaction_cycles": 5,
+    "last_compaction": 1773832738694,
+    "last_snapshot": 1773850882624,
+    "last_time_based": 1773850875875
   },
   "snapshots": [
+    {
+      "id": "SNAP_20260318_092122",
+      "timestamp": 1773850882624,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_092115",
+      "timestamp": 1773850875875,
+      "trigger": "time_interval",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_081544",
+      "timestamp": 1773846944280,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_081502",
+      "timestamp": 1773846902403,
+      "trigger": "time_interval",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_074230",
+      "timestamp": 1773844950074,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_073927",
+      "timestamp": 1773844767326,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_073737",
+      "timestamp": 1773844657796,
+      "trigger": "time_interval",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044507",
+      "timestamp": 1773834307787,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044503",
+      "timestamp": 1773834303492,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044500",
+      "timestamp": 1773834300156,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044456",
+      "timestamp": 1773834296447,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044453",
+      "timestamp": 1773834293024,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044449",
+      "timestamp": 1773834289093,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044445",
+      "timestamp": 1773834285411,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044441",
+      "timestamp": 1773834281681,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044437",
+      "timestamp": 1773834277357,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044433",
+      "timestamp": 1773834273356,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044429",
+      "timestamp": 1773834269068,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044424",
+      "timestamp": 1773834264744,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044420",
+      "timestamp": 1773834260799,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044416",
+      "timestamp": 1773834256889,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044412",
+      "timestamp": 1773834252401,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044405",
+      "timestamp": 1773834245823,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044356",
+      "timestamp": 1773834236509,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044352",
+      "timestamp": 1773834232762,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044348",
+      "timestamp": 1773834228521,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044343",
+      "timestamp": 1773834223957,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044339",
+      "timestamp": 1773834219608,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044335",
+      "timestamp": 1773834215099,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044330",
+      "timestamp": 1773834210441,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_044323",
+      "timestamp": 1773834203666,
+      "trigger": "session_end",
+      "compaction_cycle": 6,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_041858",
+      "timestamp": 1773832738694,
+      "trigger": "pre_compact",
+      "compaction_cycle": 5,
+      "files_changed_count": 20
+    },
+    {
+      "id": "SNAP_20260318_034001",
+      "timestamp": 1773830401439,
+      "trigger": "pre_compact",
+      "compaction_cycle": 4,
+      "files_changed_count": 18
+    },
+    {
+      "id": "SNAP_20260318_025144",
+      "timestamp": 1773827504080,
+      "trigger": "pre_compact",
+      "compaction_cycle": 3,
+      "files_changed_count": 18
+    },
+    {
+      "id": "SNAP_20260318_024253",
+      "timestamp": 1773826973954,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 17
+    },
+    {
+      "id": "SNAP_20260318_023325",
+      "timestamp": 1773826405234,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 17
+    },
+    {
+      "id": "SNAP_20260318_021919",
+      "timestamp": 1773825559552,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 16
+    },
+    {
+      "id": "SNAP_20260318_020956",
+      "timestamp": 1773824996502,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 15
+    },
+    {
+      "id": "SNAP_20260318_015638",
+      "timestamp": 1773824198035,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 15
+    },
+    {
+      "id": "SNAP_20260318_015149",
+      "timestamp": 1773823909103,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 15
+    },
+    {
+      "id": "SNAP_20260318_013113",
+      "timestamp": 1773822673478,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 7
+    },
+    {
+      "id": "SNAP_20260318_013010",
+      "timestamp": 1773822610439,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 7
+    },
+    {
+      "id": "SNAP_20260318_013003",
+      "timestamp": 1773822603174,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 7
+    },
+    {
+      "id": "SNAP_20260318_012956",
+      "timestamp": 1773822596741,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 7
+    },
+    {
+      "id": "SNAP_20260318_012933",
+      "timestamp": 1773822573918,
+      "trigger": "session_end",
+      "compaction_cycle": 3,
+      "files_changed_count": 6
+    },
     {
       "id": "SNAP_20260318_012656",
       "timestamp": 1773822416081,
