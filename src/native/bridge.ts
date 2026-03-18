@@ -172,7 +172,7 @@ export class NativeBridge {
           })
         })
       } catch {
-        this.process.kill()
+        this.process?.kill()
       }
       this.process = null
     }

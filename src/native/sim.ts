@@ -1,7 +1,7 @@
 // src/native/sim.ts
 import type { Driver, DriverTarget, Snapshot, ActionType, ActResult, Element } from '../core/types.js'
 import { NativeBridge, getSharedBridge } from './bridge.js'
-import { readFile } from 'node:fs/promises'
+import { readFile, unlink } from 'node:fs/promises'
 
 interface SimDevice {
   udid: string
@@ -83,7 +83,9 @@ export class SimDriver implements Driver {
     const params: Record<string, unknown> = { deviceId: this.deviceId }
     if (mask) params.mask = mask
     const result = await this.bridge.send<{ path: string }>('simScreenshot', params)
-    return readFile(result.path)
+    const buf = await readFile(result.path)
+    await unlink(result.path).catch(() => {})
+    return buf
   }
 
   async close(): Promise<void> {

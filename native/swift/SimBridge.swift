@@ -84,7 +84,8 @@ func simScreenshot(udid: String, mask: String? = nil) -> Result<String, SimBridg
 
 // ─── simctl Video Recording ───────────────────────────────
 
-var activeRecordings: [String: Process] = [:]
+private let recordingsLock = NSLock()
+private var activeRecordings: [String: Process] = [:]
 
 func simStartRecording(udid: String) -> Result<String, SimBridgeError> {
     let tmpPath = NSTemporaryDirectory() + "spectra-sim-\(UUID().uuidString).mp4"
@@ -102,18 +103,26 @@ func simStartRecording(udid: String) -> Result<String, SimBridgeError> {
     }
 
     let recordingId = UUID().uuidString
+    recordingsLock.lock()
     activeRecordings[recordingId] = process
+    recordingsLock.unlock()
     return .success(recordingId)
 }
 
 func simStopRecording(recordingId: String) -> Result<String, SimBridgeError> {
-    guard let process = activeRecordings[recordingId] else {
+    recordingsLock.lock()
+    let process = activeRecordings[recordingId]
+    recordingsLock.unlock()
+
+    guard let process = process else {
         return .failure(SimBridgeError(message: "Recording not found: \(recordingId)"))
     }
 
     process.interrupt() // SIGINT — simctl stops recording gracefully
     process.waitUntilExit()
+    recordingsLock.lock()
     activeRecordings.removeValue(forKey: recordingId)
+    recordingsLock.unlock()
 
     guard let args = process.arguments, let path = args.last else {
         return .failure(SimBridgeError(message: "Could not determine recording output path"))

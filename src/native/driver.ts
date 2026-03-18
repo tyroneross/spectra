@@ -2,7 +2,7 @@
 import type { Driver, DriverTarget, Snapshot, ActionType, ActResult, Element } from '../core/types.js'
 import { normalizeRole } from '../core/normalize.js'
 import { NativeBridge, getSharedBridge } from './bridge.js'
-import { readFile } from 'node:fs/promises'
+import { readFile, unlink } from 'node:fs/promises'
 
 interface NativeElement {
   role: string
@@ -129,7 +129,9 @@ export class NativeDriver implements Driver {
 
   async screenshot(): Promise<Buffer> {
     const result = await this.bridge.send<{ path: string }>('screenshot', { app: this.appName })
-    return readFile(result.path)
+    const buf = await readFile(result.path)
+    await unlink(result.path).catch(() => {})
+    return buf
   }
 
   async close(): Promise<void> {
