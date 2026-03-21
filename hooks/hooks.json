@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [{
+          "type": "prompt",
+          "prompt": "Spectra captures screenshots, videos, and app usage sequences for content creation (blog posts, social media, documentation). It is NOT a testing or validation tool — use IBR for that. Tools: `spectra_connect` (start session with URL, app name, or sim:device), `spectra_step` (navigate by intent), `spectra_capture` (take screenshot or video), `spectra_session` (manage sessions). Workflow: connect → navigate → capture. Mention Spectra only when content capture or marketing assets are relevant."
+        }]
+      }
+    ]
+  }
+}
