@@ -31,6 +31,21 @@ func inferActions(role: String) -> [String] {
 // Roles to skip entirely (don't add as elements, but still walk children for non-menu roles)
 private let menuRoles: Set<String> = ["AXMenuBar", "AXMenuBarItem", "AXMenu", "AXMenuItem"]
 
+// Task 3: Known macOS window traffic light button labels (system chrome — never app-controlled)
+private let systemChromeLabels: Set<String> = ["close", "minimize", "zoom", "full screen",
+                                                "close button", "minimize button", "zoom button",
+                                                "full screen button"]
+
+// Task 3: Returns true if this element is a system chrome button that should be filtered out
+private func isSystemChromeButton(role: String, label: String, bounds: [Double]) -> Bool {
+    guard role == "AXButton" else { return false }
+    let lower = label.lowercased()
+    guard systemChromeLabels.contains(lower) else { return false }
+    // Safety net: only filter small buttons (traffic lights are ~14×14, cap at 16)
+    let width = bounds[2], height = bounds[3]
+    return width <= 16 || height <= 16
+}
+
 func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth: Int = 10) -> [NativeElement] {
     guard depth < maxDepth else { return [] }
 
@@ -100,8 +115,11 @@ func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth
 
         let actions = inferActions(role: role)
 
-        // Only include elements that have a label or are interactive
-        if !label.isEmpty || !actions.isEmpty {
+        // Task 3: Skip system chrome buttons (traffic lights) — they are never app-controlled
+        let skipSystemChrome = isSystemChromeButton(role: role, label: label, bounds: bounds)
+
+        // Only include elements that have a label or are interactive, and are not filtered system chrome
+        if !skipSystemChrome && (!label.isEmpty || !actions.isEmpty) {
             elements.append(NativeElement(
                 role: role,
                 label: label,
@@ -116,10 +134,31 @@ func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth
     }
 
     // Walk children (standard traversal)
+    // Task 1: While walking, record window keys seen via kAXChildrenAttribute so the
+    // kAXWindowsAttribute fallback below can skip duplicates.
+    var seenWindowKeys: Set<String> = []
     var childrenRef: CFTypeRef?
     AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenRef)
     if let children = childrenRef as? [AXUIElement] {
         for (index, child) in children.enumerated() {
+            // Task 1: Track AXWindow children so the fallback doesn't re-walk them
+            var childRoleRef: CFTypeRef?
+            AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &childRoleRef)
+            if (childRoleRef as? String) == "AXWindow" {
+                var winTitleRef: CFTypeRef?
+                AXUIElementCopyAttributeValue(child, kAXTitleAttribute as CFString, &winTitleRef)
+                let winTitle = (winTitleRef as? String) ?? ""
+                var winPosRef: CFTypeRef?
+                var winSizeRef: CFTypeRef?
+                AXUIElementCopyAttributeValue(child, kAXPositionAttribute as CFString, &winPosRef)
+                AXUIElementCopyAttributeValue(child, kAXSizeAttribute as CFString, &winSizeRef)
+                var pt = CGPoint.zero; var sz = CGSize.zero
+                if let pv = winPosRef { AXValueGetValue(pv as! AXValue, .cgPoint, &pt) }
+                if let sv = winSizeRef { AXValueGetValue(sv as! AXValue, .cgSize, &sz) }
+                let key = "\(winTitle)|\(pt.x),\(pt.y),\(sz.width),\(sz.height)"
+                seenWindowKeys.insert(key)
+            }
+
             let childPath = path + [index]
             elements.append(contentsOf: walkAXTree(element: child, path: childPath, depth: depth + 1, maxDepth: maxDepth))
         }
@@ -136,10 +175,24 @@ func walkAXTree(element: AXUIElement, path: [Int] = [], depth: Int = 0, maxDepth
                 var winRoleRef: CFTypeRef?
                 AXUIElementCopyAttributeValue(win, kAXRoleAttribute as CFString, &winRoleRef)
                 let winRole = (winRoleRef as? String) ?? ""
-                if winRole == "AXWindow" {
-                    let winPath = [index]
-                    elements.append(contentsOf: walkAXTree(element: win, path: winPath, depth: depth + 1, maxDepth: maxDepth))
-                }
+                guard winRole == "AXWindow" else { continue }
+
+                // Task 1: Skip windows already seen in kAXChildrenAttribute traversal
+                var winTitleRef: CFTypeRef?
+                AXUIElementCopyAttributeValue(win, kAXTitleAttribute as CFString, &winTitleRef)
+                let winTitle = (winTitleRef as? String) ?? ""
+                var winPosRef: CFTypeRef?
+                var winSizeRef: CFTypeRef?
+                AXUIElementCopyAttributeValue(win, kAXPositionAttribute as CFString, &winPosRef)
+                AXUIElementCopyAttributeValue(win, kAXSizeAttribute as CFString, &winSizeRef)
+                var pt = CGPoint.zero; var sz = CGSize.zero
+                if let pv = winPosRef { AXValueGetValue(pv as! AXValue, .cgPoint, &pt) }
+                if let sv = winSizeRef { AXValueGetValue(sv as! AXValue, .cgSize, &sz) }
+                let key = "\(winTitle)|\(pt.x),\(pt.y),\(sz.width),\(sz.height)"
+                if seenWindowKeys.contains(key) { continue }
+
+                let winPath = [index]
+                elements.append(contentsOf: walkAXTree(element: win, path: winPath, depth: depth + 1, maxDepth: maxDepth))
             }
         }
     }

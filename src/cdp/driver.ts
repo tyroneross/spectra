@@ -155,4 +155,9 @@ export class CdpDriver implements Driver {
     this.targetId = null
     this.sessionId = null
   }
+
+  async disconnect(): Promise<void> {
+    // CDP driver always owns the browser it launched — full teardown is identical to close()
+    await this.close()
+  }
 }

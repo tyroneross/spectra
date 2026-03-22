@@ -91,6 +91,44 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
     expect(counter!.label).toContain('1')
   })
 
+  it('has no duplicate elements (same label+role+bounds)', async () => {
+    const snap = await driver.snapshot()
+
+    if (snap.elements.length === 0) {
+      console.log('SKIP: AX tree returned 0 elements (macOS 26 AX limitation)')
+      return
+    }
+
+    // Build a dedup key from role + label + bounds (rounded to 1dp to avoid float noise)
+    const keys = snap.elements.map(e => {
+      const b = (e.bounds ?? [0, 0, 0, 0]).map((n: number) => Math.round(n * 10) / 10)
+      return `${e.role}|${e.label}|${b.join(',')}`
+    })
+    const unique = new Set(keys)
+    expect(unique.size).toBe(keys.length)
+  })
+
+  it('has no traffic light system chrome buttons', async () => {
+    const snap = await driver.snapshot()
+
+    if (snap.elements.length === 0) {
+      console.log('SKIP: AX tree returned 0 elements (macOS 26 AX limitation)')
+      return
+    }
+
+    const trafficLightLabels = new Set([
+      'close', 'minimize', 'zoom', 'full screen',
+      'close button', 'minimize button', 'zoom button', 'full screen button',
+    ])
+
+    const systemChromeButtons = snap.elements.filter(e =>
+      e.role === 'button' &&
+      trafficLightLabels.has((e.label ?? '').toLowerCase())
+    )
+
+    expect(systemChromeButtons).toHaveLength(0)
+  })
+
   it('takes a screenshot', async () => {
     const buf = await driver.screenshot()
     expect(buf).toBeInstanceOf(Buffer)

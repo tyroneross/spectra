@@ -67,7 +67,14 @@ server.tool(
   },
   async ({ sessionId, intent }) => {
     const result = await handleStep({ sessionId, intent }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    const { screenshot, ...textResult } = result
+    const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [
+      { type: 'text' as const, text: JSON.stringify(textResult, null, 2) },
+    ]
+    if (screenshot) {
+      content.push({ type: 'image' as const, data: screenshot, mimeType: 'image/png' })
+    }
+    return { content }
   },
 )
 

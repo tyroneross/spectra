@@ -91,4 +91,9 @@ export class SimDriver implements Driver {
   async close(): Promise<void> {
     this.deviceId = null
   }
+
+  async disconnect(): Promise<void> {
+    this.deviceId = null
+    await this.bridge.close()
+  }
 }

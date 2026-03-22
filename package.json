@@ -5,6 +5,12 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "build:native": "swiftc native/swift/Types.swift native/swift/main.swift native/swift/AppTarget.swift native/swift/AXBridge.swift native/swift/SimBridge.swift native/swift/MediaCapture.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -o $HOME/.spectra/bin/spectra-native",

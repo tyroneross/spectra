@@ -57,7 +57,10 @@ export interface Driver {
   snapshot(): Promise<Snapshot>
   act(elementId: string, action: ActionType, value?: string): Promise<ActResult>
   screenshot(): Promise<Buffer>
+  /** End the current session (keep underlying infrastructure alive). */
   close(): Promise<void>
+  /** Full teardown — closes underlying connections/processes. */
+  disconnect(): Promise<void>
 }
 
 // ─── Session ────────────────────────────────────────────────
@@ -94,4 +97,5 @@ export interface ResolveResult {
   element: Element
   confidence: number
   candidates?: Element[]
+  visionFallback?: boolean
 }

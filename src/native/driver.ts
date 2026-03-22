@@ -141,4 +141,12 @@ export class NativeDriver implements Driver {
     this.idToPath.clear()
     // Don't close bridge — shared across sessions
   }
+
+  async disconnect(): Promise<void> {
+    this.appName = null
+    this.appPid = null
+    this.windowId = null
+    this.idToPath.clear()
+    await this.bridge.close()
+  }
 }

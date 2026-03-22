@@ -13,6 +13,8 @@ export interface StepResult {
   autoExecuted?: boolean
   action?: string
   error?: string
+  visionFallback?: boolean
+  screenshot?: string
 }
 
 export async function handleStep(params: StepParams, ctx: ToolContext): Promise<StepResult> {
@@ -42,10 +44,19 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
     label: el.label,
   }))
 
-  return {
+  const result: StepResult = {
     snapshot: serializeSnapshot(snap),
     candidates,
   }
+
+  // Vision fallback: include screenshot so Claude can visually identify the target
+  if (resolved.visionFallback) {
+    result.visionFallback = true
+    const buf = await driver.screenshot()
+    result.screenshot = buf.toString('base64')
+  }
+
+  return result
 }
 
 function inferActionFromIntent(intent: string): 'click' | 'type' | 'clear' | 'scroll' | 'hover' | 'focus' | 'select' {

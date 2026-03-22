@@ -38,4 +38,13 @@ describe('NativeBridge', { timeout: 30000 }, () => {
     expect(result.pong).toBe(true)
     await fresh.close()
   })
+
+  it('close() shuts down the process and sets ready to false', async () => {
+    const b = new NativeBridge()
+    await b.start()
+    expect(b.ready).toBe(true)
+
+    await b.close()
+    expect(b.ready).toBe(false)
+  })
 })
