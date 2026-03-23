@@ -57,6 +57,8 @@ export interface Driver {
   snapshot(): Promise<Snapshot>
   act(elementId: string, action: ActionType, value?: string): Promise<ActResult>
   screenshot(): Promise<Buffer>
+  /** Navigate to a URL (optional — not all drivers support navigation). */
+  navigate?(url: string): Promise<void>
   /** End the current session (keep underlying infrastructure alive). */
   close(): Promise<void>
   /** Full teardown — closes underlying connections/processes. */
