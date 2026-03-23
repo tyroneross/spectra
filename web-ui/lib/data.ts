@@ -8,8 +8,8 @@ import type {
   DashboardStep,
   Playbook,
   StorageStats,
-} from './types.js'
-import { contentHash } from './utils.js'
+} from './types'
+import { contentHash } from './utils'
 import type { Session, Step } from 'spectra'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -275,7 +275,7 @@ export async function getSession(id: string): Promise<DashboardSession | null> {
   const sessionFile = join(getSessionsDir(), id, 'session.json')
   try {
     const raw = await readFile(sessionFile, 'utf-8')
-    const data = JSON.parse(raw) as Session
+    const data = JSON.parse(raw) as Session & { closedAt?: number }
 
     // Count step-*.png files for captureCount
     const sessionDir = join(getSessionsDir(), id)
@@ -292,7 +292,7 @@ export async function getSession(id: string): Promise<DashboardSession | null> {
         index: step.index,
         actionType: step.action?.type ?? '',
         elementId: step.action?.elementId ?? '',
-        intent: step.intent,
+        intent: (step as Step & { intent?: string }).intent,
         screenshotPath: step.screenshotPath,
         success: step.success,
         duration: step.duration,
