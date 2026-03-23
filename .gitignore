@@ -2,3 +2,6 @@ node_modules/
 dist/
 .spectra/
 *.tsbuildinfo
+
+web-ui/.next/
+web-ui/node_modules/
