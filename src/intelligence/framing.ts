@@ -1,27 +1,8 @@
 import type { Element } from '../core/types.js'
 import type { ImportanceScore, RegionOfInterest, FrameOptions, FrameResult } from './types.js'
+import { findRegions } from './importance.js'
 import { decodePng, encodePng, cropImage } from '../media/png.js'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Edge-to-edge distance between two bounding boxes. */
-function edgeDistance(a: Element, b: Element): number {
-  const [ax, ay, aw, ah] = a.bounds
-  const [bx, by, bw, bh] = b.bounds
-  const dx = Math.max(0, Math.max(ax, bx) - Math.min(ax + aw, bx + bw))
-  const dy = Math.max(0, Math.max(ay, by) - Math.min(ay + ah, by + bh))
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-function regionLabel(members: Element[]): string {
-  const roles = new Set(members.map(e => e.role))
-  if (roles.has('link') || roles.has('menuitem')) return 'Navigation'
-  if (roles.has('textbox'))                        return 'Form'
-  if (roles.has('image'))                          return 'Media'
-  if (roles.has('button'))                         return 'Actions'
-  if (roles.has('heading') || roles.has('text'))   return 'Content'
-  return 'Section'
-}
+import { edgeDistance, regionLabel, boundingBox, clusterElements } from './spatial.js'
 
 /** Clamp a rect [x, y, w, h] to [0, 0, imgW, imgH]. */
 function clampRect(
@@ -100,65 +81,6 @@ function applyAspectRatio(
   return [cx0, cy0, fw, fh]
 }
 
-/** Bounding box union for a list of elements. */
-function boundingBox(els: Element[]): [number, number, number, number] {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const el of els) {
-    const [x, y, w, h] = el.bounds
-    minX = Math.min(minX, x)
-    minY = Math.min(minY, y)
-    maxX = Math.max(maxX, x + w)
-    maxY = Math.max(maxY, y + h)
-  }
-  return [minX, minY, maxX - minX, maxY - minY]
-}
-
-/**
- * Spatial clustering: group elements within `threshold` edge-to-edge distance.
- * Returns groups of elements with their bounding boxes.
- */
-function clusterElements(
-  elements: Element[],
-  threshold: number
-): { members: Element[]; bounds: [number, number, number, number] }[] {
-  if (elements.length === 0) return []
-
-  const parent = new Map<string, string>()
-  for (const el of elements) parent.set(el.id, el.id)
-
-  function find(id: string): string {
-    let root = id
-    while (parent.get(root) !== root) root = parent.get(root)!
-    let cur = id
-    while (cur !== root) { const next = parent.get(cur)!; parent.set(cur, root); cur = next }
-    return root
-  }
-
-  function union(a: string, b: string) {
-    parent.set(find(a), find(b))
-  }
-
-  for (let i = 0; i < elements.length; i++) {
-    for (let j = i + 1; j < elements.length; j++) {
-      if (edgeDistance(elements[i], elements[j]) <= threshold) {
-        union(elements[i].id, elements[j].id)
-      }
-    }
-  }
-
-  const groups = new Map<string, Element[]>()
-  for (const el of elements) {
-    const root = find(el.id)
-    if (!groups.has(root)) groups.set(root, [])
-    groups.get(root)!.push(el)
-  }
-
-  return [...groups.values()].map(members => ({
-    members,
-    bounds: boundingBox(members),
-  }))
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function frame(
@@ -196,7 +118,7 @@ export function frame(
   } else if (target === 'region') {
     // Caller is expected to compute regions and pass regionIndex.
     // We re-derive regions here from scores/elements.
-    const regions = deriveRegions(scores, elements)
+    const regions = findRegions(scores, elements)
     let region: RegionOfInterest | undefined
     if (options?.regionIndex !== undefined && regions[options.regionIndex]) {
       region = regions[options.regionIndex]
@@ -256,33 +178,6 @@ export function frame(
     buffer,
     label,
   }
-}
-
-/**
- * Re-derive regions from scores and elements using the same spatial clustering
- * logic as findRegions in importance.ts.
- */
-function deriveRegions(scores: ImportanceScore[], elements: Element[]): RegionOfInterest[] {
-  const highIds = new Set(scores.filter(s => s.score >= 0.4).map(s => s.elementId))
-  const elemMap = new Map(elements.map(e => [e.id, e]))
-  const highEls = [...highIds].map(id => elemMap.get(id)).filter((e): e is Element => !!e)
-
-  if (highEls.length === 0) return []
-
-  const clusters = clusterElements(highEls, 30)
-  const scoreMap = new Map(scores.map(s => [s.elementId, s.score]))
-
-  const regions: RegionOfInterest[] = clusters.map(({ members, bounds }) => {
-    const avgScore = members.reduce((sum, el) => sum + (scoreMap.get(el.id) ?? 0), 0) / members.length
-    return {
-      bounds,
-      score: avgScore,
-      elements: members.map(e => e.id),
-      label: regionLabel(members),
-    }
-  })
-
-  return regions.sort((a, b) => b.score - a.score)
 }
 
 export function autoFrame(

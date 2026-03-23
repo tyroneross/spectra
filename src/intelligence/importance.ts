@@ -1,5 +1,6 @@
 import type { Element } from '../core/types.js'
 import type { ImportanceScore, ScoreFactor, RegionOfInterest, Viewport } from './types.js'
+import { edgeDistance, regionLabel } from './spatial.js'
 
 // ─── Role scores (UEyes CHI 2023) ────────────────────────────────────────────
 const ROLE_SCORES: Record<string, number> = {
@@ -34,15 +35,6 @@ function clamp(v: number, lo = 0.0, hi = 1.0): number {
 function elementCenter(el: Element): [number, number] {
   const [x, y, w, h] = el.bounds
   return [x + w / 2, y + h / 2]
-}
-
-/** Axis-aligned edge-to-edge distance between two bounding boxes. */
-function edgeDistance(a: Element, b: Element): number {
-  const [ax, ay, aw, ah] = a.bounds
-  const [bx, by, bw, bh] = b.bounds
-  const dx = Math.max(0, Math.max(ax, bx) - Math.min(ax + aw, bx + bw))
-  const dy = Math.max(0, Math.max(ay, by) - Math.min(ay + ah, by + bh))
-  return Math.sqrt(dx * dx + dy * dy)
 }
 
 // ─── Six scoring signals ──────────────────────────────────────────────────────
@@ -171,16 +163,6 @@ export function scoreElements(elements: Element[], viewport: Viewport): Importan
 }
 
 // ─── Region detection ─────────────────────────────────────────────────────────
-
-function regionLabel(members: Element[]): string {
-  const roles = new Set(members.map(e => e.role))
-  if (roles.has('link') || roles.has('menuitem')) return 'Navigation'
-  if (roles.has('textbox'))                        return 'Form'
-  if (roles.has('image'))                          return 'Media'
-  if (roles.has('button'))                         return 'Actions'
-  if (roles.has('heading') || roles.has('text'))   return 'Content'
-  return 'Section'
-}
 
 export function findRegions(scores: ImportanceScore[], elements: Element[]): RegionOfInterest[] {
   // Filter to high-scoring elements

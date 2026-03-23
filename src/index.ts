@@ -38,7 +38,9 @@ export { serializeSnapshot, serializeElement } from './core/serialize.js'
 // ─── Intelligence ───────────────────────────────────────────
 export { scoreElements, findRegions } from './intelligence/importance.js'
 export { perceptualHash, hashDistance, diffSnapshots, detectChange } from './intelligence/change.js'
-export { detectState } from './intelligence/states.js'
+export { detectState, createStateTriggers } from './intelligence/states.js'
+export type { StateTrigger, StateTriggerOptions } from './intelligence/states.js'
+export { edgeDistance, regionLabel, boundingBox, clusterElements } from './intelligence/spatial.js'
 export { frame, autoFrame } from './intelligence/framing.js'
 export { crawl, discoverByScroll } from './intelligence/navigation.js'
 export type {

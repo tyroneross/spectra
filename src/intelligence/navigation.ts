@@ -3,12 +3,9 @@ import type { NavigationGraph, ScreenNode, NavigationEdge, CrawlOptions } from '
 import { detectChange } from './change.js'
 import { scoreElements } from './importance.js'
 
-// ─── Feature Flags ───────────────────────────────────────────
+// ─── Debug ───────────────────────────────────────────────────
 
-const FULL_VALIDATION = process.env.SPECTRA_FULL_VALIDATION === '1'
-const ASYNC_PROCESSING = process.env.SPECTRA_ASYNC_PROCESSING === '1'
-const CACHING = process.env.SPECTRA_CACHING === '1'
-const RATE_LIMITING = process.env.SPECTRA_RATE_LIMITING === '1'
+const DEBUG = process.env.SPECTRA_DEBUG === '1'
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -100,9 +97,6 @@ export async function crawl(
 ): Promise<NavigationGraph> {
   const opts: CrawlOptions = { ...DEFAULT_CRAWL_OPTIONS, ...options }
 
-  if (RATE_LIMITING) {
-    console.log('[navigation] rate limiting enabled')
-  }
 
   // 1. Take initial snapshot + screenshot
   const rootSnapshot = await driver.snapshot()
@@ -182,7 +176,7 @@ export async function crawl(
     // Cap at 20 per screen
     const candidates = navigableElements.slice(0, 20)
 
-    if (FULL_VALIDATION) {
+    if (DEBUG) {
       console.log(`[navigation] screen ${nodeId} — ${candidates.length} candidates at depth ${depth}`)
     }
 
@@ -255,7 +249,10 @@ export async function crawl(
     }
   }
 
-  return { nodes, edges, root: rootId }
+  const result: NavigationGraph = { nodes, edges, root: rootId }
+  // Attach snapshot cache as internal property for discover tool
+  ;(result as any)._snapshotCache = snapshotCache
+  return result
 }
 
 // ─── Backtrack ───────────────────────────────────────────────

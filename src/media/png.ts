@@ -202,14 +202,19 @@ export function encodePng(image: RawImage): Buffer {
   ihdrData[11] = 0 // filter method
   ihdrData[12] = 0 // interlace method
 
-  // 2. Build raw scanlines: filter byte 0 (None) + row data
+  // 2. Build raw scanlines: filter byte 1 (Sub) + filtered row data
+  //    Sub filter: each byte = raw - left (wrapping at 0xff)
+  //    Better compression than None for typical screenshots
   const rowSize = width * 4
   const rawScanlines = Buffer.alloc(height * (1 + rowSize))
   for (let y = 0; y < height; y++) {
     const destBase = y * (1 + rowSize)
-    rawScanlines[destBase] = 0 // filter type: None
+    rawScanlines[destBase] = 1 // filter type: Sub
+    const rowStart = y * rowSize
     for (let x = 0; x < rowSize; x++) {
-      rawScanlines[destBase + 1 + x] = data[y * rowSize + x]
+      const raw = data[rowStart + x]
+      const left = x >= 4 ? data[rowStart + x - 4] : 0
+      rawScanlines[destBase + 1 + x] = (raw - left) & 0xff
     }
   }
 

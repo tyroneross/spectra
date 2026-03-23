@@ -10,12 +10,9 @@ import { join } from 'node:path'
 import { getStoragePath } from '../../core/storage.js'
 import type { CaptureManifest, CaptureEntry, Viewport, NavigationGraph } from '../../intelligence/types.js'
 
-// ─── Feature Flags ────────────────────────────────────────────
+// ─── Debug ────────────────────────────────────────────────────
 
-const FULL_VALIDATION = process.env.SPECTRA_FULL_VALIDATION === '1'
-const ASYNC_PROCESSING = process.env.SPECTRA_ASYNC_PROCESSING === '1'
-const CACHING = process.env.SPECTRA_CACHING === '1'
-const RATE_LIMITING = process.env.SPECTRA_RATE_LIMITING === '1'
+const DEBUG = process.env.SPECTRA_DEBUG === '1'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -46,18 +43,6 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
   const platform = session?.platform ?? 'web'
   const startTime = Date.now()
 
-  if (RATE_LIMITING) {
-    console.log('[discover] rate limiting enabled')
-  }
-
-  if (ASYNC_PROCESSING) {
-    console.log('[discover] async processing enabled')
-  }
-
-  if (CACHING) {
-    console.log('[discover] caching enabled')
-  }
-
   // Setup output directory
   const outputDir = params.outputDir ?? join(getStoragePath(), 'sessions', params.sessionId, 'discover')
   await mkdir(outputDir, { recursive: true })
@@ -76,7 +61,7 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
   // Default viewport for scoring
   const viewport: Viewport = { width: 1280, height: 800, devicePixelRatio: 1 }
 
-  if (FULL_VALIDATION) {
+  if (DEBUG) {
     console.log(`[discover] starting crawl for session ${params.sessionId}, platform=${platform}`)
   }
 
@@ -95,6 +80,9 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
   const captures: CaptureEntry[] = []
   const sensitive: string[] = []
 
+  // Access crawl's snapshot cache for correct per-screen scoring
+  const snapshotCache = (graph as any)._snapshotCache as Map<string, { snapshot: import('../../core/types.js').Snapshot; screenshot: Buffer }> | undefined
+
   for (const [nodeId, node] of graph.nodes) {
     // Track sensitive screens
     if (node.sensitiveContent) {
@@ -102,13 +90,13 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
       continue // Skip capture for sensitive screens
     }
 
-    // Score the screen from current driver state — use snapshot embedded in node if available
-    // We re-snapshot from the driver after crawl; for the stored screenshot we use node.screenshot
-    const snapshot = await driver.snapshot()
+    // Use the cached snapshot from crawl (correct screen) instead of re-snapshotting
+    const cached = snapshotCache?.get(nodeId)
+    const snapshot = cached?.snapshot ?? await driver.snapshot()
     const scores = scoreElements(snapshot.elements, viewport)
     const state = detectState(snapshot)
 
-    if (FULL_VALIDATION) {
+    if (DEBUG) {
       console.log(`[discover] processing screen ${nodeId}, state=${state.state}, scores=${scores.length}`)
     }
 
@@ -155,8 +143,8 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
         await trigger.trigger()
         const snapshot = await driver.snapshot()
         const state = detectState(snapshot)
-        if (FULL_VALIDATION) {
-          console.log(`[discover] state trigger: ${trigger.state}, state=${state.state}`)
+        if (DEBUG) {
+          console.log(`[discover] state trigger: ${trigger.state}, detected=${state.state}`)
         }
         await trigger.restore()
       } catch {
@@ -192,7 +180,7 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
   }
   await writeFile(manifestPath, JSON.stringify(serializable, null, 2))
 
-  if (FULL_VALIDATION) {
+  if (DEBUG) {
     console.log(`[discover] complete: ${graph.nodes.size} screens, ${captures.length} captures, ${sensitive.length} sensitive`)
   }
 
