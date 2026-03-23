@@ -1,0 +1,184 @@
+// src/mcp/tools/discover.ts
+import type { ToolContext } from '../context.js'
+import { crawl } from '../../intelligence/navigation.js'
+import { scoreElements } from '../../intelligence/importance.js'
+import { detectState } from '../../intelligence/states.js'
+import { frame } from '../../intelligence/framing.js'
+import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { getStoragePath } from '../../core/storage.js'
+import type { CaptureManifest, CaptureEntry, Viewport, NavigationGraph } from '../../intelligence/types.js'
+
+// ─── Feature Flags ────────────────────────────────────────────
+
+const FULL_VALIDATION = process.env.SPECTRA_FULL_VALIDATION === '1'
+const ASYNC_PROCESSING = process.env.SPECTRA_ASYNC_PROCESSING === '1'
+const CACHING = process.env.SPECTRA_CACHING === '1'
+const RATE_LIMITING = process.env.SPECTRA_RATE_LIMITING === '1'
+
+// ─── Types ────────────────────────────────────────────────────
+
+export interface DiscoverParams {
+  sessionId: string
+  maxDepth?: number        // default: 3
+  maxScreens?: number      // default: 50
+  captureStates?: boolean  // default: false
+  clean?: boolean          // default: true — apply cleanup before capture
+  outputDir?: string       // default: .spectra/sessions/{sessionId}/discover
+}
+
+export interface DiscoverResult {
+  screens: number
+  captures: number
+  sensitive: string[]      // node IDs flagged as sensitive
+  manifestPath: string
+  outputDir: string
+}
+
+// ─── Handler ─────────────────────────────────────────────────
+
+export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): Promise<DiscoverResult> {
+  const driver = ctx.drivers.get(params.sessionId)
+  if (!driver) throw new Error(`Session ${params.sessionId} not found`)
+
+  const session = ctx.sessions.get(params.sessionId)
+  const platform = session?.platform ?? 'web'
+  const startTime = Date.now()
+
+  if (RATE_LIMITING) {
+    console.log('[discover] rate limiting enabled')
+  }
+
+  if (ASYNC_PROCESSING) {
+    console.log('[discover] async processing enabled')
+  }
+
+  if (CACHING) {
+    console.log('[discover] caching enabled')
+  }
+
+  // Setup output directory
+  const outputDir = params.outputDir ?? join(getStoragePath(), 'sessions', params.sessionId, 'discover')
+  await mkdir(outputDir, { recursive: true })
+
+  // Prepare for clean capture (optional)
+  // prepareForCapture needs a CdpConnection for web — pass null since we route through Driver interface
+  let cleanState = null
+  if (params.clean !== false) {
+    cleanState = await prepareForCapture(null, null, platform)
+  }
+
+  // Default viewport for scoring
+  const viewport: Viewport = { width: 1280, height: 800, devicePixelRatio: 1 }
+
+  if (FULL_VALIDATION) {
+    console.log(`[discover] starting crawl for session ${params.sessionId}, platform=${platform}`)
+  }
+
+  // Run the navigation crawl
+  const graph = await crawl(driver, {
+    maxDepth: params.maxDepth ?? 3,
+    maxScreens: params.maxScreens ?? 50,
+    scrollDiscover: true,
+    captureEach: true,
+    changeThreshold: 0.15,
+    allowExternal: false,
+    allowFormSubmit: false,
+  })
+
+  // Process each discovered screen
+  const captures: CaptureEntry[] = []
+  const sensitive: string[] = []
+
+  for (const [nodeId, node] of graph.nodes) {
+    // Track sensitive screens
+    if (node.sensitiveContent) {
+      sensitive.push(nodeId)
+      continue // Skip capture for sensitive screens
+    }
+
+    // Score the screen from current driver state — use snapshot embedded in node if available
+    // We re-snapshot from the driver after crawl; for the stored screenshot we use node.screenshot
+    const snapshot = await driver.snapshot()
+    const scores = scoreElements(snapshot.elements, viewport)
+    const state = detectState(snapshot)
+
+    if (FULL_VALIDATION) {
+      console.log(`[discover] processing screen ${nodeId}, state=${state.state}, scores=${scores.length}`)
+    }
+
+    // Save full screenshot
+    if (node.screenshot.length > 0) {
+      const filename = `screen-${nodeId.replace(/[^a-z0-9]/gi, '_')}.png`
+      const path = join(outputDir, filename)
+      await writeFile(path, node.screenshot)
+      captures.push({
+        path,
+        state: state.state,
+        importance: scores.length > 0 ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length : 0,
+        framed: false,
+        timestamp: Date.now(),
+      })
+    }
+
+    // Auto-frame best regions
+    if (node.screenshot.length > 0 && scores.length > 0) {
+      try {
+        const framed = frame(node.screenshot, scores, snapshot.elements)
+        const framedFilename = `framed-${nodeId.replace(/[^a-z0-9]/gi, '_')}.png`
+        const framedPath = join(outputDir, framedFilename)
+        await writeFile(framedPath, framed.buffer)
+        captures.push({
+          path: framedPath,
+          state: state.state,
+          importance: scores.length > 0 ? scores[0].score : 0,
+          region: framed.label,
+          framed: true,
+          timestamp: Date.now(),
+        })
+      } catch {
+        // Framing can fail on very small screenshots — skip silently
+      }
+    }
+  }
+
+  // Restore cleanup
+  if (cleanState) {
+    await restoreAfterCapture(cleanState)
+  }
+
+  // Build manifest
+  const manifest: CaptureManifest = {
+    sessionId: params.sessionId,
+    captures,
+    navigation: graph,
+    duration: Date.now() - startTime,
+  }
+
+  // Save manifest — NavigationGraph has Map fields, serialize to plain objects
+  const manifestPath = join(outputDir, 'manifest.json')
+  const serializable = {
+    ...manifest,
+    navigation: manifest.navigation ? {
+      nodes: Object.fromEntries(
+        Array.from(manifest.navigation.nodes).map(([k, v]) => [k, { ...v, screenshot: undefined }])
+      ),
+      edges: manifest.navigation.edges,
+      root: manifest.navigation.root,
+    } : undefined,
+  }
+  await writeFile(manifestPath, JSON.stringify(serializable, null, 2))
+
+  if (FULL_VALIDATION) {
+    console.log(`[discover] complete: ${graph.nodes.size} screens, ${captures.length} captures, ${sensitive.length} sensitive`)
+  }
+
+  return {
+    screens: graph.nodes.size,
+    captures: captures.length,
+    sensitive,
+    manifestPath,
+    outputDir,
+  }
+}

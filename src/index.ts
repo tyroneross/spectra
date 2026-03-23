@@ -34,3 +34,37 @@ export { SimDriver } from './native/sim.js'
 // ─── Utilities ──────────────────────────────────────────────
 export { normalizeRole } from './core/normalize.js'
 export { serializeSnapshot, serializeElement } from './core/serialize.js'
+
+// ─── Intelligence ───────────────────────────────────────────
+export { scoreElements, findRegions } from './intelligence/importance.js'
+export { perceptualHash, hashDistance, diffSnapshots, detectChange } from './intelligence/change.js'
+export { detectState } from './intelligence/states.js'
+export { frame, autoFrame } from './intelligence/framing.js'
+export { crawl, discoverByScroll } from './intelligence/navigation.js'
+export type {
+  Viewport,
+  UIState,
+  ImportanceScore,
+  ScoreFactor,
+  RegionOfInterest,
+  ChangeResult,
+  ChangeDetail,
+  StateDetection,
+  NavigationGraph,
+  ScreenNode,
+  NavigationEdge,
+  CrawlOptions,
+  FrameOptions,
+  FrameResult,
+  CaptureIntent,
+  CaptureManifest,
+  CaptureEntry,
+} from './intelligence/types.js'
+
+// ─── Media (enhanced) ───────────────────────────────────────
+export { prepareForCapture, restoreAfterCapture } from './media/clean.js'
+export type { CleanOptions, CleanState } from './media/clean.js'
+export { buildCaptureArgs, buildEncodeArgs } from './media/pipeline.js'
+export type { VideoOptions, VideoResult } from './media/pipeline.js'
+export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js'
+export type { RawImage } from './media/png.js'
