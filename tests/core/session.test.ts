@@ -116,5 +116,51 @@ describe('SessionManager', () => {
       expect(manager.get(session.id)).toBeNull()
       expect(writeFile).toHaveBeenCalled() // final session.json save
     })
+
+    it('sets closedAt on the session before persisting', async () => {
+      const before = Date.now()
+      const session = await manager.create({
+        name: 'test',
+        platform: 'web',
+        target: { url: 'http://localhost:3000' },
+      })
+
+      // Capture the session object reference before close removes it
+      const sessionRef = manager.get(session.id)!
+      await manager.close(session.id)
+
+      expect(sessionRef.closedAt).toBeGreaterThanOrEqual(before)
+      expect(sessionRef.closedAt).toBeLessThanOrEqual(Date.now())
+    })
+  })
+
+  describe('addStep with intent', () => {
+    it('persists intent in the step', async () => {
+      const session = await manager.create({
+        name: 'test',
+        platform: 'web',
+        target: { url: 'http://localhost:3000' },
+      })
+
+      const snapshot: Snapshot = {
+        platform: 'web',
+        elements: [],
+        timestamp: Date.now(),
+      }
+      const action: Action = { type: 'click', elementId: 'e1' }
+
+      await manager.addStep(session.id, {
+        action,
+        snapshotBefore: snapshot,
+        snapshotAfter: snapshot,
+        screenshot: Buffer.from('PNG'),
+        success: true,
+        duration: 100,
+        intent: 'click the login button',
+      })
+
+      const updated = manager.get(session.id)!
+      expect(updated.steps[0].intent).toBe('click the login button')
+    })
   })
 })

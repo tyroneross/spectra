@@ -72,6 +72,7 @@ export interface Session {
   steps: Step[]
   createdAt: number
   updatedAt: number
+  closedAt?: number
 }
 
 export interface Step {
@@ -84,6 +85,7 @@ export interface Step {
   error?: string
   timestamp: number
   duration: number
+  intent?: string
 }
 
 // ─── Resolution ─────────────────────────────────────────────

@@ -18,6 +18,7 @@ export interface AddStepOptions {
   success: boolean
   error?: string
   duration: number
+  intent?: string
 }
 
 export class SessionManager {
@@ -79,6 +80,7 @@ export class SessionManager {
       error: options.error,
       timestamp: Date.now(),
       duration: options.duration,
+      intent: options.intent,
     }
 
     session.steps.push(step)
@@ -98,6 +100,7 @@ export class SessionManager {
     const session = this.sessions.get(sessionId)
     if (session) {
       session.updatedAt = Date.now()
+      session.closedAt = Date.now()
       await this.persist(session)
       this.sessions.delete(sessionId)
     }

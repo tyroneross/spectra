@@ -28,7 +28,21 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
   if (resolved.confidence > 0.9 && !resolved.candidates) {
     const actionType = inferActionFromIntent(params.intent)
     const value = extractValue(params.intent)
+    const start = Date.now()
     const actResult = await driver.act(resolved.element.id, actionType, value)
+    const duration = Date.now() - start
+    const screenshot = await driver.screenshot()
+
+    await ctx.sessions.addStep(params.sessionId, {
+      action: { type: actionType, elementId: resolved.element.id, value },
+      snapshotBefore: snap,
+      snapshotAfter: actResult.snapshot,
+      screenshot,
+      success: actResult.success,
+      error: actResult.error,
+      duration,
+      intent: params.intent,
+    })
 
     return {
       snapshot: serializeSnapshot(actResult.snapshot),
