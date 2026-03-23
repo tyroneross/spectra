@@ -17,7 +17,8 @@
     "build:test-app": "swiftc native/swift/TestApp/TestApp.swift -framework SwiftUI -framework AppKit -o $HOME/.spectra/bin/spectra-test-app",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "serve": "cd web-ui && npm run dev -- -p 4300"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
