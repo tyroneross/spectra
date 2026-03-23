@@ -19,15 +19,28 @@ Spectra captures screenshots, videos, and app usage sequences from running appli
 | `spectra_snapshot` | Read current AX tree (element inventory) |
 | `spectra_step` | Navigate by intent — "click the settings button" |
 | `spectra_act` | Act on a specific element by ID |
-| `spectra_capture` | Take screenshot or start/stop video |
+| `spectra_capture` | Take screenshot or start/stop video. Modes: full, element, region, auto |
+| `spectra_analyze` | Score current screen — importance ranking, regions of interest, UI state |
+| `spectra_discover` | Auto-navigate entire app — BFS crawl, smart framing, state capture |
 | `spectra_session` | List, close, or manage sessions |
 
-## Workflow
+## Workflows
 
+**Manual capture** (step-by-step):
 1. `spectra_connect` to target (URL, app, or simulator)
 2. `spectra_step` to navigate through the flow
 3. `spectra_capture` at each interesting state
 4. `spectra_session` to review and export
+
+**Auto-discover** (hands-off):
+1. `spectra_connect` to target
+2. `spectra_discover` — crawls the app, captures everything important
+3. Output: framed screenshots + manifest in `.spectra/sessions/{id}/discover/`
+
+**Analyze first** (targeted):
+1. `spectra_connect` to target
+2. `spectra_analyze` — see what's on screen, regions of interest, UI state
+3. `spectra_capture mode=region region="Navigation"` — capture specific region
 
 ## Platforms
 

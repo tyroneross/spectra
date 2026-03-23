@@ -171,7 +171,98 @@ export interface StateTrigger {
   restore: () => Promise<void>
 }
 
-export function createStateTriggers(_driver: Driver, _platform: Platform): StateTrigger[] {
-  // TODO: Implement CDP network interception triggers in Chunk 3
-  return []
+export interface StateTriggerOptions {
+  conn: { send: (method: string, params?: any, sessionId?: string) => Promise<any> } | null
+  sessionId?: string | null
+  platform: Platform
+}
+
+// JS injected to restore content saved by a trigger
+const RESTORE_SCRIPT = `
+  document.querySelectorAll('[data-spectra-original]').forEach(el => {
+    el.innerHTML = el.dataset.spectraOriginal;
+    delete el.dataset.spectraOriginal;
+  })
+`.trim()
+
+// Selector for primary content containers
+const CONTENT_SELECTOR = '[role="main"], main, #root, #app, .app'
+
+function wrapInSave(innerHtml: string): string {
+  return `
+    document.querySelectorAll('${CONTENT_SELECTOR}').forEach(el => {
+      if (!el.dataset.spectraOriginal) {
+        el.dataset.spectraOriginal = el.innerHTML;
+      }
+      el.innerHTML = ${JSON.stringify(innerHtml)};
+    })
+  `.trim()
+}
+
+async function evaluate(
+  conn: StateTriggerOptions['conn'],
+  sessionId: string | null | undefined,
+  expression: string,
+): Promise<void> {
+  if (!conn) return
+  try {
+    await conn.send('Runtime.evaluate', { expression, returnByValue: true }, sessionId ?? undefined)
+  } catch {
+    // CSP or other runtime errors — degrade silently
+  }
+}
+
+const ERROR_HTML = `<div role="alert" style="padding:40px;text-align:center"><h2>Something went wrong</h2><p>Error: Connection failed</p><button>Try again</button></div>`
+
+const LOADING_HTML = `<div role="progressbar" style="padding:40px;text-align:center"><div style="width:40px;height:40px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div><p style="margin-top:16px">Loading...</p></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>`
+
+const EMPTY_HTML = `<div style="padding:60px;text-align:center;color:#9ca3af"><p>No items found</p><p style="margin-top:8px;font-size:14px">Get started by adding your first item</p></div>`
+
+/**
+ * Create CDP-based state triggers for the given connection + platform.
+ *
+ * Backward-compatible overload: the old two-arg form (driver, platform) is
+ * accepted and returns [] because there is no CDP connection to use.
+ */
+export function createStateTriggers(options: StateTriggerOptions): StateTrigger[]
+export function createStateTriggers(_driver: Driver, _platform: Platform): StateTrigger[]
+export function createStateTriggers(
+  optionsOrDriver: StateTriggerOptions | Driver,
+  legacyPlatform?: Platform,
+): StateTrigger[] {
+  // Legacy two-arg call: (driver, platform) — no CDP connection available
+  if (legacyPlatform !== undefined) {
+    return []
+  }
+
+  const options = optionsOrDriver as StateTriggerOptions
+  const { conn, sessionId, platform } = options
+
+  // Only web platform is supported; no connection = no triggers
+  if (platform !== 'web' || conn === null) {
+    return []
+  }
+
+  const errorTrigger: StateTrigger = {
+    state: 'error',
+    platform,
+    trigger: () => evaluate(conn, sessionId, wrapInSave(ERROR_HTML)),
+    restore: () => evaluate(conn, sessionId, RESTORE_SCRIPT),
+  }
+
+  const loadingTrigger: StateTrigger = {
+    state: 'loading',
+    platform,
+    trigger: () => evaluate(conn, sessionId, wrapInSave(LOADING_HTML)),
+    restore: () => evaluate(conn, sessionId, RESTORE_SCRIPT),
+  }
+
+  const emptyTrigger: StateTrigger = {
+    state: 'empty',
+    platform,
+    trigger: () => evaluate(conn, sessionId, wrapInSave(EMPTY_HTML)),
+    restore: () => evaluate(conn, sessionId, RESTORE_SCRIPT),
+  }
+
+  return [errorTrigger, loadingTrigger, emptyTrigger]
 }

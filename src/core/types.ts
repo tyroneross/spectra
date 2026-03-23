@@ -59,6 +59,8 @@ export interface Driver {
   screenshot(): Promise<Buffer>
   /** Navigate to a URL (optional — not all drivers support navigation). */
   navigate?(url: string): Promise<void>
+  /** Expose internal connection for advanced CDP operations (optional). */
+  getConnection?(): { conn: unknown; sessionId: string | null }
   /** End the current session (keep underlying infrastructure alive). */
   close(): Promise<void>
   /** Full teardown — closes underlying connections/processes. */

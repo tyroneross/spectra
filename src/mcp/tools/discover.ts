@@ -2,7 +2,7 @@
 import type { ToolContext } from '../context.js'
 import { crawl } from '../../intelligence/navigation.js'
 import { scoreElements } from '../../intelligence/importance.js'
-import { detectState } from '../../intelligence/states.js'
+import { detectState, createStateTriggers } from '../../intelligence/states.js'
 import { frame } from '../../intelligence/framing.js'
 import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js'
 import { writeFile, mkdir } from 'node:fs/promises'
@@ -62,11 +62,15 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
   const outputDir = params.outputDir ?? join(getStoragePath(), 'sessions', params.sessionId, 'discover')
   await mkdir(outputDir, { recursive: true })
 
+  // Extract CDP connection if the driver exposes one
+  const connection = driver.getConnection?.()
+  const conn = (connection?.conn ?? null) as import('../../cdp/connection.js').CdpConnection | null
+  const driverSessionId = connection?.sessionId ?? null
+
   // Prepare for clean capture (optional)
-  // prepareForCapture needs a CdpConnection for web — pass null since we route through Driver interface
   let cleanState = null
   if (params.clean !== false) {
-    cleanState = await prepareForCapture(null, null, platform)
+    cleanState = await prepareForCapture(conn, driverSessionId, platform)
   }
 
   // Default viewport for scoring
@@ -139,6 +143,24 @@ export async function handleDiscover(params: DiscoverParams, ctx: ToolContext): 
         })
       } catch {
         // Framing can fail on very small screenshots — skip silently
+      }
+    }
+  }
+
+  // State triggers — use CDP connection when available for real state injection
+  if (params.captureStates) {
+    const triggers = createStateTriggers({ conn, sessionId: driverSessionId, platform })
+    for (const trigger of triggers) {
+      try {
+        await trigger.trigger()
+        const snapshot = await driver.snapshot()
+        const state = detectState(snapshot)
+        if (FULL_VALIDATION) {
+          console.log(`[discover] state trigger: ${trigger.state}, state=${state.state}`)
+        }
+        await trigger.restore()
+      } catch {
+        // Best-effort — don't abort the crawl if a trigger fails
       }
     }
   }

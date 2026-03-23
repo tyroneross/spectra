@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { detectState, createStateTriggers } from '../../src/intelligence/states.js'
+import type { StateTriggerOptions } from '../../src/intelligence/states.js'
 import type { Element, Snapshot } from '../../src/core/types.js'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -162,10 +163,107 @@ describe('detectState', () => {
     expect(result.indicators).toContain(el.id)
   })
 
-  it('createStateTriggers returns empty array', () => {
-    // Driver stub — not called
+  it('createStateTriggers returns empty array (legacy signature)', () => {
+    // Driver stub — not called; backward-compat path always returns []
     const driver = {} as Parameters<typeof createStateTriggers>[0]
-    const triggers = createStateTriggers(driver, 'web')
+    const triggers = createStateTriggers(driver as any, 'web')
     expect(triggers).toEqual([])
+  })
+})
+
+// ─── createStateTriggers (new options-based API) ───────────────────────────────
+
+function makeMockConn() {
+  return { send: vi.fn().mockResolvedValue({}) }
+}
+
+function makeOptions(overrides?: Partial<StateTriggerOptions>): StateTriggerOptions {
+  return {
+    conn: makeMockConn(),
+    sessionId: 'sess-1',
+    platform: 'web',
+    ...overrides,
+  }
+}
+
+describe('createStateTriggers (options API)', () => {
+  it('returns 3 triggers for web platform with valid conn', () => {
+    const triggers = createStateTriggers(makeOptions())
+    expect(triggers).toHaveLength(3)
+    const states = triggers.map(t => t.state)
+    expect(states).toContain('error')
+    expect(states).toContain('loading')
+    expect(states).toContain('empty')
+  })
+
+  it('returns empty array for macos platform', () => {
+    const triggers = createStateTriggers(makeOptions({ platform: 'macos' }))
+    expect(triggers).toHaveLength(0)
+  })
+
+  it('returns empty array for ios platform', () => {
+    const triggers = createStateTriggers(makeOptions({ platform: 'ios' }))
+    expect(triggers).toHaveLength(0)
+  })
+
+  it('returns empty array for watchos platform', () => {
+    const triggers = createStateTriggers(makeOptions({ platform: 'watchos' }))
+    expect(triggers).toHaveLength(0)
+  })
+
+  it('returns empty array when conn is null', () => {
+    const triggers = createStateTriggers(makeOptions({ conn: null }))
+    expect(triggers).toHaveLength(0)
+  })
+
+  it('error trigger calls Runtime.evaluate with correct method', async () => {
+    const conn = makeMockConn()
+    const triggers = createStateTriggers({ conn, sessionId: 'sess-1', platform: 'web' })
+    const errorTrigger = triggers.find(t => t.state === 'error')!
+    await errorTrigger.trigger()
+    expect(conn.send).toHaveBeenCalledWith(
+      'Runtime.evaluate',
+      expect.objectContaining({ expression: expect.any(String) }),
+      'sess-1',
+    )
+  })
+
+  it('restore calls Runtime.evaluate with restore script', async () => {
+    const conn = makeMockConn()
+    const triggers = createStateTriggers({ conn, sessionId: 'sess-2', platform: 'web' })
+    const errorTrigger = triggers.find(t => t.state === 'error')!
+    await errorTrigger.restore()
+    expect(conn.send).toHaveBeenCalledWith(
+      'Runtime.evaluate',
+      expect.objectContaining({ expression: expect.stringContaining('spectraOriginal') }),
+      'sess-2',
+    )
+  })
+
+  it('loading trigger injects HTML containing role="progressbar"', async () => {
+    const conn = makeMockConn()
+    const triggers = createStateTriggers({ conn, sessionId: null, platform: 'web' })
+    const loadingTrigger = triggers.find(t => t.state === 'loading')!
+    await loadingTrigger.trigger()
+    const callArgs = conn.send.mock.calls[0]
+    const expression: string = (callArgs[1] as any).expression
+    expect(expression).toContain('progressbar')
+  })
+
+  it('empty trigger injects HTML containing "No items"', async () => {
+    const conn = makeMockConn()
+    const triggers = createStateTriggers({ conn, sessionId: null, platform: 'web' })
+    const emptyTrigger = triggers.find(t => t.state === 'empty')!
+    await emptyTrigger.trigger()
+    const callArgs = conn.send.mock.calls[0]
+    const expression: string = (callArgs[1] as any).expression
+    expect(expression).toContain('No items')
+  })
+
+  it('CSP failure is silent — trigger does not throw when conn.send rejects', async () => {
+    const conn = { send: vi.fn().mockRejectedValue(new Error('CSP violation')) }
+    const triggers = createStateTriggers({ conn, sessionId: null, platform: 'web' })
+    const errorTrigger = triggers.find(t => t.state === 'error')!
+    await expect(errorTrigger.trigger()).resolves.toBeUndefined()
   })
 })

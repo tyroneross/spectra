@@ -140,6 +140,10 @@ export class CdpDriver implements Driver {
     return this.page.screenshot()
   }
 
+  getConnection(): { conn: CdpConnection; sessionId: string | null } {
+    return { conn: this.conn, sessionId: this.sessionId }
+  }
+
   async navigate(url: string): Promise<void> {
     await this.page.navigate(url)
     this.currentUrl = url
