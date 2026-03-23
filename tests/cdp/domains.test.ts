@@ -104,6 +104,55 @@ describe('PageDomain', () => {
     )
     expect(buf).toBeInstanceOf(Buffer)
   })
+
+  it('passes clip params to captureScreenshot', async () => {
+    vi.mocked(conn.send).mockResolvedValueOnce({ data: 'iVBOR...' })
+    await page.screenshot({ clip: { x: 10, y: 20, width: 100, height: 50 } })
+
+    expect(conn.send).toHaveBeenCalledWith(
+      'Page.captureScreenshot',
+      {
+        format: 'png',
+        clip: { x: 10, y: 20, width: 100, height: 50, scale: 1 },
+      },
+      'sess-1',
+    )
+  })
+
+  it('passes clip with explicit scale', async () => {
+    vi.mocked(conn.send).mockResolvedValueOnce({ data: 'iVBOR...' })
+    await page.screenshot({ clip: { x: 0, y: 0, width: 200, height: 100, scale: 2 } })
+
+    expect(conn.send).toHaveBeenCalledWith(
+      'Page.captureScreenshot',
+      {
+        format: 'png',
+        clip: { x: 0, y: 0, width: 200, height: 100, scale: 2 },
+      },
+      'sess-1',
+    )
+  })
+
+  it('passes quality only for jpeg format', async () => {
+    vi.mocked(conn.send).mockResolvedValueOnce({ data: 'iVBOR...' })
+    await page.screenshot({ format: 'jpeg', quality: 80 })
+
+    expect(conn.send).toHaveBeenCalledWith(
+      'Page.captureScreenshot',
+      { format: 'jpeg', quality: 80 },
+      'sess-1',
+    )
+  })
+
+  it('does not pass quality for png format', async () => {
+    vi.mocked(conn.send).mockResolvedValueOnce({ data: 'iVBOR...' })
+    await page.screenshot({ format: 'png', quality: 80 })
+
+    const call = vi.mocked(conn.send).mock.calls.find(([method]) => method === 'Page.captureScreenshot')
+    expect(call).toBeDefined()
+    const params = call![1] as Record<string, unknown>
+    expect(params.quality).toBeUndefined()
+  })
 })
 
 describe('DomDomain', () => {
