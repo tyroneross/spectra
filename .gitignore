@@ -5,3 +5,12 @@ dist/
 
 web-ui/.next/
 web-ui/node_modules/
+web-ui/next-env.d.ts
+
+# Plugin/tool data
+.bookmark/
+.navgator/
+.superpowers/
+
+# Capture output
+artifacts/
