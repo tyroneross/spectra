@@ -1,5 +1,5 @@
 // ─── Platform ───────────────────────────────────────────────
-export type Platform = 'web' | 'macos' | 'ios' | 'watchos'
+export type Platform = 'web' | 'macos' | 'ios' | 'watchos' | 'terminal'
 
 // ─── Elements ───────────────────────────────────────────────
 export interface Element {
@@ -50,6 +50,7 @@ export interface DriverTarget {
   url?: string
   appName?: string
   deviceId?: string
+  command?: string     // For terminal driver
 }
 
 export interface Driver {

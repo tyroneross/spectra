@@ -11,6 +11,7 @@ import { handleSession } from './tools/session.js'
 import { handleAnalyze } from './tools/analyze.js'
 import { handleDiscover } from './tools/discover.js'
 import { handleWalkthrough } from './tools/walkthrough.js'
+import { handleRecord, handleReplay } from './tools/record.js'
 import { registerResources } from './resources.js'
 
 const ctx = createContext()
@@ -252,6 +253,41 @@ server.tool(
     return wrapHandler(
       () => handleSession({ action, sessionId }, ctx),
       'spectra_session',
+    )
+  },
+)
+
+server.tool(
+  'spectra_record',
+  'Record a terminal command session (stdout/stderr with timestamps) in asciicast format',
+  {
+    command: z.string().describe('Command to record'),
+    timeout: z.number().optional().describe('Max duration in ms (default 300000)'),
+    watch_files: z.array(z.string()).optional().describe('File paths to watch for changes during recording'),
+    outputDir: z.string().optional().describe('Directory to write .cast file (default: .spectra/recordings/)'),
+  },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  async ({ command, timeout, watch_files, outputDir }) => {
+    return wrapHandler(
+      () => handleRecord({ command, timeout, watch_files, outputDir }),
+      'spectra_record',
+    )
+  },
+)
+
+server.tool(
+  'spectra_replay',
+  'Read, search, or summarize a terminal recording (.cast file)',
+  {
+    file: z.string().describe('Path to .cast file'),
+    search: z.string().optional().describe('Search pattern (regex or string)'),
+    commands_only: z.boolean().optional().describe('Extract only input commands'),
+  },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+  async ({ file, search, commands_only }) => {
+    return wrapHandler(
+      () => handleReplay({ file, search, commands_only }),
+      'spectra_replay',
     )
   },
 )
