@@ -10,6 +10,8 @@ import { handleCapture } from './tools/capture.js'
 import { handleSession } from './tools/session.js'
 import { handleAnalyze } from './tools/analyze.js'
 import { handleDiscover } from './tools/discover.js'
+import { handleWalkthrough } from './tools/walkthrough.js'
+import { registerResources } from './resources.js'
 
 const ctx = createContext()
 
@@ -17,6 +19,44 @@ const server = new McpServer({
   name: 'spectra',
   version: '0.1.0',
 })
+
+registerResources(server, ctx)
+
+// ─── Error handling helpers ───────────────────────────────────
+
+function getErrorHint(tool: string, message: string): string {
+  if (message.includes('not found')) {
+    return 'Run spectra_session action="list" to see active sessions, or spectra_connect to start a new one.'
+  }
+  if (message.includes('Element') && message.includes('not found')) {
+    return 'Run spectra_snapshot to refresh the element inventory.'
+  }
+  if (message.includes('connect')) {
+    return 'Check that the target URL is accessible and Chrome is available.'
+  }
+  return 'Check spectra_session action="list" for session status.'
+}
+
+function wrapHandler<T>(
+  handler: () => Promise<T>,
+  toolName: string,
+): Promise<{ content: Array<{ type: 'text'; text: string }>, isError?: boolean }> {
+  return handler()
+    .then(result => ({
+      content: [{ type: 'text' as const, text: JSON.stringify({ ...Object(result), timestamp: Date.now() }, null, 2) }],
+    }))
+    .catch((err: Error) => ({
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        error: err.message,
+        tool: toolName,
+        hint: getErrorHint(toolName, err.message),
+        timestamp: Date.now(),
+      }, null, 2) }],
+      isError: true as const,
+    }))
+}
+
+// ─── Tool registrations ───────────────────────────────────────
 
 server.tool(
   'spectra_connect',
@@ -26,9 +66,13 @@ server.tool(
     name: z.string().optional().describe('Human-readable session name'),
     record: z.boolean().optional().describe('Start video recording'),
   },
+  // annotations: readOnlyHint=false, destructiveHint=false, idempotentHint=true
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   async ({ target, name, record }) => {
-    const result = await handleConnect({ target, name, record }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    return wrapHandler(
+      () => handleConnect({ target, name, record }, ctx),
+      'spectra_connect',
+    )
   },
 )
 
@@ -39,9 +83,16 @@ server.tool(
     sessionId: z.string().describe('Session ID'),
     screenshot: z.boolean().optional().describe('Include screenshot'),
   },
+  // annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
   async ({ sessionId, screenshot }) => {
-    const result = await handleSnapshot({ sessionId, screenshot }, ctx)
-    return { content: [{ type: 'text' as const, text: result.snapshot }] }
+    return wrapHandler(
+      async () => {
+        const result = await handleSnapshot({ sessionId, screenshot }, ctx)
+        return { snapshot: result.snapshot, elementCount: result.elementCount }
+      },
+      'spectra_snapshot',
+    )
   },
 )
 
@@ -54,9 +105,13 @@ server.tool(
     action: z.enum(['click', 'type', 'clear', 'select', 'scroll', 'hover', 'focus']),
     value: z.string().optional().describe('Text to type or scroll amount'),
   },
+  // annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
   async ({ sessionId, elementId, action, value }) => {
-    const result = await handleAct({ sessionId, elementId, action, value }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    return wrapHandler(
+      () => handleAct({ sessionId, elementId, action, value }, ctx),
+      'spectra_act',
+    )
   },
 )
 
@@ -67,16 +122,33 @@ server.tool(
     sessionId: z.string(),
     intent: z.string().describe('What to do, e.g., "click the Log In button"'),
   },
+  // annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
   async ({ sessionId, intent }) => {
-    const result = await handleStep({ sessionId, intent }, ctx)
-    const { screenshot, ...textResult } = result
-    const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [
-      { type: 'text' as const, text: JSON.stringify(textResult, null, 2) },
-    ]
-    if (screenshot) {
-      content.push({ type: 'image' as const, data: screenshot, mimeType: 'image/png' })
+    // step returns mixed content (text + optional image) so we keep its special
+    // content assembly intact and only standardize the error path
+    try {
+      const result = await handleStep({ sessionId, intent }, ctx)
+      const { screenshot, ...textResult } = result
+      const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [
+        { type: 'text' as const, text: JSON.stringify({ ...textResult, timestamp: Date.now() }, null, 2) },
+      ]
+      if (screenshot) {
+        content.push({ type: 'image' as const, data: screenshot, mimeType: 'image/png' })
+      }
+      return { content }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({
+          error: message,
+          tool: 'spectra_step',
+          hint: getErrorHint('spectra_step', message),
+          timestamp: Date.now(),
+        }, null, 2) }],
+        isError: true as const,
+      }
     }
-    return { content }
   },
 )
 
@@ -93,9 +165,13 @@ server.tool(
     clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
     quality: z.enum(['lossless', 'high', 'medium']).optional().describe('Output quality'),
   },
+  // annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
   async ({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality }) => {
-    const result = await handleCapture({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    return wrapHandler(
+      () => handleCapture({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality }, ctx),
+      'spectra_capture',
+    )
   },
 )
 
@@ -110,9 +186,13 @@ server.tool(
       devicePixelRatio: z.number().optional(),
     }).optional().describe('Viewport dimensions for scoring (defaults: 1280x800@1x)'),
   },
+  // annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
   async ({ sessionId, viewport }) => {
-    const result = await handleAnalyze({ sessionId, viewport }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    return wrapHandler(
+      () => handleAnalyze({ sessionId, viewport }, ctx),
+      'spectra_analyze',
+    )
   },
 )
 
@@ -127,9 +207,35 @@ server.tool(
     clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
     outputDir: z.string().optional().describe('Custom output directory'),
   },
+  // annotations: readOnlyHint=false, destructiveHint=false, idempotentHint=false
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   async ({ sessionId, maxDepth, maxScreens, captureStates, clean, outputDir }) => {
-    const result = await handleDiscover({ sessionId, maxDepth, maxScreens, captureStates, clean, outputDir }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    return wrapHandler(
+      () => handleDiscover({ sessionId, maxDepth, maxScreens, captureStates, clean, outputDir }, ctx),
+      'spectra_discover',
+    )
+  },
+)
+
+server.tool(
+  'spectra_walkthrough',
+  'Execute a multi-step UI flow with optional screenshot capture at each step. Reduces tool calls from 2N to 1 for N-step walkthroughs.',
+  {
+    sessionId: z.string().describe('Active session ID'),
+    steps: z.array(z.object({
+      intent: z.string().describe('What to do, e.g., "click the Login button"'),
+      capture: z.boolean().optional().describe('Take screenshot after this step (default: true)'),
+      waitMs: z.number().optional().describe('Wait ms after action before capture (default: 500)'),
+    })).describe('Steps to execute in order'),
+    clean: z.boolean().optional().describe('Apply visual cleanup for screenshots (default: true)'),
+  },
+  // annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+  async ({ sessionId, steps, clean }) => {
+    return wrapHandler(
+      () => handleWalkthrough({ sessionId, steps, clean }, ctx),
+      'spectra_walkthrough',
+    )
   },
 )
 
@@ -140,10 +246,67 @@ server.tool(
     action: z.enum(['list', 'get', 'close', 'close_all']),
     sessionId: z.string().optional(),
   },
+  // annotations: worst-case for mixed read/write — destructiveHint=true (close/close_all are destructive)
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
   async ({ action, sessionId }) => {
-    const result = await handleSession({ action, sessionId }, ctx)
-    return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+    return wrapHandler(
+      () => handleSession({ action, sessionId }, ctx),
+      'spectra_session',
+    )
   },
+)
+
+server.prompt(
+  'walkthrough',
+  'Walk through a UI flow and capture screenshots at each step',
+  {
+    url: z.string().describe('URL to connect to'),
+    steps: z.string().describe('Comma-separated steps, e.g., "click Login, enter email test@example.com, click Submit"'),
+  },
+  ({ url, steps }) => ({
+    messages: [{
+      role: 'user' as const,
+      content: {
+        type: 'text' as const,
+        text: `Connect to ${url} using spectra_connect, then use spectra_walkthrough to execute these steps in order: ${steps}. Capture a screenshot after each step.`,
+      },
+    }],
+  }),
+)
+
+server.prompt(
+  'capture-feature',
+  'Capture screenshots of a specific feature from multiple angles',
+  {
+    url: z.string().describe('URL to connect to'),
+    feature: z.string().describe('Feature to capture, e.g., "dashboard", "settings page"'),
+  },
+  ({ url, feature }) => ({
+    messages: [{
+      role: 'user' as const,
+      content: {
+        type: 'text' as const,
+        text: `Connect to ${url} using spectra_connect. Use spectra_analyze to find regions of interest. Navigate to the ${feature} and capture it using spectra_capture with mode=auto. Also capture with mode=region for each detected region. Save all captures.`,
+      },
+    }],
+  }),
+)
+
+server.prompt(
+  'full-audit',
+  'Discover and capture all screens in an app',
+  {
+    url: z.string().describe('URL to connect to'),
+  },
+  ({ url }) => ({
+    messages: [{
+      role: 'user' as const,
+      content: {
+        type: 'text' as const,
+        text: `Connect to ${url} using spectra_connect, then use spectra_discover to auto-navigate the entire app. Set maxDepth=3 and captureStates=true to capture loading, error, and empty states as well. Report the manifest path and a summary of what was found.`,
+      },
+    }],
+  }),
 )
 
 async function main() {

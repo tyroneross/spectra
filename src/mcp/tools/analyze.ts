@@ -22,6 +22,7 @@ export interface AnalyzeResult {
     role: string
     label: string
     importance: number
+    bounds: [number, number, number, number]
   }>
   totalElements: number
 }
@@ -56,6 +57,7 @@ export async function handleAnalyze(params: AnalyzeParams, ctx: ToolContext): Pr
       role: el?.role ?? 'unknown',
       label: el?.label ?? '',
       importance: Math.round(s.score * 1000) / 1000,
+      bounds: el?.bounds ?? ([0, 0, 0, 0] as [number, number, number, number]),
     }
   })
 

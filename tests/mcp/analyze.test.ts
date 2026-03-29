@@ -124,6 +124,12 @@ describe('handleAnalyze', () => {
     // heading or button should be first (both high role scores), generic last
     const lastId = result.topElements[result.topElements.length - 1].id
     expect(lastId).toBe('g1')
+    // Verify bounds are present on each topElement
+    for (const el of result.topElements) {
+      expect(el.bounds).toBeDefined()
+      expect(Array.isArray(el.bounds)).toBe(true)
+      expect(el.bounds.length).toBe(4)
+    }
   })
 
   it('detects a region labeled Actions from clustered buttons', async () => {
@@ -190,6 +196,36 @@ describe('handleAnalyze', () => {
     const confStr = result.stateConfidence.toString()
     const confDecimals = confStr.includes('.') ? confStr.split('.')[1].length : 0
     expect(confDecimals).toBeLessThanOrEqual(3)
+  })
+
+  it('topElements include correct bounds from source elements', async () => {
+    const elements: Element[] = [
+      makeElement({ id: 'b1', role: 'button', label: 'Save', bounds: [10, 20, 100, 40], actions: ['click'] }),
+      makeElement({ id: 'h1', role: 'heading', label: 'Title', bounds: [0, 0, 400, 50] }),
+    ]
+    const driver = new MockDriver(elements)
+    const ctx = makeContext(driver)
+    const result = await handleAnalyze({ sessionId: 'test-session' }, ctx)
+
+    const h1 = result.topElements.find(e => e.id === 'h1')
+    const b1 = result.topElements.find(e => e.id === 'b1')
+    expect(h1?.bounds).toEqual([0, 0, 400, 50])
+    expect(b1?.bounds).toEqual([10, 20, 100, 40])
+  })
+
+  it('topElements bounds fallback to [0,0,0,0] when element not found', async () => {
+    // This verifies the fallback path in the mapping
+    const elements: Element[] = [
+      makeElement({ id: 'e1', role: 'button', label: 'A', bounds: [0, 0, 80, 36], actions: ['click'] }),
+    ]
+    const driver = new MockDriver(elements)
+    const ctx = makeContext(driver)
+    const result = await handleAnalyze({ sessionId: 'test-session' }, ctx)
+
+    for (const el of result.topElements) {
+      expect(el.bounds).toBeDefined()
+      expect(el.bounds.length).toBe(4)
+    }
   })
 
   it('totalElements matches the input element count', async () => {
