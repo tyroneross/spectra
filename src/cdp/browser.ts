@@ -5,9 +5,16 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 export const CHROME_PATHS = [
+  // macOS
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  // Linux / WSL
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/chromium',
+  '/snap/bin/chromium',
 ]
 
 export function findChrome(): string | null {

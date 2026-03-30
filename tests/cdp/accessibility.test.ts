@@ -42,11 +42,11 @@ describe('AccessibilityDomain', () => {
       // Should filter out WebArea and unlabeled generic
       expect(elements).toHaveLength(5)
 
-      expect(elements[0]).toMatchObject({ id: 'e1', role: 'heading', label: 'Welcome Back' })
-      expect(elements[1]).toMatchObject({ id: 'e2', role: 'textfield', label: 'Email address', focused: true })
-      expect(elements[2]).toMatchObject({ id: 'e3', role: 'textfield', label: 'Password', focused: false })
-      expect(elements[3]).toMatchObject({ id: 'e4', role: 'button', label: 'Log In', enabled: true })
-      expect(elements[4]).toMatchObject({ id: 'e5', role: 'link', label: 'Forgot password?' })
+      expect(elements[0]).toMatchObject({ id: 'e2', role: 'heading', label: 'Welcome Back' })
+      expect(elements[1]).toMatchObject({ id: 'e3', role: 'textfield', label: 'Email address', focused: true })
+      expect(elements[2]).toMatchObject({ id: 'e4', role: 'textfield', label: 'Password', focused: false })
+      expect(elements[3]).toMatchObject({ id: 'e5', role: 'button', label: 'Log In', enabled: true })
+      expect(elements[4]).toMatchObject({ id: 'e6', role: 'link', label: 'Forgot password?' })
     })
 
     it('calls Accessibility.getFullAXTree with correct sessionId', async () => {
@@ -77,8 +77,8 @@ describe('AccessibilityDomain', () => {
 
       await ax.getSnapshot()
 
-      // Button "Log In" has backendDOMNodeId 5
-      expect(ax.getBackendNodeId('e4')).toBe(5)
+      // Button "Log In" has backendDOMNodeId 5 → stable id 'e5'
+      expect(ax.getBackendNodeId('e5')).toBe(5)
     })
 
     it('handles disabled elements', async () => {

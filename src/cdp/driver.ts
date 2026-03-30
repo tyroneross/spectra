@@ -2,12 +2,14 @@ import type { Driver, DriverTarget, Snapshot, ActionType, ActResult } from '../c
 import { CdpConnection } from './connection.js'
 import { BrowserManager, type BrowserOptions } from './browser.js'
 import { AccessibilityDomain } from './accessibility.js'
+import { ConsoleDomain } from './console.js'
 import { InputDomain } from './input.js'
 import { PageDomain } from './page.js'
 import { DomDomain } from './dom.js'
 import { TargetDomain } from './target.js'
 import { RuntimeDomain } from './runtime.js'
 import { waitForStableTree } from './wait.js'
+import { ResolutionCache } from '../core/cache.js'
 
 export interface CdpDriverOptions {
   browser?: BrowserOptions
@@ -18,6 +20,7 @@ export class CdpDriver implements Driver {
   private browser = new BrowserManager()
   private target!: TargetDomain
   private ax!: AccessibilityDomain
+  private consoleDomain!: ConsoleDomain
   private input!: InputDomain
   private page!: PageDomain
   private dom!: DomDomain
@@ -27,6 +30,9 @@ export class CdpDriver implements Driver {
   private sessionId: string | null = null
   private currentUrl: string | null = null
   private options: CdpDriverOptions
+
+  /** Resolution cache — available for MCP tools to use. */
+  readonly cache = new ResolutionCache()
 
   constructor(options?: CdpDriverOptions) {
     this.options = options ?? {}
@@ -50,6 +56,7 @@ export class CdpDriver implements Driver {
 
     // 5. Create domain instances for this session
     this.ax = new AccessibilityDomain(this.conn, this.sessionId)
+    this.consoleDomain = new ConsoleDomain(this.conn, this.sessionId)
     this.input = new InputDomain(this.conn, this.sessionId)
     this.page = new PageDomain(this.conn, this.sessionId)
     this.dom = new DomDomain(this.conn, this.sessionId)
@@ -57,6 +64,7 @@ export class CdpDriver implements Driver {
 
     // 6. Enable required domains
     await this.ax.enable()
+    await this.consoleDomain.enable()
     await this.page.enableLifecycleEvents()
 
     // 7. Wait for initial AX tree to stabilize
@@ -140,11 +148,16 @@ export class CdpDriver implements Driver {
     return this.page.screenshot()
   }
 
+  get console(): ConsoleDomain {
+    return this.consoleDomain
+  }
+
   getConnection(): { conn: CdpConnection; sessionId: string | null } {
     return { conn: this.conn, sessionId: this.sessionId }
   }
 
   async navigate(url: string): Promise<void> {
+    this.cache.clear()
     await this.page.navigate(url)
     this.currentUrl = url
     await waitForStableTree(() => this.ax.getSnapshot())

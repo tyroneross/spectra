@@ -19,13 +19,27 @@ export class CdpConnection {
 
   async connect(wsUrl: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.ws = new WebSocket(wsUrl)
-      this.ws.addEventListener('open', () => resolve())
-      this.ws.addEventListener('error', () =>
+      const ws = new WebSocket(wsUrl)
+      let settled = false
+
+      const onOpen = () => {
+        if (settled) return
+        settled = true
+        this.ws = ws
+        ws.addEventListener('message', (event) => this.handleMessage(event))
+        ws.addEventListener('close', () => this.handleClose())
+        ws.addEventListener('error', () => this.handleClose())
+        resolve()
+      }
+
+      const onError = () => {
+        if (settled) return
+        settled = true
         reject(new Error(`WebSocket connection failed: ${wsUrl}`))
-      )
-      this.ws.addEventListener('message', (event) => this.handleMessage(event))
-      this.ws.addEventListener('close', () => this.handleClose())
+      }
+
+      ws.addEventListener('open', onOpen)
+      ws.addEventListener('error', onError)
     })
   }
 
@@ -73,7 +87,12 @@ export class CdpConnection {
   }
 
   private handleMessage(event: MessageEvent): void {
-    const data = JSON.parse(String(event.data))
+    let data: Record<string, unknown>
+    try {
+      data = JSON.parse(String(event.data))
+    } catch {
+      return // Malformed frame — skip
+    }
 
     if ('id' in data && this.pending.has(data.id)) {
       const { resolve, reject, timer } = this.pending.get(data.id)!

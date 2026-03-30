@@ -240,11 +240,16 @@ function scoreLabelSimilarity(intent: string, label: string): number {
 export interface SpatialHints {
   position?: 'first' | 'last' | 'top' | 'bottom'
   near?: string
+  // Extended spatial fields (Phase 4)
+  direction?: 'above' | 'below' | 'left' | 'right' | 'near'
+  reference?: string   // e.g. "the header", "the form"
+  ordinal?: number     // "first" = 1, "second" = 2, etc.
 }
 
 export function parseSpatialHints(intent: string): SpatialHints {
   const hints: SpatialHints = {}
 
+  // ── Position (legacy compat) ──
   if (/\bfirst\b/.test(intent)) hints.position = 'first'
   else if (/\blast\b/.test(intent)) hints.position = 'last'
   else if (/\btop\b/.test(intent)) hints.position = 'top'
@@ -252,6 +257,32 @@ export function parseSpatialHints(intent: string): SpatialHints {
 
   const nearMatch = intent.match(/\b(?:next to|near|beside|by)\s+(.+?)(?:\s*$)/)
   if (nearMatch) hints.near = nearMatch[1].trim()
+
+  // ── Ordinal (Phase 4) ──
+  const ordinalMatch = intent.match(
+    /\b(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\b/i,
+  )
+  if (ordinalMatch) {
+    const ordinals: Record<string, number> = {
+      first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3,
+      fourth: 4, '4th': 4, fifth: 5, '5th': 5,
+    }
+    hints.ordinal = ordinals[ordinalMatch[1].toLowerCase()] ?? 1
+  }
+
+  // ── Directional reference (Phase 4) ──
+  // "below the header", "above the form", "left of the nav", "right of the sidebar"
+  const dirMatch = intent.match(
+    /\b(above|below|under|left of|right of|near)\s+(?:the\s+)?(.+?)(?:\s*$)/i,
+  )
+  if (dirMatch) {
+    const dirMap: Record<string, SpatialHints['direction']> = {
+      above: 'above', below: 'below', under: 'below',
+      'left of': 'left', 'right of': 'right', near: 'near',
+    }
+    hints.direction = dirMap[dirMatch[1].toLowerCase()]
+    hints.reference = dirMatch[2].trim()
+  }
 
   return hints
 }
@@ -310,14 +341,14 @@ function cleanIntent(intent: string): string {
 
 // ─── Jaro-Winkler ──────────────────────────────────────────
 
-export function jaroWinkler(s1: string, s2: string): number {
+export function jaroWinkler(s1: string, s2: string, prefixScale = 0.1): number {
   if (s1 === s2) return 1.0
   if (s1.length === 0 || s2.length === 0) return 0.0
 
   const jaro = jaroDistance(s1, s2)
   if (jaro === 0) return 0
 
-  // Winkler prefix bonus: common prefix up to 4 chars, p = 0.1
+  // Winkler prefix bonus: common prefix up to 4 chars
   let prefixLen = 0
   const maxPrefix = Math.min(4, Math.min(s1.length, s2.length))
   for (let i = 0; i < maxPrefix; i++) {
@@ -328,7 +359,7 @@ export function jaroWinkler(s1: string, s2: string): number {
     }
   }
 
-  return jaro + prefixLen * 0.1 * (1 - jaro)
+  return jaro + prefixLen * prefixScale * (1 - jaro)
 }
 
 function jaroDistance(s1: string, s2: string): number {

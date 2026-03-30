@@ -64,6 +64,40 @@ describe('handleAnalyze', () => {
     expect(result.regions).toEqual([])
     expect(result.topElements).toEqual([])
     expect(result.totalElements).toBe(0)
+    expect(result.consoleErrors).toEqual([])
+  })
+
+  it('consoleErrors is empty array when driver has no console domain', async () => {
+    const driver = new MockDriver([])
+    const ctx = makeContext(driver)
+    const result = await handleAnalyze({ sessionId: 'test-session' }, ctx)
+
+    expect(Array.isArray(result.consoleErrors)).toBe(true)
+    expect(result.consoleErrors).toHaveLength(0)
+  })
+
+  it('consoleErrors is populated when driver exposes console domain with errors', async () => {
+    const driver = new MockDriver([]) as any
+    driver.console = {
+      getErrors: () => [
+        { type: 'error', text: 'ReferenceError: x is not defined', url: 'https://example.com/app.js' },
+        { type: 'warning', text: 'Deprecated API called' },
+      ],
+    }
+    const ctx = makeContext(driver)
+    const result = await handleAnalyze({ sessionId: 'test-session' }, ctx)
+
+    expect(result.consoleErrors).toHaveLength(2)
+    expect(result.consoleErrors[0]).toEqual({
+      type: 'error',
+      text: 'ReferenceError: x is not defined',
+      url: 'https://example.com/app.js',
+    })
+    expect(result.consoleErrors[1]).toEqual({
+      type: 'warning',
+      text: 'Deprecated API called',
+      url: undefined,
+    })
   })
 
   it('detects populated state for a page with many elements', async () => {

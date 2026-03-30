@@ -23,7 +23,7 @@ export type { CreateSessionOptions, AddStepOptions } from './core/session.js'
 export { getStoragePath, findProjectRoot } from './core/storage.js'
 
 // ─── Resolution ─────────────────────────────────────────────
-export { resolve } from './core/resolve.js'
+export { resolve, jaroWinkler } from './core/resolve.js'
 
 // ─── Drivers ────────────────────────────────────────────────
 export { CdpDriver } from './cdp/driver.js'

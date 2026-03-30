@@ -25,6 +25,11 @@ export interface AnalyzeResult {
     bounds: [number, number, number, number]
   }>
   totalElements: number
+  consoleErrors: Array<{
+    type: string
+    text: string
+    url?: string
+  }>
 }
 
 export async function handleAnalyze(params: AnalyzeParams, ctx: ToolContext): Promise<AnalyzeResult> {
@@ -61,6 +66,17 @@ export async function handleAnalyze(params: AnalyzeParams, ctx: ToolContext): Pr
     }
   })
 
+  // Collect console errors from CDP driver if available
+  const driverAny = driver as any
+  const consoleErrors: Array<{ type: string; text: string; url?: string }> =
+    driverAny.console?.getErrors
+      ? driverAny.console.getErrors().map((e: any) => ({
+          type: e.type,
+          text: e.text,
+          url: e.url,
+        }))
+      : []
+
   return {
     state: stateDetection.state,
     stateConfidence: Math.round(stateDetection.confidence * 1000) / 1000,
@@ -72,5 +88,6 @@ export async function handleAnalyze(params: AnalyzeParams, ctx: ToolContext): Pr
     })),
     topElements,
     totalElements: snapshot.elements.length,
+    consoleErrors,
   }
 }
