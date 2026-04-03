@@ -111,6 +111,8 @@ export class NativeDriver implements Driver {
 
     try {
       const result = await this.bridge.send<{ success: boolean; error?: string }>('act', params)
+      // Brief delay for native UI to update after action (SwiftUI view refresh)
+      await new Promise(r => setTimeout(r, 200))
       const snapshot = await this.snapshot()
 
       if (!result.success) {
