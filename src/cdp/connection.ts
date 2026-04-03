@@ -94,17 +94,19 @@ export class CdpConnection {
       return // Malformed frame — skip
     }
 
-    if ('id' in data && this.pending.has(data.id)) {
-      const { resolve, reject, timer } = this.pending.get(data.id)!
+    if ('id' in data && this.pending.has(data.id as number)) {
+      const id = data.id as number
+      const { resolve, reject, timer } = this.pending.get(id)!
       clearTimeout(timer)
-      this.pending.delete(data.id)
+      this.pending.delete(id)
       if (data.error) {
-        reject(new Error(`CDP error ${data.error.code}: ${data.error.message}`))
+        const err = data.error as { code: number; message: string }
+        reject(new Error(`CDP error ${err.code}: ${err.message}`))
       } else {
         resolve(data.result)
       }
     } else if ('method' in data) {
-      const handlers = this.eventHandlers.get(data.method)
+      const handlers = this.eventHandlers.get(data.method as string)
       if (handlers) {
         for (const handler of handlers) handler(data.params)
       }
