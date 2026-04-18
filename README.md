@@ -6,6 +6,15 @@ Works across **web** (Chrome DevTools Protocol), **macOS** (accessibility bridge
 
 ## Install
 
+### Via Claude Code plugin marketplace (recommended)
+
+```
+/plugin marketplace add tyroneross/spectra
+/plugin install spectra@spectra
+```
+
+### Manual install (development / library use)
+
 **Requirements:** Node.js 22+, macOS (for native features), Xcode CLI tools (for Swift compilation)
 
 ```bash
@@ -42,7 +51,7 @@ npm run serve    # → http://localhost:4300
 
 ## Claude Code Plugin
 
-Spectra is a Claude Code plugin. Install locally for development:
+Spectra is a Claude Code plugin. Install via the marketplace (see above) or locally for development:
 
 ```bash
 # From another project, point Claude Code at the Spectra directory

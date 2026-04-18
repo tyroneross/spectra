@@ -1,0 +1,11 @@
+{
+  "name": "spectra",
+  "version": "0.1.0",
+  "description": "Content capture for marketing — screenshots, videos, and app usage sequences for blog posts, social media, and documentation across web, macOS, iOS, and watchOS",
+  "repository": "https://github.com/tyroneross/spectra",
+  "license": "FSL-1.1-MIT",
+  "keywords": ["screenshots", "video-capture", "content-creation", "marketing", "demo-recording", "accessibility"],
+  "author": {
+    "name": "Tyrone Ross"
+  }
+}
