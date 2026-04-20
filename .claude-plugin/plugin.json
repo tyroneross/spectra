@@ -29,6 +29,5 @@
         "spectra_session"
       ]
     }
-  },
-  "hooks": "./hooks/hooks.json"
+  }
 }
