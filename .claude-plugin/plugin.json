@@ -1,16 +1,25 @@
 {
   "name": "spectra",
-  "version": "0.1.0",
-  "description": "Content capture for marketing — screenshots, videos, and app usage sequences for blog posts, social media, and documentation across web, macOS, iOS, and watchOS",
+  "version": "0.1.1",
+  "description": "Content capture for marketing \u2014 screenshots, videos, and app usage sequences for blog posts, social media, and documentation across web, macOS, iOS, and watchOS",
   "author": {
     "name": "Tyrone Ross"
   },
   "license": "FSL-1.1-MIT",
-  "keywords": ["screenshots", "video-capture", "content-creation", "marketing", "demo-recording", "accessibility"],
+  "keywords": [
+    "screenshots",
+    "video-capture",
+    "content-creation",
+    "marketing",
+    "demo-recording",
+    "accessibility"
+  ],
   "mcpServers": {
     "spectra": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp/server.js"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/mcp/server.js"
+      ],
       "tools": [
         "spectra_connect",
         "spectra_snapshot",
