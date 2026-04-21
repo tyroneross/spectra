@@ -12,6 +12,7 @@ import { handleAnalyze } from './tools/analyze.js'
 import { handleDiscover } from './tools/discover.js'
 import { handleWalkthrough } from './tools/walkthrough.js'
 import { handleRecord, handleReplay } from './tools/record.js'
+import { handleLibrary } from './tools/library.js'
 import { registerResources } from './resources.js'
 
 const ctx = createContext()
@@ -288,6 +289,59 @@ server.tool(
     return wrapHandler(
       () => handleReplay({ file, search, commands_only }),
       'spectra_replay',
+    )
+  },
+)
+
+server.tool(
+  'spectra_library',
+  'Manage the spectra capture library (tag, find, gallery, export, status, delete, add, migrate-from-showcase). Action-dispatched like spectra_session.',
+  {
+    action: z
+      .enum(['add', 'find', 'gallery', 'get', 'tag', 'delete', 'status', 'export', 'migrate-from-showcase'])
+      .describe('Library operation to perform'),
+    // add
+    sourcePath: z.string().optional().describe('add: path to a media file to import'),
+    type: z.enum(['screenshot', 'video', 'walkthrough']).optional(),
+    platform: z.enum(['web', 'macos', 'ios', 'watchos', 'unknown']).optional(),
+    url: z.string().optional(),
+    viewport: z.string().optional(),
+    selector: z.string().optional(),
+    deviceName: z.string().optional(),
+    title: z.string().optional(),
+    feature: z.string().optional().describe('Canonical feature slug (kebab-case) used for grouping'),
+    component: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    starred: z.boolean().optional(),
+    walkthrough: z
+      .object({ step_count: z.number(), steps: z.array(z.string()) })
+      .optional(),
+    durationMs: z.number().optional(),
+    gitBranch: z.string().optional(),
+    gitCommit: z.string().optional(),
+    // find / export
+    tagsAny: z.array(z.string()).optional(),
+    tagsAll: z.array(z.string()).optional(),
+    since: z.string().optional().describe('ISO date — only include captures on or after'),
+    until: z.string().optional(),
+    text: z.string().optional().describe('Free-text search over title / tags / feature / component'),
+    limit: z.number().optional(),
+    // gallery
+    groupBy: z.enum(['feature', 'date', 'component', 'platform', 'type']).optional(),
+    // get / tag / delete
+    id: z.string().optional(),
+    // export
+    outDir: z.string().optional(),
+    flatten: z.boolean().optional(),
+    manifest: z.boolean().optional(),
+    // migrate
+    showcasePath: z.string().optional().describe('Path to a legacy .showcase/ directory'),
+  },
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+  async (params) => {
+    return wrapHandler(
+      () => handleLibrary(params as Parameters<typeof handleLibrary>[0]),
+      'spectra_library',
     )
   },
 )

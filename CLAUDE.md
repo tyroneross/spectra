@@ -23,6 +23,16 @@ Spectra captures screenshots, videos, and app usage sequences from running appli
 | `spectra_analyze` | Score current screen — importance ranking, regions of interest, UI state |
 | `spectra_discover` | Auto-navigate entire app — BFS crawl, smart framing, state capture |
 | `spectra_session` | List, close, or manage sessions |
+| `spectra_library` | Manage the persistent capture library — tag, find, gallery, export, status, delete, and migrate-from-showcase |
+
+## Sessions vs Library (two storage dirs, different purposes)
+
+Spectra keeps two top-level directories under `.spectra/`:
+
+- **`.spectra/sessions/<id>/`** — ephemeral step-sequence recordings from `spectra_connect` + `spectra_step` + `spectra_capture`. Use for active UI exploration and walkthroughs.
+- **`.spectra/library/`** — persistent, tagged catalog of captures meant for long-term use (blog posts, docs, marketing). Flat `index.json` + `media/<capture-id>/original.<ext>`.
+
+Move or duplicate a session capture into the library by calling `spectra_library action="add" sourcePath=<path> feature=<slug> tags=[...]`. The library schema is forward-compatible with the legacy `showcase` plugin — run `spectra_library action="migrate-from-showcase" showcasePath=./.showcase` to import an existing library in one shot.
 
 ## Workflows
 
@@ -56,3 +66,4 @@ Spectra captures screenshots, videos, and app usage sequences from running appli
 | `/spectra:walk <description>` | Walk through a flow with natural language |
 | `/spectra:capture` | Screenshot current state |
 | `/spectra:sessions` | List active sessions |
+| `/spectra:library` | Tag, find, export, or migrate captures in the library |

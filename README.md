@@ -562,3 +562,17 @@ spectra/
 | macOS | `NativeDriver` | App name (e.g., `"Finder"`) | AX tree, actions, screenshot via native bridge |
 | iOS | `SimDriver` | `sim:iPhone 16 Pro` | Simulator AX, screenshot, status bar cleanup |
 | watchOS | `SimDriver` | `sim:Apple Watch Series 10` | Simulator AX, screenshot, Digital Crown |
+
+## Codex
+
+This package now ships an additive Codex plugin surface alongside the existing Claude Code package. The Claude package remains authoritative for Claude behavior; the Codex package adds a parallel `.codex-plugin/plugin.json` install surface without changing the Claude runtime.
+
+Package root for Codex installs:
+- the repository root (`.`)
+
+Primary Codex surface:
+- skills from `./skills` when present
+- MCP config from `inline `mcpServers` metadata` when present
+
+Install the package from this package root using your current Codex plugin install flow. The Codex package is additive only: Claude-specific hooks, slash commands, and agent wiring remain unchanged for Claude Code.
+

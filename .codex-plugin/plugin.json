@@ -14,6 +14,7 @@
     "demo-recording",
     "accessibility"
   ],
+  "skills": "./skills",
   "mcpServers": {
     "spectra": {
       "command": "node",
@@ -35,5 +36,16 @@
         "spectra_library"
       ]
     }
+  },
+  "interface": {
+    "displayName": "Spectra",
+    "shortDescription": "Capture and library plugin \u2014 screenshots, videos, and usage sequences across web and native, with tagged organization and export for blog/docs/marketing.",
+    "longDescription": "Spectra captures screenshots, videos, and step-by-step UI sessions from running apps on web, macOS, iOS, and watchOS, then organizes them in a tagged library you can search, group, and export to disk for blog posts, documentation, and marketing assets. Includes a one-command migration from the legacy showcase plugin.",
+    "developerName": "Ross Labs",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ]
   }
 }
