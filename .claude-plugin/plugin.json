@@ -1,6 +1,6 @@
 {
   "name": "spectra",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Content capture and library for marketing \u2014 screenshots, videos, and usage sequences across web, macOS, iOS, watchOS, plus a tagged library for organizing and exporting assets for blog posts, social media, and documentation",
   "author": {
     "name": "Tyrone Ross"

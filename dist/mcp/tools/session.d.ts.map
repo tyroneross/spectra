@@ -1,0 +1,1 @@
+{"version":3,"file":"session.d.ts","sourceRoot":"","sources":["../../../src/mcp/tools/session.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,eAAe,CAAA;AAEhD,MAAM,WAAW,aAAa;IAC5B,MAAM,EAAE,MAAM,GAAG,KAAK,GAAG,OAAO,GAAG,WAAW,CAAA;IAC9C,SAAS,CAAC,EAAE,MAAM,CAAA;CACnB;AAED,wBAAsB,aAAa,CAAC,MAAM,EAAE,aAAa,EAAE,GAAG,EAAE,WAAW,GAAG,OAAO,CAAC,OAAO,CAAC,CA0C7F"}

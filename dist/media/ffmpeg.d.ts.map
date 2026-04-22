@@ -1,0 +1,1 @@
+{"version":3,"file":"ffmpeg.d.ts","sourceRoot":"","sources":["../../src/media/ffmpeg.ts"],"names":[],"mappings":"AAKA,wBAAgB,YAAY,IAAI,MAAM,GAAG,IAAI,CAS5C;AAED,wBAAgB,aAAa,IAAI,MAAM,CAStC;AAED,wBAAsB,SAAS,CAC7B,KAAK,EAAE,MAAM,EACb,MAAM,EAAE,MAAM,EACd,OAAO,CAAC,EAAE;IAAE,GAAG,CAAC,EAAE,MAAM,CAAA;CAAE,GACzB,OAAO,CAAC,IAAI,CAAC,CA2Bf"}
