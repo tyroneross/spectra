@@ -1,6 +1,6 @@
 ---
 name: content-capture
-description: This skill should be used when the user asks to "capture screenshots for a blog post", "record a demo", "create marketing assets", "screenshot this feature", "make a video of this flow", "capture content for social media", "document this feature visually", or when content creation from a running application is needed.
+description: Use when the user asks to capture screenshots, record a demo or video, create marketing assets, or document a feature visually from a running application.
 version: 0.1.0
 user-invocable: false
 ---
