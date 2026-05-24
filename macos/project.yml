@@ -1,0 +1,90 @@
+# Spectra — macOS menu-bar app
+# Regenerate with: xcodegen generate (from macos/ directory)
+#
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+
+name: Spectra
+options:
+  bundleIdPrefix: dev.spectra
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: 7AK2KDLAVP
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.10"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_LSUIElement: YES
+    INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright (c) 2026 Tyrone Ross, Jr"
+    INFOPLIST_KEY_CFBundleDisplayName: "Spectra"
+    INFOPLIST_KEY_NSAppleEventsUsageDescription: "Spectra controls applications for UI capture and walkthrough."
+    PRODUCT_BUNDLE_IDENTIFIER: dev.spectra.app
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_IDENTITY: "Apple Development"
+    CODE_SIGN_IDENTITY[sdk=macosx*]: "Apple Development"
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: -Onone
+      SWIFT_COMPILATION_MODE: singlefile
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: -O
+      SWIFT_COMPILATION_MODE: wholemodule
+
+targets:
+  Spectra:
+    type: application
+    platform: macOS
+    sources:
+      - path: Spectra
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: Spectra/Assets.xcassets
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: Spectra/Spectra.entitlements
+        PRODUCT_NAME: Spectra
+        INFOPLIST_KEY_CFBundleDisplayName: "Spectra"
+        # Menu-bar-only app: hide Dock icon, hide main menu
+        INFOPLIST_KEY_LSUIElement: YES
+    info:
+      path: Spectra/Info.plist
+      properties:
+        LSUIElement: YES
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "1"
+        NSAppleEventsUsageDescription: "Spectra controls applications for UI capture and walkthrough."
+        NSHumanReadableCopyright: "Copyright (c) 2026 Tyrone Ross, Jr"
+
+  SpectraTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - SpectraTests
+    dependencies:
+      - target: Spectra
+    settings:
+      base:
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Spectra.app/Contents/MacOS/Spectra"
+
+schemes:
+  Spectra:
+    build:
+      targets:
+        Spectra: all
+        SpectraTests: [test]
+    test:
+      targets:
+        - SpectraTests
+    run:
+      config: Debug
+    archive:
+      config: Release

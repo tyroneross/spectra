@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Spectra is a developer tool, not a sandboxed Mac App Store app.
+		It needs to:
+		  - spawn child processes (Node daemon, dev servers)
+		  - read/write arbitrary files (repoPath/.spectra/sessions/*)
+		  - send Apple Events to other apps (AX-based capture)
+		  - reach 127.0.0.1 over HTTP for the daemon
+		Therefore: NOT sandboxed.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+</dict>
+</plist>

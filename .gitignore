@@ -13,3 +13,10 @@ web-ui/next-env.d.ts
 
 # Capture output
 artifacts/
+
+# macOS app build outputs
+macos/build/
+macos/release/
+Spectra.app/
+Spectra.dmg
+

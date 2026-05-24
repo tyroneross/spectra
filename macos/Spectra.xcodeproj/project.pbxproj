@@ -1,0 +1,499 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2425CB59BFE4F70929658B44 /* SpectraApp.swift */; };
+		39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */; };
+		3BCC266A696445F1F6F1C60E /* MenuBarPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278800AE363109BC3AEBABD2 /* MenuBarPopover.swift */; };
+		3E09B6EB3A6AFECDEA669096 /* DaemonClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */; };
+		46AC00560A61E021AC719E21 /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78339EDBC016669BC072EB55 /* DaemonClient.swift */; };
+		61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */; };
+		74542E58408799E856FCCC51 /* SpectraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */; };
+		7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */; };
+		B0CA003FD67A04DABCB9DA22 /* Recents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330C13C09396C4A295B9346A /* Recents.swift */; };
+		B24E8B3C9A264FD85548D355 /* RecentsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */; };
+		F57925FC146AC34DDB4A3C55 /* DaemonModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFE6B6426F27011EFA5547F /* DaemonModels.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2828A53DFB57B04C5891ECEA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 486F4F67B4EEE679DCD2A42C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 21488FC53AAC7B848088AE58;
+			remoteInfo = Spectra;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2425CB59BFE4F70929658B44 /* SpectraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraApp.swift; sourceTree = "<group>"; };
+		278800AE363109BC3AEBABD2 /* MenuBarPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopover.swift; sourceTree = "<group>"; };
+		330C13C09396C4A295B9346A /* Recents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recents.swift; sourceTree = "<group>"; };
+		3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityPanel.swift; sourceTree = "<group>"; };
+		5C8E2BC2D1A3C879E43E0C46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		643DAAA8F4A15075134FFB02 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraViewModel.swift; sourceTree = "<group>"; };
+		78339EDBC016669BC072EB55 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
+		8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientTests.swift; sourceTree = "<group>"; };
+		C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPicker.swift; sourceTree = "<group>"; };
+		CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStoreTests.swift; sourceTree = "<group>"; };
+		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
+		DEFE6B6426F27011EFA5547F /* DaemonModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonModels.swift; sourceTree = "<group>"; };
+		EC0FB475007823856D622E15 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1DD078A297634B69437EF022 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				330C13C09396C4A295B9346A /* Recents.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		2C06F40E681A6C474477AA62 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		3A8295E80913DD9CD24834D4 /* Spectra */ = {
+			isa = PBXGroup;
+			children = (
+				CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */,
+				5C8E2BC2D1A3C879E43E0C46 /* Info.plist */,
+				D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */,
+				2425CB59BFE4F70929658B44 /* SpectraApp.swift */,
+				AB8D311A7A4DF2F15C80AB1C /* Net */,
+				1DD078A297634B69437EF022 /* Storage */,
+				2C06F40E681A6C474477AA62 /* ViewModels */,
+				912D781995C8BE6746A9FF46 /* Views */,
+			);
+			path = Spectra;
+			sourceTree = "<group>";
+		};
+		912D781995C8BE6746A9FF46 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */,
+				278800AE363109BC3AEBABD2 /* MenuBarPopover.swift */,
+				C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AB8D311A7A4DF2F15C80AB1C /* Net */ = {
+			isa = PBXGroup;
+			children = (
+				78339EDBC016669BC072EB55 /* DaemonClient.swift */,
+				DEFE6B6426F27011EFA5547F /* DaemonModels.swift */,
+			);
+			path = Net;
+			sourceTree = "<group>";
+		};
+		DBFA11753B3BEC3E4F64E4F7 /* SpectraTests */ = {
+			isa = PBXGroup;
+			children = (
+				8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */,
+				D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */,
+			);
+			path = SpectraTests;
+			sourceTree = "<group>";
+		};
+		DD5F659EAE7458C6B06431F2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				643DAAA8F4A15075134FFB02 /* Spectra.app */,
+				EC0FB475007823856D622E15 /* SpectraTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EDC120292CAF552B45F887E3 = {
+			isa = PBXGroup;
+			children = (
+				3A8295E80913DD9CD24834D4 /* Spectra */,
+				DBFA11753B3BEC3E4F64E4F7 /* SpectraTests */,
+				DD5F659EAE7458C6B06431F2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		21488FC53AAC7B848088AE58 /* Spectra */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 487300B4A64D25F1EE54C13B /* Build configuration list for PBXNativeTarget "Spectra" */;
+			buildPhases = (
+				10EBE85AA9984C829C2B95DA /* Sources */,
+				6AE36DAD9B087AA9882CC4C6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Spectra;
+			packageProductDependencies = (
+			);
+			productName = Spectra;
+			productReference = 643DAAA8F4A15075134FFB02 /* Spectra.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A62C9EC9911197E844AD7386 /* SpectraTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0AACCB37691762979B9E81C1 /* Build configuration list for PBXNativeTarget "SpectraTests" */;
+			buildPhases = (
+				EC1B21FC4B692FFB509E0950 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C4958494FEFF8A1D6147E2D9 /* PBXTargetDependency */,
+			);
+			name = SpectraTests;
+			packageProductDependencies = (
+			);
+			productName = SpectraTests;
+			productReference = EC0FB475007823856D622E15 /* SpectraTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		486F4F67B4EEE679DCD2A42C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					21488FC53AAC7B848088AE58 = {
+						DevelopmentTeam = 7AK2KDLAVP;
+						ProvisioningStyle = Automatic;
+					};
+					A62C9EC9911197E844AD7386 = {
+						DevelopmentTeam = 7AK2KDLAVP;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = EC9FA39C16D0BAEF41B6101C /* Build configuration list for PBXProject "Spectra" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = EDC120292CAF552B45F887E3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				21488FC53AAC7B848088AE58 /* Spectra */,
+				A62C9EC9911197E844AD7386 /* SpectraTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6AE36DAD9B087AA9882CC4C6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		10EBE85AA9984C829C2B95DA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */,
+				46AC00560A61E021AC719E21 /* DaemonClient.swift in Sources */,
+				F57925FC146AC34DDB4A3C55 /* DaemonModels.swift in Sources */,
+				3BCC266A696445F1F6F1C60E /* MenuBarPopover.swift in Sources */,
+				B0CA003FD67A04DABCB9DA22 /* Recents.swift in Sources */,
+				61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */,
+				1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */,
+				74542E58408799E856FCCC51 /* SpectraViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EC1B21FC4B692FFB509E0950 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3E09B6EB3A6AFECDEA669096 /* DaemonClientTests.swift in Sources */,
+				B24E8B3C9A264FD85548D355 /* RecentsStoreTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C4958494FEFF8A1D6147E2D9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 21488FC53AAC7B848088AE58 /* Spectra */;
+			targetProxy = 2828A53DFB57B04C5891ECEA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		29C9ECA1C232DB3130ED58B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Spectra.app/Contents/MacOS/Spectra";
+			};
+			name = Debug;
+		};
+		3A67D58F0F7FBFF995C264AC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 7AK2KDLAVP;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Spectra;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Spectra controls applications for UI capture and walkthrough.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tyrone Ross, Jr";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.3.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.spectra.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		91790D54062A798B51EDEBFF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Spectra/Spectra.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = Spectra/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Spectra;
+				INFOPLIST_KEY_LSUIElement = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_NAME = Spectra;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		B3EEB40641C8A0766502F02B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Spectra.app/Contents/MacOS/Spectra";
+			};
+			name = Release;
+		};
+		B41C9F823DACE51A04BA2A86 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 7AK2KDLAVP;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Spectra;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Spectra controls applications for UI capture and walkthrough.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tyrone Ross, Jr";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.3.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.spectra.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_COMPILATION_MODE = singlefile;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		FADF15D98E8A6C427401D398 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Spectra/Spectra.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = Spectra/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Spectra;
+				INFOPLIST_KEY_LSUIElement = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_NAME = Spectra;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0AACCB37691762979B9E81C1 /* Build configuration list for PBXNativeTarget "SpectraTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				29C9ECA1C232DB3130ED58B1 /* Debug */,
+				B3EEB40641C8A0766502F02B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		487300B4A64D25F1EE54C13B /* Build configuration list for PBXNativeTarget "Spectra" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FADF15D98E8A6C427401D398 /* Debug */,
+				91790D54062A798B51EDEBFF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EC9FA39C16D0BAEF41B6101C /* Build configuration list for PBXProject "Spectra" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B41C9F823DACE51A04BA2A86 /* Debug */,
+				3A67D58F0F7FBFF995C264AC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 486F4F67B4EEE679DCD2A42C /* Project object */;
+}
