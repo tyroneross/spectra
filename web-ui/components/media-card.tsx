@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Check } from 'lucide-react'
 import type { Capture } from '@/lib/types'
 import { relativeTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -32,13 +33,13 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
   }
 
   return (
-    <Link href={`/captures/${capture.id}`} className="group block">
+    <Link href={`/captures/${capture.id}`} className="group block bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
       <div
         className={cn(
-          'bg-zinc-900 border rounded-lg overflow-hidden transition-all',
+          'overflow-hidden transition-all',
           selected
-            ? 'border-zinc-400'
-            : 'border-zinc-800 hover:border-zinc-700 hover:shadow-lg hover:shadow-black/30'
+            ? 'ring-2 ring-inset ring-zinc-300'
+            : 'hover:bg-zinc-800/60'
         )}
       >
         {/* Thumbnail — 16:10 aspect ratio */}
@@ -80,7 +81,8 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
                 type="checkbox"
                 checked={selected ?? false}
                 onChange={handleCheckbox}
-                className="w-4 h-4 rounded accent-white cursor-pointer"
+                aria-label={`Select ${capture.filename}`}
+                className="min-h-6 min-w-6 rounded accent-white cursor-pointer"
               />
             </div>
           )}
@@ -95,15 +97,21 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
                 type="checkbox"
                 checked={false}
                 onChange={handleCheckbox}
-                className="w-4 h-4 rounded accent-white cursor-pointer"
+                aria-label={`Select ${capture.filename}`}
+                className="min-h-6 min-w-6 rounded accent-white cursor-pointer"
               />
+            </div>
+          )}
+          {selected && (
+            <div className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-zinc-50 text-zinc-950">
+              <Check className="size-4" aria-hidden="true" />
             </div>
           )}
 
           {/* Session badge — bottom left */}
           {capture.sessionName && (
             <div className="absolute bottom-2 left-2">
-              <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-700/90 text-zinc-300 truncate max-w-[120px] block">
+              <span className="block max-w-[120px] truncate bg-black/70 px-1.5 py-0.5 text-xs text-zinc-200">
                 {capture.sessionName}
               </span>
             </div>
@@ -112,7 +120,7 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
           {/* Platform badge — bottom right */}
           {capture.platform && (
             <div className="absolute bottom-2 right-2">
-              <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800/90 text-zinc-400">
+              <span className="bg-black/70 px-1.5 py-0.5 text-xs text-zinc-300">
                 {PLATFORM_LABELS[capture.platform] ?? capture.platform}
               </span>
             </div>

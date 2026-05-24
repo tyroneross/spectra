@@ -248,22 +248,17 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           />
         </div>
 
-        {/* Annotation tools note */}
-        <p className="text-xs text-zinc-600 italic">
-          Annotation tools (crop, highlight) coming soon.
-        </p>
-
         <div className="flex justify-between">
           <Button
             variant="outline"
             onClick={() => setStep(1)}
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
           >
             Back
           </Button>
           <Button
             onClick={() => setStep(3)}
-            className="bg-zinc-50 text-zinc-950 hover:bg-zinc-200"
+            className="min-h-11 bg-zinc-50 text-zinc-950 hover:bg-zinc-200 sm:min-h-9"
           >
             Next: Export
           </Button>
@@ -298,7 +293,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <Button
             variant="outline"
             onClick={() => { setResult(null); setStep(1); setSelectedIds(new Set()) }}
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
           >
             Start New Export
           </Button>
@@ -391,14 +386,14 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <Button
             variant="outline"
             onClick={() => setStep(2)}
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
           >
             Back
           </Button>
           <Button
             onClick={handleExport}
             disabled={exporting}
-            className={!exporting ? 'bg-zinc-50 text-zinc-950 hover:bg-zinc-200' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}
+            className={!exporting ? 'min-h-11 bg-zinc-50 text-zinc-950 hover:bg-zinc-200 sm:min-h-9' : 'min-h-11 bg-zinc-800 text-zinc-600 cursor-not-allowed sm:min-h-9'}
           >
             {exporting ? 'Exporting...' : 'Export'}
           </Button>

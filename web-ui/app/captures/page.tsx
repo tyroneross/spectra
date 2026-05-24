@@ -50,20 +50,27 @@ export default async function CapturesPage({ searchParams }: PageProps) {
   }))
 
   return (
-    <div className="flex h-[calc(100vh-3rem)]">
-      {/* Filter sidebar */}
-      <div className="hidden md:block w-60 shrink-0 border-r border-zinc-800 p-6 overflow-y-auto">
-        <FilterPanel sessions={sessionOptions} />
-      </div>
+    <div className="min-h-[calc(100vh-3.5rem)]">
+      <div className="mx-auto flex w-full max-w-7xl gap-6 px-4 py-5 sm:px-6">
+        <FilterPanel sessions={sessionOptions} className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto" />
 
-      {/* Main content */}
-      <main className="flex-1 min-w-0 p-6 overflow-y-auto">
-        {/* Mobile filter button lives inside FilterPanel */}
-        <div className="md:hidden mb-4">
-          <FilterPanel sessions={sessionOptions} />
-        </div>
-        <CapturesClient captures={captures} />
-      </main>
+        <main className="min-w-0 flex-1">
+          <div className="mb-5 flex flex-col gap-1">
+            <h1 className="text-lg font-semibold text-zinc-50">
+              Captures
+              <span className="ml-2 text-sm font-normal text-zinc-500">{captures.length}</span>
+            </h1>
+            <p className="text-sm text-zinc-400">
+              Review screenshots and recordings from active Spectra sessions.
+            </p>
+          </div>
+
+          <div className="mb-4 md:hidden">
+            <FilterPanel sessions={sessionOptions} />
+          </div>
+          <CapturesClient captures={captures} />
+        </main>
+      </div>
     </div>
   )
 }

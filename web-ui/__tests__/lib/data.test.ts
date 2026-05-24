@@ -25,6 +25,14 @@ const mockedReaddir = vi.mocked(fsp.readdir)
 const mockedReadFile = vi.mocked(fsp.readFile)
 const mockedStat = vi.mocked(fsp.stat)
 
+function mockDirent(name: string, kind: 'file' | 'directory') {
+  return Object.assign(Object.create(null), {
+    name,
+    isDirectory: () => kind === 'directory',
+    isFile: () => kind === 'file',
+  })
+}
+
 // ─── resolveMediaPath — pure, no fs calls ────────────────────────────────────
 
 describe('resolveMediaPath', () => {
@@ -100,21 +108,17 @@ describe('listSessions', () => {
       // Sessions directory — return one session folder (withFileTypes: true)
       if (dirStr.includes('sessions') && !dirStr.includes('sess-abc')) {
         return Promise.resolve([
-          Object.assign(Object.create(null), {
-            name: 'sess-abc',
-            isDirectory: () => true,
-            isFile: () => false,
-          }),
-        ]) as ReturnType<typeof fsp.readdir>
+          mockDirent('sess-abc', 'directory'),
+        ]) as unknown as ReturnType<typeof fsp.readdir>
       }
       // Session folder listing for captureCount (no withFileTypes — returns string[])
       if (dirStr.includes('sess-abc') && !withFileTypes) {
-        return Promise.resolve(['session.json', 'step-001.png']) as ReturnType<typeof fsp.readdir>
+        return Promise.resolve(['session.json', 'step-001.png']) as unknown as ReturnType<typeof fsp.readdir>
       }
       return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
     })
 
-    mockedReadFile.mockResolvedValue(JSON.stringify(mockSession) as unknown as Buffer)
+    mockedReadFile.mockResolvedValue(JSON.stringify(mockSession) as unknown as Awaited<ReturnType<typeof fsp.readFile>>)
     mockedStat.mockResolvedValue({ size: 1024, mtimeMs: 1700000000000 } as unknown as Awaited<ReturnType<typeof fsp.stat>>)
 
     const result = await listSessions()

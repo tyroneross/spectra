@@ -14,7 +14,7 @@ interface MediaGridProps {
 
 function SkeletonCard() {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden animate-pulse">
+    <div className="overflow-hidden bg-zinc-900 animate-pulse">
       <div style={{ aspectRatio: '16/10' }} className="bg-zinc-800" />
       <div className="px-3 py-2 space-y-1.5">
         <div className="h-3 bg-zinc-800 rounded w-3/4" />
@@ -33,10 +33,12 @@ export function MediaGrid({
 }: MediaGridProps) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
+      <div className="overflow-hidden rounded-lg border border-zinc-800">
+        <div className="grid grid-cols-2 gap-px bg-zinc-800 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -64,16 +66,18 @@ export function MediaGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {captures.map((capture) => (
-        <MediaCard
-          key={capture.id}
-          capture={capture}
-          bulkMode={bulkMode}
-          selected={selectedIds?.has(capture.id)}
-          onSelect={onSelect}
-        />
-      ))}
+    <div className="overflow-hidden rounded-lg border border-zinc-800">
+      <div className="grid grid-cols-2 gap-px bg-zinc-800 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {captures.map((capture) => (
+          <MediaCard
+            key={capture.id}
+            capture={capture}
+            bulkMode={bulkMode}
+            selected={selectedIds?.has(capture.id)}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
     </div>
   )
 }

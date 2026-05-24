@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useState, useRef } from 'react'
+import { Archive, Download, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -62,32 +63,23 @@ export function ActionBar({
   }
 
   const currentSort = searchParams.get('sort') ?? 'date-desc'
+  const hasSelection = selectedCount > 0
 
   return (
-    <div className="flex items-center gap-3 mb-4">
-      {/* Search */}
-      <div className="relative flex-1 max-w-xs">
-        <svg
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
-        </svg>
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="relative min-w-0 flex-1 sm:max-w-xs">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" aria-hidden="true" />
         <Input
           value={searchValue}
           onChange={handleSearch}
           placeholder="Search captures…"
-          className="pl-8 bg-zinc-900 border-zinc-700 text-zinc-200 placeholder:text-zinc-500 h-8 text-sm focus-visible:ring-zinc-600"
+          aria-label="Search captures"
+          className="min-h-11 border-zinc-700 bg-zinc-900 pl-9 text-base text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-zinc-600 sm:min-h-9 sm:text-sm"
         />
       </div>
 
-      {/* Sort */}
       <Select value={currentSort} onValueChange={(v) => setParam('sort', v)}>
-        <SelectTrigger className="w-36 h-8 bg-zinc-900 border-zinc-700 text-zinc-300 text-sm focus:ring-zinc-600">
+        <SelectTrigger aria-label="Sort captures" className="min-h-11 w-full border-zinc-700 bg-zinc-900 text-sm text-zinc-300 focus:ring-zinc-600 sm:min-h-9 sm:w-36">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-300">
@@ -99,37 +91,39 @@ export function ActionBar({
         </SelectContent>
       </Select>
 
-      {/* Bulk actions */}
-      {bulkMode && selectedCount > 0 && (
-        <>
+      {bulkMode && (
+        <div className="flex gap-2">
           <Button
             size="sm"
             variant="outline"
             onClick={onExport}
-            className="h-8 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 text-xs"
+            disabled={!hasSelection}
+            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:min-h-9"
           >
-            Export {selectedCount}
+            <Download className="size-4" aria-hidden="true" />
+            Export {hasSelection ? selectedCount : ''}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={onArchive}
-            className="h-8 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 text-xs"
+            disabled={!hasSelection}
+            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:min-h-9"
           >
-            Archive {selectedCount}
+            <Archive className="size-4" aria-hidden="true" />
+            Archive {hasSelection ? selectedCount : ''}
           </Button>
-        </>
+        </div>
       )}
 
-      {/* Bulk toggle */}
       <Button
         size="sm"
         variant={bulkMode ? 'default' : 'outline'}
         onClick={onToggleBulk}
         className={
           bulkMode
-            ? 'h-8 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 text-xs'
-            : 'h-8 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 text-xs'
+            ? 'min-h-11 bg-zinc-700 text-zinc-100 hover:bg-zinc-600 sm:min-h-9'
+            : 'min-h-11 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 sm:min-h-9'
         }
       >
         {bulkMode ? 'Cancel' : 'Select'}

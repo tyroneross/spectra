@@ -83,33 +83,18 @@ export function PlaybookPageClient({ playbook: initial, isNew }: PlaybookPageCli
     }
   }
 
-  function handleRun() {
-    showToast('Playbook execution coming soon')
-  }
-
   return (
     <div className="relative space-y-4">
       {/* Action row */}
       <div className="flex items-center justify-between gap-3">
         <div />
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRun}
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-          >
-            <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 8 10">
-              <path d="M0 0l8 5-8 5V0z" />
-            </svg>
-            Run
-          </Button>
           {!isNew && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => setDeleteOpen(true)}
-              className="border-zinc-700 text-red-500 hover:bg-zinc-800 hover:text-red-400"
+              className="min-h-11 border-zinc-700 text-red-500 hover:bg-zinc-800 hover:text-red-400 sm:min-h-9"
             >
               Delete
             </Button>
@@ -148,14 +133,14 @@ export function PlaybookPageClient({ playbook: initial, isNew }: PlaybookPageCli
             <Button
               variant="outline"
               onClick={() => setDeleteOpen(false)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700 text-white border-0"
+              className="min-h-11 bg-red-600 hover:bg-red-700 text-white border-0 sm:min-h-9"
             >
               {deleting ? 'Deleting...' : 'Delete'}
             </Button>

@@ -15,20 +15,19 @@ export function Nav() {
   const pathname = usePathname()
 
   return (
-    <nav className="w-full h-12 bg-zinc-900 border-b border-zinc-800 flex items-center px-6 gap-6">
-      {/* Logo */}
-      <span className="font-semibold text-zinc-50 mr-2 shrink-0">Spectra</span>
+    <nav aria-label="Primary" className="flex h-14 w-full items-center gap-4 border-b border-zinc-800 bg-zinc-950 px-4 sm:px-6">
+      <span className="mr-1 shrink-0 text-sm font-semibold text-zinc-50">Spectra</span>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/')
           return (
             <Link
               key={tab.href}
               href={tab.href}
+              aria-current={isActive ? 'page' : undefined}
               className={[
-                'relative px-3 h-12 flex items-center text-sm transition-colors',
+                'relative flex h-14 shrink-0 items-center px-3 text-sm transition-colors',
                 isActive
                   ? 'text-zinc-50 font-medium after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-white'
                   : 'text-zinc-400 hover:text-zinc-200',
@@ -40,8 +39,7 @@ export function Nav() {
         })}
       </div>
 
-      {/* Version badge */}
-      <span className="text-xs px-2 py-0.5 rounded bg-zinc-700 text-zinc-300 shrink-0">
+      <span className="hidden shrink-0 font-mono text-xs text-zinc-500 sm:inline">
         v0.1.0
       </span>
     </nav>

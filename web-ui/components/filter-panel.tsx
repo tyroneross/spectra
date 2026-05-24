@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -78,19 +79,20 @@ function FilterContent({ sessions }: FilterPanelProps) {
 
   return (
     <div className="space-y-6">
-      {/* Sessions */}
       <div>
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Sessions
         </p>
-        <div className="space-y-0.5">
+        <div className="overflow-hidden rounded-md border border-zinc-800">
           <button
+            type="button"
             onClick={() => setParam('sessionId', null)}
+            aria-pressed={!currentSession}
             className={cn(
-              'w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-colors',
+              'flex min-h-11 w-full items-center justify-between px-3 text-sm transition-colors sm:min-h-8',
               !currentSession
-                ? 'text-zinc-50 bg-zinc-800'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                ? 'text-zinc-50 font-medium'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
             )}
           >
             <span>All Sessions</span>
@@ -98,12 +100,14 @@ function FilterContent({ sessions }: FilterPanelProps) {
           {sessions.map((s) => (
             <button
               key={s.id}
+              type="button"
               onClick={() => setParam('sessionId', s.id)}
+              aria-pressed={currentSession === s.id}
               className={cn(
-                'w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-colors',
+                'flex min-h-11 w-full items-center justify-between border-t border-zinc-800 px-3 text-sm transition-colors sm:min-h-8',
                 currentSession === s.id
-                  ? 'text-zinc-50 bg-zinc-800'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                  ? 'text-zinc-50 font-medium'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
               )}
             >
               <span className="truncate text-left">{s.name}</span>
@@ -113,21 +117,22 @@ function FilterContent({ sessions }: FilterPanelProps) {
         </div>
       </div>
 
-      {/* Platform */}
       <div>
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Platform
         </p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-zinc-800">
           {PLATFORMS.map((p) => (
             <button
               key={p}
+              type="button"
               onClick={() => setParam('platform', currentPlatform === p ? null : p)}
+              aria-pressed={currentPlatform === p}
               className={cn(
-                'px-2.5 py-1 rounded text-xs transition-colors border',
+                'min-h-11 px-2 text-xs transition-colors odd:border-r odd:border-zinc-800 [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-zinc-800 sm:min-h-8',
                 currentPlatform === p
-                  ? 'bg-zinc-700 border-zinc-600 text-zinc-100'
-                  : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                  ? 'text-zinc-50 font-medium'
+                  : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-300'
               )}
             >
               {PLATFORM_LABELS[p]}
@@ -136,21 +141,22 @@ function FilterContent({ sessions }: FilterPanelProps) {
         </div>
       </div>
 
-      {/* Type */}
       <div>
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Type
         </p>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-zinc-800">
           {(['screenshot', 'video'] as const).map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setParam('type', currentType === t ? null : t)}
+              aria-pressed={currentType === t}
               className={cn(
-                'px-2.5 py-1 rounded text-xs transition-colors border capitalize',
+                'min-h-11 px-2 text-xs capitalize transition-colors first:border-r first:border-zinc-800 sm:min-h-8',
                 currentType === t
-                  ? 'bg-zinc-700 border-zinc-600 text-zinc-100'
-                  : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                  ? 'text-zinc-50 font-medium'
+                  : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-300'
               )}
             >
               {t === 'screenshot' ? 'Screenshots' : 'Video'}
@@ -159,21 +165,22 @@ function FilterContent({ sessions }: FilterPanelProps) {
         </div>
       </div>
 
-      {/* Date */}
       <div>
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Date
         </p>
-        <div className="space-y-0.5">
+        <div className="overflow-hidden rounded-md border border-zinc-800">
           {DATE_PRESETS.map((preset) => (
             <button
               key={preset.value}
+              type="button"
               onClick={() => setDatePreset(preset.value)}
+              aria-pressed={currentDate === preset.value}
               className={cn(
-                'w-full text-left px-2 py-1.5 rounded text-sm transition-colors',
+                'min-h-11 w-full border-t border-zinc-800 px-3 text-left text-sm first:border-t-0 transition-colors sm:min-h-8',
                 currentDate === preset.value
-                  ? 'text-zinc-50 bg-zinc-800'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                  ? 'text-zinc-50 font-medium'
+                  : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
               )}
             >
               {preset.label}
@@ -188,19 +195,15 @@ function FilterContent({ sessions }: FilterPanelProps) {
 export function FilterPanel({ sessions, className }: FilterPanelProps) {
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className={cn('hidden md:block w-60 shrink-0 pr-6', className)}>
         <FilterContent sessions={sessions} />
       </aside>
 
-      {/* Mobile sheet trigger */}
       <div className="md:hidden">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300">
-              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" d="M3 6h18M6 12h12M9 18h6" />
-              </svg>
+            <Button variant="outline" size="sm" className="min-h-11 border-zinc-700 text-zinc-300">
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
               Filters
             </Button>
           </SheetTrigger>

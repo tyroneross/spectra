@@ -241,7 +241,7 @@ export function PlaybookEditor({ playbook, onSave }: PlaybookEditorProps) {
           variant="outline"
           size="sm"
           onClick={addStep}
-          className="mt-3 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          className="mt-3 min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:min-h-9"
         >
           + Add Step
         </Button>
@@ -252,7 +252,7 @@ export function PlaybookEditor({ playbook, onSave }: PlaybookEditorProps) {
         <Button
           onClick={handleSave}
           disabled={!isDirty || !name.trim()}
-          className={isDirty && name.trim() ? 'bg-zinc-50 text-zinc-950 hover:bg-zinc-200' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}
+          className={isDirty && name.trim() ? 'min-h-11 bg-zinc-50 text-zinc-950 hover:bg-zinc-200 sm:min-h-9' : 'min-h-11 bg-zinc-800 text-zinc-600 cursor-not-allowed sm:min-h-9'}
         >
           Save Playbook
         </Button>
