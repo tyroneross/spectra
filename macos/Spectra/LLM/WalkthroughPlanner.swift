@@ -1,5 +1,10 @@
 // WalkthroughPlanner.swift
 //
+// Standalone-app fallback path. Host agents should drive walkthroughs by
+// reading `spectra_snapshot`, planning in the host LLM, and executing through
+// Spectra MCP tools. This planner is kept for Spectra.app sessions launched
+// without a host agent.
+//
 // Drives the walkthrough loop:
 //   1. snapshot (spectra_snapshot)
 //   2. ask Claude for an action plan (AnthropicClient + PromptBuilder)

@@ -7,6 +7,8 @@ export async function handleSnapshot(params, ctx) {
     const result = {
         snapshot: serializeSnapshot(snap),
         elementCount: snap.elements.length,
+        url: snap.url,
+        appName: snap.appName,
     };
     if (params.screenshot) {
         const buf = await driver.screenshot();

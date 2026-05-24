@@ -6,6 +6,8 @@ export interface SnapshotParams {
 export interface SnapshotResult {
     snapshot: string;
     elementCount: number;
+    url?: string;
+    appName?: string;
     screenshot?: string;
 }
 export declare function handleSnapshot(params: SnapshotParams, ctx: ToolContext): Promise<SnapshotResult>;

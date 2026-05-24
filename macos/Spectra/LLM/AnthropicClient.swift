@@ -1,5 +1,9 @@
 // AnthropicClient.swift
 //
+// Standalone-app fallback path. Host-routed Spectra workflows do not need this
+// client; the host agent supplies planning and Spectra executes MCP tools. This
+// client remains for Spectra.app when no host agent is present.
+//
 // Hand-rolled (no SPM Anthropic SDK) URLSession client for the Messages API.
 // Used by WalkthroughPlanner to ask Claude for a single action plan per turn.
 //

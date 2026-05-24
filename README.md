@@ -75,6 +75,20 @@ Or add to `.claude/settings.json`:
 | `/spectra:capture` | Screenshot current state |
 | `/spectra:sessions` | List active sessions |
 
+### Routing: Host-Routed vs Standalone
+
+The primary Spectra path is host-routed. A host agent such as Claude Code,
+Codex, or another LLM coding host reads `spectra_snapshot`, plans the next
+action, and calls Spectra MCP tools to execute and capture. Spectra does not
+need a model API key for this path.
+
+The standalone `Spectra.app` fallback is for sessions launched outside a host
+agent. In that case the app uses `WalkthroughPlanner.swift` and
+`AnthropicClient.swift` to plan locally, with the user's key stored in Keychain.
+
+Use host-routed walkthroughs when working inside a coding agent. Use the
+standalone path when the menu-bar app is the only planner available.
+
 ---
 
 ## MCP Tools
@@ -575,4 +589,3 @@ Primary Codex surface:
 - MCP config from `inline `mcpServers` metadata` when present
 
 Install the package from this package root using your current Codex plugin install flow. The Codex package is additive only: Claude-specific hooks, slash commands, and agent wiring remain unchanged for Claude Code.
-

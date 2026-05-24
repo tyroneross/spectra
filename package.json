@@ -25,9 +25,7 @@
     "serve": "cd web-ui && npm run dev -- -p 4300",
     "build:dmg": "bash scripts/build-and-refresh.sh",
     "build:dmg:adhoc": "bash scripts/build-and-refresh.sh --adhoc",
-    "postinstall": "bash scripts/postinstall.sh || true",
-    "bench:walkthrough": "tsx .build-loop/experiments/walkthrough-bench/runner.ts",
-    "bench:walkthrough:analyze": "tsx .build-loop/experiments/walkthrough-bench/analyze.ts"
+    "postinstall": "bash scripts/postinstall.sh || true"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

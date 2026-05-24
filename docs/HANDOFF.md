@@ -1,46 +1,43 @@
 # Handoff
 
 Date: 2026-05-24
-Scope: C7.a walkthrough-bench validity
+Scope: host-routed walkthrough path
 
-## What Changed
+## Current Direction
 
-The walkthrough benchmark now measures the factors it claims to measure before any live DOE run:
+Spectra walkthroughs are host-routed first. Claude Code, Codex, or another host
+LLM plans from `spectra_snapshot`; Spectra executes and captures through MCP
+tools.
 
-- `spectra_snapshot` returns URL metadata for web sessions.
-- URL predicates score against the snapshot response URL.
-- `axPlusScreenshot` cells request screenshot payloads in the TypeScript runner and Swift walkthrough planner.
-- `oneRetryResnapshot` retries a failed executor step once by re-snapshotting and replanning.
-- Success requires an explicit planner `done` signal or a predicate match.
-- `runs.jsonl` rows now split `llmLatencyMs` and `executorLatencyMs`; analyzer falls back to legacy latency fields.
+The archived Anthropic-direct benchmark was moved to
+`archive/walkthrough-bench-anthropic-direct/` because it measured a direct
+vendor call rather than the host-routed plugin path.
 
-## One-Cell Smoke
+DOE is still allowed when it measures the host-routed path. Any active LLM AI
+agent, including Codex, can perform that future DOE by using Spectra's MCP
+tools and recording the outcomes.
 
-Start the daemon from a built repo:
+## Cross-Agent Smoke
+
+Start from a built repo:
 
 ```bash
 npm run build
-npm run daemon
 ```
 
-In a second shell, run one real benchmark cell:
+Run the deterministic smoke:
 
 ```bash
-ANTHROPIC_API_KEY=… npm run bench:walkthrough -- --cells=00
+scripts/verify_cross_agent.sh
 ```
 
-Analyze the result:
+Expected result:
 
-```bash
-npm run bench:walkthrough:analyze
-```
-
-Expected outputs:
-
-- `.build-loop/experiments/walkthrough-bench/runs.jsonl`
-- `.build-loop/experiments/walkthrough-bench/verdict.md`
-
-Do not run the full DOE until the one-cell smoke produces a real row with `llmLatencyMs`, `executorLatencyMs`, and no fabricated success.
+- A Spectra daemon starts on a local port.
+- The web UI starts on a local port.
+- `spectra_connect` opens a session against the web UI.
+- `spectra_walkthrough` executes a three-step flow.
+- At least one screenshot path is returned.
 
 ## Guardrail Checks
 
