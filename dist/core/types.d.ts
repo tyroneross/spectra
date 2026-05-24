@@ -66,6 +66,12 @@ export interface Session {
     createdAt: number;
     updatedAt: number;
     closedAt?: number;
+    /** Dev-server / app process spawned by the launcher when connect was given a repoPath. */
+    launchedProcess?: {
+        pid?: number;
+        kind: string;
+        killOnDisconnect: boolean;
+    };
 }
 export interface Step {
     index: number;

@@ -6,11 +6,18 @@ import { NativeDriver } from '../../native/driver.js'
 import { SimDriver } from '../../native/sim.js'
 import { serializeSnapshot } from '../../core/serialize.js'
 import type { Driver, DriverTarget } from '../../core/types.js'
+import { launchRepo, LauncherError, type LaunchHandle } from '../../launcher/index.js'
 
 export interface ConnectParams {
   target: string
   name?: string
   record?: boolean
+  /**
+   * If present, the launcher first boots a dev server / macOS app for this
+   * repo, then derives the effective target from the launch result (overriding
+   * `target` for web/macos kinds).
+   */
+  repoPath?: string
 }
 
 export interface ConnectResult {
@@ -18,6 +25,25 @@ export interface ConnectResult {
   platform: string
   elementCount: number
   snapshot: string
+  launched?: {
+    kind: string
+    pid?: number
+    url?: string
+    appName?: string
+  }
+}
+
+/**
+ * If launching, the resolved target overrides the user-supplied one. For web
+ * we use the printed dev-server URL; for macos we use the resolved app name.
+ */
+function deriveTargetFromLaunch(handle: LaunchHandle): string {
+  if (handle.url) return handle.url
+  if (handle.appName) return handle.appName
+  throw new LauncherError(
+    'Launch produced no usable target',
+    'Launcher returned neither a URL nor an app name.'
+  )
 }
 
 export async function handleConnect(
@@ -25,26 +51,47 @@ export async function handleConnect(
   ctx: ToolContext,
   createDriver?: () => Driver,
 ): Promise<ConnectResult> {
-  const { platform, driverType } = detectPlatform(params.target)
-
-  // Build driver target
-  const driverTarget: DriverTarget = {}
-  if (platform === 'web') {
-    driverTarget.url = params.target
-  } else if (platform === 'macos') {
-    driverTarget.appName = params.target
-  } else {
-    driverTarget.deviceId = params.target.replace(/^sim:/, '')
+  // ─── Launch first if a repoPath was supplied ─────────────────
+  let launchHandle: LaunchHandle | undefined
+  let effectiveTarget = params.target
+  if (params.repoPath) {
+    launchHandle = await launchRepo(params.repoPath)
+    effectiveTarget = deriveTargetFromLaunch(launchHandle)
   }
 
-  // Create session
+  const { platform, driverType } = detectPlatform(effectiveTarget)
+
+  const driverTarget: DriverTarget = {}
+  if (platform === 'web') {
+    driverTarget.url = effectiveTarget
+  } else if (platform === 'macos') {
+    driverTarget.appName = effectiveTarget
+  } else {
+    driverTarget.deviceId = effectiveTarget.replace(/^sim:/, '')
+  }
+
   const session = await ctx.sessions.create({
     name: params.name,
     platform,
     target: driverTarget,
   })
 
-  // Create and connect driver
+  // Stash the launch handle so close-session can tear it down. ctx.launches
+  // is added in C2; defensively guard for older test-constructed contexts.
+  if (launchHandle) {
+    if (ctx.launches) {
+      ctx.launches.set(session.id, launchHandle)
+    }
+    const sessObj = ctx.sessions.get(session.id)
+    if (sessObj) {
+      sessObj.launchedProcess = {
+        pid: launchHandle.pid,
+        kind: launchHandle.kind,
+        killOnDisconnect: launchHandle.killOnDisconnect,
+      }
+    }
+  }
+
   const driver = createDriver
     ? createDriver()
     : driverType === 'cdp' ? new CdpDriver()
@@ -54,7 +101,6 @@ export async function handleConnect(
   await driver.connect(driverTarget)
   ctx.drivers.set(session.id, driver)
 
-  // Get initial snapshot
   const snap = await driver.snapshot()
   const serialized = serializeSnapshot(snap)
 
@@ -63,5 +109,11 @@ export async function handleConnect(
     platform,
     elementCount: snap.elements.length,
     snapshot: serialized,
+    launched: launchHandle ? {
+      kind: launchHandle.kind,
+      pid: launchHandle.pid,
+      url: launchHandle.url,
+      appName: launchHandle.appName,
+    } : undefined,
   }
 }

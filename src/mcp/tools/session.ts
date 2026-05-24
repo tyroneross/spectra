@@ -35,6 +35,12 @@ export async function handleSession(params: SessionParams, ctx: ToolContext): Pr
         await driver.close()
         ctx.drivers.delete(params.sessionId)
       }
+      // ctx.launches added in C2; older test-constructed contexts may not have it
+      const launch = ctx.launches?.get(params.sessionId)
+      if (launch && launch.killOnDisconnect) {
+        await launch.kill().catch(() => {})
+      }
+      ctx.launches?.delete(params.sessionId)
       await ctx.sessions.close(params.sessionId)
       return { success: true }
     }
@@ -44,6 +50,14 @@ export async function handleSession(params: SessionParams, ctx: ToolContext): Pr
         await recordings.abort(id).catch(() => {})
         await drv.close().catch(() => {})
         ctx.drivers.delete(id)
+      }
+      if (ctx.launches) {
+        for (const [id, launch] of ctx.launches) {
+          if (launch.killOnDisconnect) {
+            await launch.kill().catch(() => {})
+          }
+          ctx.launches.delete(id)
+        }
       }
       await ctx.sessions.closeAll()
       return { success: true }

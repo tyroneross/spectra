@@ -64,17 +64,18 @@ function wrapHandler<T>(
 
 server.tool(
   'spectra_connect',
-  'Start a new UI automation session. Target: URL (web), app name (macOS), sim:device (iOS/watchOS).',
+  'Start a new UI automation session. Target: URL (web), app name (macOS), sim:device (iOS/watchOS). If repoPath is set, the launcher first boots a dev server / macOS app from that directory and uses its resolved URL/app-name as the effective target.',
   {
-    target: z.string().describe('URL, app name, or sim:device identifier'),
+    target: z.string().describe('URL, app name, or sim:device identifier. Ignored if repoPath is set and the launcher resolves a target.'),
     name: z.string().optional().describe('Human-readable session name'),
     record: z.boolean().optional().describe('Start video recording'),
+    repoPath: z.string().optional().describe('Absolute path to a repo to launch first (Next.js / Vite / static HTML / macOS Xcode project).'),
   },
   // annotations: readOnlyHint=false, destructiveHint=false, idempotentHint=true
   { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
-  async ({ target, name, record }) => {
+  async ({ target, name, record, repoPath }) => {
     return wrapHandler(
-      () => handleConnect({ target, name, record }, ctx),
+      () => handleConnect({ target, name, record, repoPath }, ctx),
       'spectra_connect',
     )
   },

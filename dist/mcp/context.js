@@ -4,6 +4,7 @@ export function createContext() {
     return {
         sessions: new SessionManager(),
         drivers: new Map(),
+        launches: new Map(),
     };
 }
 export function detectPlatform(target) {
