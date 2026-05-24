@@ -1,7 +1,7 @@
 {
   "name": "spectra",
   "version": "0.2.0",
-  "description": "Content capture and library for marketing \u2014 screenshots, videos, and usage sequences across web, macOS, iOS, watchOS, plus a tagged library for organizing and exporting assets for blog posts, social media, and documentation",
+  "description": "Content capture and library for marketing — screenshots, videos, and usage sequences across web, macOS, iOS, watchOS, plus a tagged library for organizing and exporting assets for blog posts, social media, and documentation",
   "author": {
     "name": "Tyrone Ross"
   },
@@ -39,7 +39,7 @@
   },
   "interface": {
     "displayName": "Spectra",
-    "shortDescription": "Capture and library plugin \u2014 screenshots, videos, and usage sequences across web and native, with tagged organization and export for blog/docs/marketing.",
+    "shortDescription": "Capture and library plugin — screenshots, videos, and usage sequences across web and native, with tagged organization and export for blog/docs/marketing.",
     "longDescription": "Spectra captures screenshots, videos, and step-by-step UI sessions from running apps on web, macOS, iOS, and watchOS, then organizes them in a tagged library you can search, group, and export to disk for blog posts, documentation, and marketing assets. Includes a one-command migration from the legacy showcase plugin.",
     "developerName": "Ross Labs",
     "category": "Productivity",
