@@ -1,0 +1,63 @@
+# Video Benchmark Flows
+#
+# Used by Phase 5 Iterate to evaluate criterion 8 (UI video recording quality:
+# 1080p30 h264, ≤8 MB/min, SSIM ≥0.94 vs source on a 60s reference flow, zero
+# dropped frames over 5min, <25% sustained CPU on M-series).
+#
+# Schema:
+#   id           : kebab-case, unique
+#   target_kind  : repoPath | appName | url
+#   target       : as appropriate for target_kind
+#   description  : human summary (for verdict.md narrative)
+#   duration_s   : exact duration in seconds (deterministic 60s default)
+#   script       : ordered list of (intent, wait_ms, repeat?) — uses spectra_step
+#
+# Three flows by design: text-heavy form fill, scrollable list w/ animation,
+# dashboard with periodic refresh. Each = 60s, deterministic, scripted by intent.
+
+flows:
+  - id: textform-60s
+    target_kind: repoPath
+    target: ~/dev/git-folder/travel-planner
+    description: |
+      Text-heavy form fill: focus form, type a few hundred chars of text,
+      tab through fields. Tests how the codec handles dense text + static
+      backgrounds (typically the easiest case for h264 — should stress
+      cursor compositing).
+    duration_s: 60
+    script:
+      - { intent: "open the trip planning form", wait_ms: 3000 }
+      - { intent: "click the destination field", wait_ms: 500 }
+      - { intent: "type Costa Rica", wait_ms: 1500 }
+      - { intent: "tab to the next field", wait_ms: 500 }
+      - { intent: "type 2026-07-15", wait_ms: 1500 }
+      # ... repeat across 6 fields to fill the 60s budget
+      - { intent: "tab", wait_ms: 1000, repeat: 5 }
+      - { intent: "type lorem ipsum dolor sit amet consectetur adipiscing elit", wait_ms: 4000 }
+      - { intent: "wait", wait_ms: 30000 }
+
+  - id: scrolllist-60s
+    target_kind: repoPath
+    target: ~/dev/git-folder/travel-planner
+    description: |
+      Scrollable list with animation: navigate to a list view, scroll
+      continuously for 50s, then stop. Tests motion compression — where
+      h264 vs hevc and 30 vs 60 fps factors should diverge.
+    duration_s: 60
+    script:
+      - { intent: "navigate to the camps list page", wait_ms: 3000 }
+      - { intent: "scroll down slowly", wait_ms: 5000, repeat: 10 }
+      - { intent: "scroll back up", wait_ms: 2000, repeat: 5 }
+      - { intent: "wait", wait_ms: 5000 }
+
+  - id: dashboard-60s
+    target_kind: repoPath
+    target: ~/dev/git-folder/travel-planner
+    description: |
+      Dashboard with periodic refresh: open the dashboard, let it tick
+      through ~10 auto-refresh cycles. Tests small region-of-change
+      compression efficiency (h264's strong suit).
+    duration_s: 60
+    script:
+      - { intent: "navigate to the dashboard", wait_ms: 3000 }
+      - { intent: "wait", wait_ms: 57000 }

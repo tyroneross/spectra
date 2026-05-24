@@ -1,0 +1,110 @@
+# Walkthrough Benchmark Tasks
+#
+# Used by Phase 5 Iterate to evaluate criterion 7 (text-input walkthrough
+# quality). Each task is a (target, plain-language instruction, success
+# predicate) tuple. The DOE runner executes every task once per
+# configuration cell and scores by predicate match.
+#
+# Schema:
+#   id          : kebab-case, unique
+#   surface     : web | macos
+#   target      : URL OR absolute repo path (web) OR app name (macos)
+#   target_kind : url | repoPath | appName
+#   difficulty  : simple | multi-step | recovery   (informational; for stratification in analysis)
+#   instruction : plain-language; given verbatim to the LLM planner
+#   success_predicate :
+#     - ax_text_contains :  string the post-walkthrough AX tree must contain
+#     - url_matches      :  regex the post-walkthrough URL must match (web only)
+#     - element_visible  :  AX role + label that must be present and visible
+#   timeout_ms  : max wall-clock per task (default 60_000)
+#
+# Minimum: 8 tasks across web + macos. Authoritative count is the file below.
+# Add tasks as new launchable targets stabilize; never remove tasks without
+# documenting in the verdict.md why a configuration's score is comparable.
+
+tasks:
+  # ─── Travel Planner (Next.js — known launchable repo) ───────
+  - id: tp-home-camps-list
+    surface: web
+    target_kind: repoPath
+    target: ~/dev/git-folder/travel-planner
+    difficulty: multi-step
+    instruction: "open the home page, scroll to the camp list, click the first card"
+    success_predicate:
+      element_visible: { role: heading, label_contains: "Camp" }
+    timeout_ms: 60000
+
+  - id: tp-home-search
+    surface: web
+    target_kind: repoPath
+    target: ~/dev/git-folder/travel-planner
+    difficulty: simple
+    instruction: "click the search input"
+    success_predicate:
+      element_visible: { role: textbox, focused: true }
+
+  - id: tp-nav-to-trips
+    surface: web
+    target_kind: repoPath
+    target: ~/dev/git-folder/travel-planner
+    difficulty: multi-step
+    instruction: "find the trips link in the nav and click it; wait for the page to load"
+    success_predicate:
+      url_matches: ".*/trips$"
+
+  # ─── Spectra web-ui (static — known stable) ─────────────────
+  - id: spectra-webui-home
+    surface: web
+    target_kind: repoPath
+    target: ~/dev/git-folder/spectra/web-ui
+    difficulty: simple
+    instruction: "open the spectra web ui home page"
+    success_predicate:
+      ax_text_contains: "spectra"
+
+  # ─── macOS Calculator (stable system app) ───────────────────
+  - id: macos-calc-2-plus-3
+    surface: macos
+    target_kind: appName
+    target: Calculator
+    difficulty: multi-step
+    instruction: "type 2, then plus, then 3, then equals"
+    success_predicate:
+      ax_text_contains: "5"
+
+  - id: macos-calc-clear
+    surface: macos
+    target_kind: appName
+    target: Calculator
+    difficulty: simple
+    instruction: "press the clear button"
+    success_predicate:
+      ax_text_contains: "0"
+
+  # ─── macOS System Settings (stable, deep nav) ───────────────
+  - id: macos-settings-search-display
+    surface: macos
+    target_kind: appName
+    target: System Settings
+    difficulty: multi-step
+    instruction: "type display in the search field"
+    success_predicate:
+      element_visible: { role: row, label_contains: "Displays" }
+
+  # ─── Recovery / negative-path task ──────────────────────────
+  - id: macos-calc-recovery
+    surface: macos
+    target_kind: appName
+    target: Calculator
+    difficulty: recovery
+    # Intentionally ambiguous — the planner must either resolve correctly or
+    # back off and re-snapshot. Tests F3 (retry policy) factor.
+    instruction: "press the orange button"
+    success_predicate:
+      # Calculator's only orange button is "=" so a recovery is acceptable as long as the visible value updates
+      ax_text_contains: "0"
+
+# ─── Optional extension set (gated; opt in via --extended) ────
+# Document additions here before turning them on so cross-cell comparability
+# is preserved across runs.
+extended_tasks: []
