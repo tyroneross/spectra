@@ -270,16 +270,17 @@ server.tool(
 
 server.tool(
   'spectra_session',
-  'List, get, close, or close all sessions.',
+  'List, get, close, close all sessions, or record LLM token usage against a session.',
   {
-    action: z.enum(['list', 'get', 'close', 'close_all']),
+    action: z.enum(['list', 'get', 'close', 'close_all', 'record_llm_usage']),
     sessionId: z.string().optional(),
+    usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
   },
   // annotations: worst-case for mixed read/write — destructiveHint=true (close/close_all are destructive)
   { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
-  async ({ action, sessionId }) => {
+  async ({ action, sessionId, usage }) => {
     return wrapHandler(
-      () => handleSession({ action, sessionId }, ctx),
+      () => handleSession({ action, sessionId, usage }, ctx),
       'spectra_session',
     )
   },

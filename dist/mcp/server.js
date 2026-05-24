@@ -178,13 +178,14 @@ server.tool('spectra_llm_step', 'Execute a fully-formed action plan from a clien
 }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, actions, continueOnError }) => {
     return wrapHandler(() => handleLlmStep({ sessionId, actions, continueOnError }, ctx), 'spectra_llm_step');
 });
-server.tool('spectra_session', 'List, get, close, or close all sessions.', {
-    action: z.enum(['list', 'get', 'close', 'close_all']),
+server.tool('spectra_session', 'List, get, close, close all sessions, or record LLM token usage against a session.', {
+    action: z.enum(['list', 'get', 'close', 'close_all', 'record_llm_usage']),
     sessionId: z.string().optional(),
+    usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
 }, 
 // annotations: worst-case for mixed read/write — destructiveHint=true (close/close_all are destructive)
-{ readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ action, sessionId }) => {
-    return wrapHandler(() => handleSession({ action, sessionId }, ctx), 'spectra_session');
+{ readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ action, sessionId, usage }) => {
+    return wrapHandler(() => handleSession({ action, sessionId, usage }, ctx), 'spectra_session');
 });
 server.tool('spectra_record', 'Record a terminal command session (stdout/stderr with timestamps) in asciicast format', {
     command: z.string().describe('Command to record'),

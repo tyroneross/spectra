@@ -66,6 +66,13 @@ export interface Session {
     createdAt: number;
     updatedAt: number;
     closedAt?: number;
+    /**
+     * Absolute path to the session's storage directory (`<repoStoragePath>/sessions/<id>`).
+     * Populated when `connect` is called with a `repoPath` so the daemon (which
+     * runs under launchd with CWD=$HOME) still writes artifacts under the repo.
+     * When absent, callers fall back to the process-CWD-derived storage path.
+     */
+    storageRoot?: string;
     /** Dev-server / app process spawned by the launcher when connect was given a repoPath. */
     launchedProcess?: {
         pid?: number;

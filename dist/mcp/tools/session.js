@@ -1,4 +1,6 @@
 import { recordings } from '../../media/recordings.js';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 export async function handleSession(params, ctx) {
     switch (params.action) {
         case 'list':
@@ -37,6 +39,30 @@ export async function handleSession(params, ctx) {
             ctx.launches?.delete(params.sessionId);
             await ctx.sessions.close(params.sessionId);
             return { success: true };
+        }
+        case 'record_llm_usage': {
+            if (!params.sessionId)
+                throw new Error('sessionId required for record_llm_usage');
+            const dirGetter = ctx.sessions.sessionDir;
+            const dir = typeof dirGetter === 'function' ? dirGetter.call(ctx.sessions, params.sessionId) : null;
+            if (!dir)
+                throw new Error(`Session ${params.sessionId} has no storage directory`);
+            await mkdir(dir, { recursive: true });
+            const path = join(dir, 'llm-usage.json');
+            // Append entry to a JSONL-ish array. Read existing → push → write.
+            let existing = [];
+            try {
+                const raw = await readFile(path, 'utf-8');
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed))
+                    existing = parsed;
+            }
+            catch {
+                // Missing or unreadable — start fresh.
+            }
+            existing.push({ ts: Date.now(), ...(params.usage ?? {}) });
+            await writeFile(path, JSON.stringify(existing, null, 2));
+            return { success: true, path, entries: existing.length };
         }
         case 'close_all':
             for (const [id, drv] of ctx.drivers) {

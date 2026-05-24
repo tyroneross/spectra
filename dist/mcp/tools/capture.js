@@ -2,6 +2,21 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getStoragePath } from '../../core/storage.js';
 import { screenshot } from '../../media/capture.js';
+/**
+ * Resolve the per-session storage directory. Prefers the SessionManager's
+ * record (which honors a `repoPath` passed at connect time) so launchd-spawned
+ * daemons write artifacts into the user's repo and not $HOME (C2.6). Falls
+ * back to process-CWD-derived path for legacy contexts and narrow test mocks.
+ */
+function sessionStorageDir(ctx, sessionId) {
+    const sdir = ctx.sessions.sessionDir;
+    if (typeof sdir === 'function') {
+        const dir = sdir.call(ctx.sessions, sessionId);
+        if (dir)
+            return dir;
+    }
+    return join(getStoragePath(), 'sessions', sessionId);
+}
 import { scoreElements, findRegions } from '../../intelligence/importance.js';
 import { frame } from '../../intelligence/framing.js';
 import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js';
@@ -43,7 +58,7 @@ export async function handleCapture(params, ctx) {
             if (mode === 'full' || (!params.elementId && !params.region && mode !== 'auto')) {
                 const result = await screenshot(driver, platform);
                 const filename = `capture-${Date.now()}.${result.format}`;
-                const dir = join(getStoragePath(), 'sessions', params.sessionId);
+                const dir = sessionStorageDir(ctx, params.sessionId);
                 await mkdir(dir, { recursive: true });
                 const path = join(dir, filename);
                 await writeFile(path, result.buffer);
@@ -85,7 +100,7 @@ export async function handleCapture(params, ctx) {
                 });
             }
             const filename = `capture-${Date.now()}.png`;
-            const dir = join(getStoragePath(), 'sessions', params.sessionId);
+            const dir = sessionStorageDir(ctx, params.sessionId);
             await mkdir(dir, { recursive: true });
             const path = join(dir, filename);
             await writeFile(path, frameResult.buffer);
@@ -104,7 +119,7 @@ export async function handleCapture(params, ctx) {
         }
     }
     if (params.type === 'start_recording') {
-        const outputDir = join(getStoragePath(), 'sessions', params.sessionId);
+        const outputDir = sessionStorageDir(ctx, params.sessionId);
         await mkdir(outputDir, { recursive: true });
         const videoOptions = {};
         if (params.fps)
@@ -132,7 +147,7 @@ export async function handleCapture(params, ctx) {
         }
     }
     if (params.type === 'stop_recording') {
-        const outputDir = join(getStoragePath(), 'sessions', params.sessionId);
+        const outputDir = sessionStorageDir(ctx, params.sessionId);
         await mkdir(outputDir, { recursive: true });
         try {
             const r = await recordings.stop({

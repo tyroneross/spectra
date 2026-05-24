@@ -1,9 +1,13 @@
 import type { ToolContext } from '../context.js'
 import { recordings } from '../../media/recordings.js'
+import { writeFile, mkdir, readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 export interface SessionParams {
-  action: 'list' | 'get' | 'close' | 'close_all'
+  action: 'list' | 'get' | 'close' | 'close_all' | 'record_llm_usage'
   sessionId?: string
+  /** For action=record_llm_usage: arbitrary JSON-serializable token usage payload. */
+  usage?: unknown
 }
 
 export async function handleSession(params: SessionParams, ctx: ToolContext): Promise<unknown> {
@@ -43,6 +47,27 @@ export async function handleSession(params: SessionParams, ctx: ToolContext): Pr
       ctx.launches?.delete(params.sessionId)
       await ctx.sessions.close(params.sessionId)
       return { success: true }
+    }
+
+    case 'record_llm_usage': {
+      if (!params.sessionId) throw new Error('sessionId required for record_llm_usage')
+      const dirGetter = (ctx.sessions as { sessionDir?: (id: string) => string }).sessionDir
+      const dir = typeof dirGetter === 'function' ? dirGetter.call(ctx.sessions, params.sessionId) : null
+      if (!dir) throw new Error(`Session ${params.sessionId} has no storage directory`)
+      await mkdir(dir, { recursive: true })
+      const path = join(dir, 'llm-usage.json')
+      // Append entry to a JSONL-ish array. Read existing → push → write.
+      let existing: unknown[] = []
+      try {
+        const raw = await readFile(path, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) existing = parsed
+      } catch {
+        // Missing or unreadable — start fresh.
+      }
+      existing.push({ ts: Date.now(), ...((params.usage as Record<string, unknown>) ?? {}) })
+      await writeFile(path, JSON.stringify(existing, null, 2))
+      return { success: true, path, entries: existing.length }
     }
 
     case 'close_all':

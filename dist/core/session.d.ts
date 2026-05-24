@@ -3,6 +3,12 @@ export interface CreateSessionOptions {
     name?: string;
     platform: Platform;
     target: DriverTarget;
+    /**
+     * Absolute path to the repo that this session was launched against, if any.
+     * When present, the session's `storageRoot` is anchored under this repo
+     * regardless of daemon CWD (fixes launchd-spawned daemons writing to $HOME).
+     */
+    repoPath?: string;
 }
 export interface AddStepOptions {
     action: Action;
@@ -24,7 +30,12 @@ export declare class SessionManager {
     list(): Session[];
     close(sessionId: string): Promise<void>;
     closeAll(): Promise<void>;
-    private sessionDir;
+    /**
+     * Returns the absolute path to the session directory. Prefers the per-session
+     * `storageRoot` recorded at creation time (set when `repoPath` was supplied);
+     * falls back to the manager-level `basePath` for legacy sessions.
+     */
+    sessionDir(sessionId: string): string;
     private persist;
     private generateName;
 }

@@ -16,8 +16,15 @@ export async function handleDiscover(params, ctx) {
     const session = ctx.sessions.get(params.sessionId);
     const platform = session?.platform ?? 'web';
     const startTime = Date.now();
-    // Setup output directory
-    const outputDir = params.outputDir ?? join(getStoragePath(), 'sessions', params.sessionId, 'discover');
+    // Setup output directory. Prefer the SessionManager's per-session dir so a
+    // repoPath supplied at connect time anchors discovery output under the repo
+    // (C2.6); fall back to process-CWD-derived path for legacy sessions and
+    // narrow test mocks that don't implement `sessionDir`.
+    const sdir = ctx.sessions.sessionDir;
+    const sessionDir = typeof sdir === 'function' ? sdir.call(ctx.sessions, params.sessionId) : undefined;
+    const outputDir = params.outputDir
+        ?? (sessionDir ? join(sessionDir, 'discover')
+            : join(getStoragePath(), 'sessions', params.sessionId, 'discover'));
     await mkdir(outputDir, { recursive: true });
     // Extract CDP connection if the driver exposes one
     const connection = driver.getConnection?.();

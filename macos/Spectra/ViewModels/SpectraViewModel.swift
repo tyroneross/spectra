@@ -32,6 +32,14 @@ public final class SpectraViewModel {
     public var isRecording: Bool = false
     public var lastErrorMessage: String?
     public var showAccessibilityPanel: Bool = false
+    public var showSettings: Bool = false
+    /// Mirrors KeychainStore presence so UI can enable / disable walkthrough
+    /// without triggering a biometric prompt every time the popover renders.
+    public var apiKeyPresent: Bool = false
+    /// Last walkthrough outcome surfaced in the UI (token tally + result).
+    public var lastWalkthroughOutcomeText: String?
+    /// Set while a walkthrough is in flight.
+    public private(set) var walkthroughRunning: Bool = false
 
     // ─── Status text for popover header ──────────────────────
     public var headerStatus: String {
@@ -62,7 +70,10 @@ public final class SpectraViewModel {
 
     public var canRunWalkthrough: Bool {
         guard case .ready = daemonStatus else { return false }
-        return activeSessionId != nil && !instructionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return apiKeyPresent
+            && !walkthroughRunning
+            && activeSessionId != nil
+            && !instructionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // ─── Dependencies ────────────────────────────────────────
@@ -77,6 +88,7 @@ public final class SpectraViewModel {
         self.client = client
         self.recentsStore = recentsStore
         self.recents = recentsStore.list()
+        self.apiKeyPresent = KeychainStore.shared.hasApiKey()
     }
 
     // ─── Lifecycle ───────────────────────────────────────────
@@ -230,5 +242,27 @@ public final class SpectraViewModel {
 
     public func clearError() {
         lastErrorMessage = nil
+    }
+
+    // ─── Walkthrough (C5-client) ─────────────────────────────
+
+    public func runWalkthrough() async {
+        guard canRunWalkthrough, let sid = activeSessionId else { return }
+        let instruction = instructionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !instruction.isEmpty else { return }
+        lastErrorMessage = nil
+        lastWalkthroughOutcomeText = nil
+        walkthroughRunning = true
+        defer { walkthroughRunning = false }
+        let planner = WalkthroughPlanner(daemon: client)
+        do {
+            let outcome = try await planner.run(sessionId: sid, instruction: instruction)
+            var summary = "Walkthrough: \(outcome.success ? "completed" : "stopped") — \(outcome.stepsExecuted) steps over \(outcome.turns) turns; in=\(outcome.totalInputTokens), out=\(outcome.totalOutputTokens) tokens"
+            if let done = outcome.done { summary += " — \(done)" }
+            if let err = outcome.error { summary += " — error: \(err)" }
+            lastWalkthroughOutcomeText = summary
+        } catch {
+            lastErrorMessage = "Walkthrough failed: \(error.localizedDescription)"
+        }
     }
 }

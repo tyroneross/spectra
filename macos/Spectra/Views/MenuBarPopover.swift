@@ -100,13 +100,46 @@ struct MenuBarPopover: View {
             }
             .controlSize(.regular)
 
-            Button("Run walkthrough") {
-                // C5 wiring — for now this is gated by canRunWalkthrough and
-                // surfaces an error since spectra_llm_step lives in C5.
-                vm.lastErrorMessage = "Run walkthrough requires C5 (LLM driver). Not in this build."
+            HStack(spacing: 8) {
+                Button {
+                    Task { await vm.runWalkthrough() }
+                } label: {
+                    if vm.walkthroughRunning {
+                        HStack(spacing: 4) {
+                            ProgressView().controlSize(.mini)
+                            Text("Running…")
+                        }
+                    } else {
+                        Label("Run walkthrough", systemImage: "wand.and.stars")
+                    }
+                }
+                .controlSize(.small)
+                .disabled(!vm.canRunWalkthrough)
+
+                Spacer()
+
+                Button {
+                    vm.showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.plain)
+                .controlSize(.small)
+                .help("Settings")
             }
-            .controlSize(.small)
-            .disabled(!vm.canRunWalkthrough)
+
+            if !vm.apiKeyPresent {
+                Text("Add an Anthropic API key in Settings to enable walkthroughs.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            if let outcome = vm.lastWalkthroughOutcomeText {
+                Text(outcome)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             // ─── Sessions list ───────────────────────────────
             if !vm.sessions.isEmpty {
@@ -180,6 +213,21 @@ struct MenuBarPopover: View {
         }
         .onDisappear {
             vm.onPopoverHide()
+        }
+        .sheet(isPresented: $vm.showSettings) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Settings")
+                        .font(.headline)
+                    Spacer()
+                    Button("Done") { vm.showSettings = false }
+                }
+                .padding(.top, 8)
+                .padding(.horizontal, 14)
+                Divider()
+                SettingsView(vm: vm)
+            }
+            .frame(minWidth: 380)
         }
     }
 
