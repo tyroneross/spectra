@@ -9,6 +9,8 @@ export interface SnapshotParams {
 export interface SnapshotResult {
   snapshot: string
   elementCount: number
+  url?: string
+  appName?: string
   screenshot?: string
 }
 
@@ -23,6 +25,8 @@ export async function handleSnapshot(
   const result: SnapshotResult = {
     snapshot: serializeSnapshot(snap),
     elementCount: snap.elements.length,
+    url: snap.url,
+    appName: snap.appName,
   }
 
   if (params.screenshot) {

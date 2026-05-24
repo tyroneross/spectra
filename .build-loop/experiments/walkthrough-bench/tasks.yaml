@@ -99,10 +99,10 @@ tasks:
     difficulty: recovery
     # Intentionally ambiguous — the planner must either resolve correctly or
     # back off and re-snapshot. Tests F3 (retry policy) factor.
-    instruction: "press the orange button"
+    instruction: "type 2, then plus, then 3, then press the orange button"
     success_predicate:
-      # Calculator's only orange button is "=" so a recovery is acceptable as long as the visible value updates
-      ax_text_contains: "0"
+      # Calculator's only orange button is "=" in the default theme.
+      ax_text_contains: "5"
 
 # ─── Optional extension set (gated; opt in via --extended) ────
 # Document additions here before turning them on so cross-cell comparability

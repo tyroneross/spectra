@@ -54,7 +54,58 @@ public struct AnthropicRequest: Codable, Sendable {
 
     public struct Message: Codable, Sendable {
         public let role: String      // "user" | "assistant"
-        public let content: String   // we only send text blocks for v1
+        public let content: Content
+
+        public enum Content: Codable, Sendable {
+            case text(String)
+            case blocks([Block])
+
+            public func encode(to encoder: Encoder) throws {
+                switch self {
+                case .text(let value):
+                    var container = encoder.singleValueContainer()
+                    try container.encode(value)
+                case .blocks(let blocks):
+                    var container = encoder.singleValueContainer()
+                    try container.encode(blocks)
+                }
+            }
+
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                if let text = try? container.decode(String.self) {
+                    self = .text(text)
+                } else {
+                    self = .blocks(try container.decode([Block].self))
+                }
+            }
+        }
+
+        public struct Block: Codable, Sendable {
+            public let type: String
+            public let text: String?
+            public let source: ImageSource?
+
+            public static func text(_ value: String) -> Block {
+                Block(type: "text", text: value, source: nil)
+            }
+
+            public static func pngImage(base64: String) -> Block {
+                Block(type: "image", text: nil, source: ImageSource(data: base64))
+            }
+        }
+
+        public struct ImageSource: Codable, Sendable {
+            public let type: String
+            public let media_type: String
+            public let data: String
+
+            public init(data: String) {
+                self.type = "base64"
+                self.media_type = "image/png"
+                self.data = data
+            }
+        }
     }
 
     public init(model: String, maxTokens: Int, system: String?, messages: [Message], temperature: Double? = 0) {
@@ -128,7 +179,7 @@ public actor AnthropicClient {
     /// throws an `AnthropicError` otherwise. Caller is responsible for parsing
     /// the response's `firstText` (typically JSON the planner asked Claude
     /// to emit).
-    public func messages(system: String?, user: String, model overrideModel: String? = nil) async throws -> AnthropicResponse {
+    public func messages(system: String?, user: String, screenshotBase64: String? = nil, model overrideModel: String? = nil) async throws -> AnthropicResponse {
         let apiKey: String
         do {
             apiKey = try keychain.loadApiKey()
@@ -136,11 +187,21 @@ public actor AnthropicClient {
             throw AnthropicError.missingApiKey
         }
 
+        let content: AnthropicRequest.Message.Content
+        if let screenshotBase64, !screenshotBase64.isEmpty {
+            content = .blocks([
+                .text(user),
+                .pngImage(base64: screenshotBase64),
+            ])
+        } else {
+            content = .text(user)
+        }
+
         let req = AnthropicRequest(
             model: overrideModel ?? model,
             maxTokens: maxTokens,
             system: system,
-            messages: [.init(role: "user", content: user)],
+            messages: [.init(role: "user", content: content)],
             temperature: 0
         )
         let body: Data

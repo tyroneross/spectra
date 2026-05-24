@@ -39,6 +39,17 @@ public struct WalkthroughOutcome: Sendable, Equatable {
     }
 }
 
+enum WalkthroughSuccessPolicy {
+    static func evaluate(done: String?, predicateMatched: Bool, lastError: String?) -> Bool {
+        guard lastError == nil else { return false }
+        return done != nil || predicateMatched
+    }
+
+    static func shouldRetryStepFailure(policy: RetryPolicy, alreadyRetried: Bool) -> Bool {
+        policy != .none && !alreadyRetried
+    }
+}
+
 // ─── Planner ─────────────────────────────────────────────────
 
 public actor WalkthroughPlanner {
@@ -72,29 +83,38 @@ public actor WalkthroughPlanner {
         var turns = 0
         var lastError: String? = nil
         var done: String? = nil
+        var stepFailureRetryUsed = false
 
         for turn in 0..<maxTurns {
             turns = turn + 1
 
-            let snapshot: String
+            let snapshotPayload: SnapshotToolResponse
             do {
-                snapshot = try await fetchSnapshot(sessionId: sessionId)
+                snapshotPayload = try await fetchSnapshot(sessionId: sessionId)
             } catch {
                 lastError = "snapshot failed: \(error.localizedDescription)"
                 break
             }
 
             // Ask Claude for the next plan.
-            let user = prompts.userPrompt(instruction: instruction, snapshot: snapshot, history: history)
+            let user = prompts.userPrompt(instruction: instruction, snapshot: snapshotPayload.snapshot, history: history)
             let resp: AnthropicResponse
             do {
-                resp = try await anthropic.messages(system: prompts.systemPrompt(), user: user)
+                resp = try await anthropic.messages(
+                    system: prompts.systemPrompt(),
+                    user: user,
+                    screenshotBase64: snapshotPayload.screenshot
+                )
             } catch let err as AnthropicError {
                 // F3 retry policy: one retry on overload / rate-limit / network.
                 if config.retry != .none && (err == .overloaded || isRetryable(err)) {
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     do {
-                        resp = try await anthropic.messages(system: prompts.systemPrompt(), user: user)
+                        resp = try await anthropic.messages(
+                            system: prompts.systemPrompt(),
+                            user: user,
+                            screenshotBase64: snapshotPayload.screenshot
+                        )
                     } catch {
                         lastError = "LLM error (after retry): \(err.localizedDescription)"
                         break
@@ -142,13 +162,18 @@ public actor WalkthroughPlanner {
 
             if !stepResult.success {
                 lastError = "step execution failed at index \(stepResult.stepsExecuted - 1)"
+                if WalkthroughSuccessPolicy.shouldRetryStepFailure(policy: config.retry, alreadyRetried: stepFailureRetryUsed) {
+                    stepFailureRetryUsed = true
+                    lastError = nil
+                    continue
+                }
                 break
             }
         }
 
         let outcome = WalkthroughOutcome(
             stepsExecuted: stepsExecuted,
-            success: done != nil || (lastError == nil && stepsExecuted > 0),
+            success: WalkthroughSuccessPolicy.evaluate(done: done, predicateMatched: false, lastError: lastError),
             done: done,
             error: lastError,
             totalInputTokens: totalIn,
@@ -164,10 +189,18 @@ public actor WalkthroughPlanner {
 
     // ─── Helpers ─────────────────────────────────────────────
 
-    private func fetchSnapshot(sessionId: String) async throws -> String {
-        let data = try await daemon.callTool(name: "spectra_snapshot", arguments: ["sessionId": sessionId])
-        struct SnapResp: Codable { let snapshot: String }
-        return try JSONDecoder().decode(SnapResp.self, from: data).snapshot
+    private struct SnapshotToolResponse: Codable {
+        let snapshot: String
+        let screenshot: String?
+    }
+
+    private func fetchSnapshot(sessionId: String) async throws -> SnapshotToolResponse {
+        var args: [String: Any] = ["sessionId": sessionId]
+        if config.snapshot == .axPlusScreenshot {
+            args["screenshot"] = true
+        }
+        let data = try await daemon.callTool(name: "spectra_snapshot", arguments: args)
+        return try JSONDecoder().decode(SnapshotToolResponse.self, from: data)
     }
 
     /// Daemon-side LlmStepResult mirror (only the fields we read).

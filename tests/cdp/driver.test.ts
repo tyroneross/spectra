@@ -72,6 +72,26 @@ describe('CdpDriver', () => {
       expect(snap.elements[0].role).toBe('button')
       expect(snap.timestamp).toBeGreaterThan(0)
     })
+
+    it('refreshes URL metadata from the runtime location', async () => {
+      vi.mocked(CdpConnection.prototype.send).mockImplementation(async (method: string) => {
+        switch (method) {
+          case 'Target.createTarget': return { targetId: 'T1' }
+          case 'Target.attachToTarget': return { sessionId: 'S1' }
+          case 'Accessibility.enable': return {}
+          case 'Accessibility.getFullAXTree': return { nodes: [] }
+          case 'Page.enable': return {}
+          case 'Page.setLifecycleEventsEnabled': return {}
+          case 'Runtime.evaluate': return { result: { type: 'string', value: 'http://localhost:3000/next' } }
+          default: return {}
+        }
+      })
+
+      await driver.connect({ url: 'http://localhost:3000' })
+      const snap = await driver.snapshot()
+
+      expect(snap.url).toBe('http://localhost:3000/next')
+    })
   })
 
   describe('act', () => {

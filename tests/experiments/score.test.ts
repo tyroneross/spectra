@@ -3,7 +3,14 @@
 // Unit tests for the DOE scoring + design utilities.
 
 import { describe, it, expect } from 'vitest'
-import { evaluatePredicate, fractionalFactorial16, mainEffects } from '../../.build-loop/experiments/lib/score.js'
+import {
+  combineTurnLatencies,
+  evaluatePredicate,
+  evaluatePredicateFromSnapshot,
+  fractionalFactorial16,
+  mainEffects,
+  shouldRetryStepFailure,
+} from '../../.build-loop/experiments/lib/score.js'
 
 describe('evaluatePredicate', () => {
   it('matches ax_text_contains case-insensitively', () => {
@@ -17,10 +24,30 @@ describe('evaluatePredicate', () => {
     expect(evaluatePredicate({ url_matches: '.*/trips$' }, 'snap', 'http://localhost:3000/trips/123')).toBe(false)
   })
 
+  it('matches url_matches from snapshot tool response metadata', () => {
+    expect(evaluatePredicateFromSnapshot(
+      { url_matches: '.*/trips$' },
+      { snapshot: 'heading Trips', url: 'https://example.test/trips' },
+    )).toBe(true)
+  })
+
   it('handles element_visible role+label', () => {
     const snapshot = `[e1] button "Submit"\n[e7] heading "Camp Group"`
     expect(evaluatePredicate({ element_visible: { role: 'heading', label_contains: 'camp' } }, snapshot)).toBe(true)
     expect(evaluatePredicate({ element_visible: { role: 'textbox' } }, snapshot)).toBe(false)
+  })
+})
+
+describe('walkthrough runner measurement helpers', () => {
+  it('allows exactly one step-failure retry for retrying policies', () => {
+    expect(shouldRetryStepFailure('oneRetryResnapshot', false)).toBe(true)
+    expect(shouldRetryStepFailure('oneRetryResnapshot', true)).toBe(false)
+    expect(shouldRetryStepFailure('none', false)).toBe(false)
+  })
+
+  it('combines split LLM and executor turn latency arrays', () => {
+    expect(combineTurnLatencies([100, 200], [30, 40])).toEqual([130, 240])
+    expect(combineTurnLatencies([100], [30, 40])).toEqual([130, 40])
   })
 })
 

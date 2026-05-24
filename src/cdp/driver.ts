@@ -73,9 +73,19 @@ export class CdpDriver implements Driver {
 
   async snapshot(): Promise<Snapshot> {
     const { elements, timedOut } = await waitForStableTree(() => this.ax.getSnapshot())
+    let url = this.currentUrl ?? undefined
+    try {
+      const href = await this.runtime.evaluate('globalThis.location?.href ?? document.location.href')
+      if (typeof href === 'string' && href.length > 0) {
+        this.currentUrl = href
+        url = href
+      }
+    } catch {
+      // Keep the last known target URL if runtime URL lookup is unavailable.
+    }
 
     return {
-      url: this.currentUrl ?? undefined,
+      url,
       platform: 'web',
       elements,
       timestamp: Date.now(),

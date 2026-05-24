@@ -12,6 +12,11 @@ export interface SuccessPredicate {
   element_visible?: { role?: string; label_contains?: string; focused?: boolean }
 }
 
+export interface PredicateSnapshotInput {
+  snapshot: string
+  url?: string
+}
+
 /**
  * Score a snapshot+url against a YAML-loaded predicate. Returns true if the
  * predicate is satisfied; false otherwise. Snapshot is the serialized AX/DOM
@@ -51,6 +56,32 @@ export function evaluatePredicate(
     })
   }
   return false
+}
+
+export function evaluatePredicateFromSnapshot(
+  predicate: SuccessPredicate,
+  input: PredicateSnapshotInput,
+): boolean {
+  return evaluatePredicate(predicate, input.snapshot, input.url)
+}
+
+export function shouldRetryStepFailure(
+  retry: 'none' | 'oneRetryResnapshot' | string,
+  alreadyRetried: boolean,
+): boolean {
+  return retry !== 'none' && !alreadyRetried
+}
+
+export function combineTurnLatencies(
+  llmLatencyMs: number[],
+  executorLatencyMs: number[],
+): number[] {
+  const n = Math.max(llmLatencyMs.length, executorLatencyMs.length)
+  const out: number[] = []
+  for (let i = 0; i < n; i++) {
+    out.push((llmLatencyMs[i] ?? 0) + (executorLatencyMs[i] ?? 0))
+  }
+  return out
 }
 
 /**

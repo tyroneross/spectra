@@ -28,6 +28,9 @@ interface Row {
   steps_executed: number
   turns: number
   latency_ms_per_step: number[]
+  latencyMs?: number[]
+  llmLatencyMs?: number[]
+  executorLatencyMs?: number[]
   tokens_in_per_step: number[]
   tokens_out_per_step: number[]
   cost_estimate_usd: number
@@ -62,6 +65,19 @@ const FACTOR_NAMES: Record<string, [string, string]> = {
   F3: ['none', 'oneRetryResnapshot'],
   F4: ['terse', 'roleToolsThreeShot'],
   F5: ['claude-haiku-4-5', 'claude-sonnet-4-6'],
+}
+
+function rowLatencies(row: Row): number[] {
+  if (row.llmLatencyMs || row.executorLatencyMs) {
+    const llm = row.llmLatencyMs ?? []
+    const exec = row.executorLatencyMs ?? []
+    const n = Math.max(llm.length, exec.length)
+    const out: number[] = []
+    for (let i = 0; i < n; i++) out.push((llm[i] ?? 0) + (exec[i] ?? 0))
+    return out
+  }
+  if (row.latencyMs?.length) return row.latencyMs
+  return row.latency_ms_per_step ?? []
 }
 
 async function main() {
@@ -99,7 +115,8 @@ async function main() {
       const steps = Math.max(1, r.steps_executed)
       const totalTok = r.tokens_in_per_step.reduce((a, b) => a + b, 0) + r.tokens_out_per_step.reduce((a, b) => a + b, 0)
       tokensPerStep.push(totalTok / steps)
-      if (r.latency_ms_per_step.length) latPerStep.push(...r.latency_ms_per_step)
+      const latencies = rowLatencies(r)
+      if (latencies.length) latPerStep.push(...latencies)
     }
     const meanTok = tokensPerStep.length ? tokensPerStep.reduce((a, b) => a + b, 0) / tokensPerStep.length : 0
     const sortedLat = latPerStep.slice().sort((a, b) => a - b)
@@ -124,7 +141,7 @@ async function main() {
     ...FACTOR_DECODE[r.cell_id],
     success: r.success ? 1 : 0,
     tokens: r.tokens_in_per_step.concat(r.tokens_out_per_step).reduce((a, b) => a + b, 0) / Math.max(1, r.steps_executed),
-    latency: r.latency_ms_per_step.length ? r.latency_ms_per_step.slice().sort((a, b) => a - b)[Math.floor(r.latency_ms_per_step.length / 2)] : 0,
+    latency: rowLatencies(r).length ? rowLatencies(r).slice().sort((a, b) => a - b)[Math.floor(rowLatencies(r).length / 2)] : 0,
   }))
   const effects = mainEffects(effectRows, ['F1', 'F2', 'F3', 'F4', 'F5'], 'success')
 
@@ -193,6 +210,7 @@ async function main() {
   md.push('## Caveats')
   md.push('')
   md.push(`- n per cell = ${stats[0]?.n ?? 0} (= number of tasks). For 95% CIs on success rate per cell, n ≥ 30 is recommended. Treat per-cell rates as point estimates.`)
+  md.push('- Latency uses `llmLatencyMs + executorLatencyMs` when present; legacy `latencyMs` / `latency_ms_per_step` rows remain readable.')
   md.push('- Main effects pool across cells, so n per factor level = 64. Trust those more than per-cell rates.')
   md.push('- All runs were temperature=0; non-zero would inflate variance.')
   md.push('- Cost numbers use the prices in runner.ts; refresh before publishing.')

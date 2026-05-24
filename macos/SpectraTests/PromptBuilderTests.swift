@@ -89,4 +89,19 @@ final class PromptBuilderTests: XCTestCase {
             XCTAssertTrue("\(err)".contains("no JSON object"))
         }
     }
+
+    // ─── Walkthrough outcome policy ──────────────────────────
+
+    func test_walkthroughSuccess_requiresDoneOrPredicateMatch() {
+        XCTAssertFalse(WalkthroughSuccessPolicy.evaluate(done: nil, predicateMatched: false, lastError: nil))
+        XCTAssertTrue(WalkthroughSuccessPolicy.evaluate(done: "goal achieved", predicateMatched: false, lastError: nil))
+        XCTAssertTrue(WalkthroughSuccessPolicy.evaluate(done: nil, predicateMatched: true, lastError: nil))
+        XCTAssertFalse(WalkthroughSuccessPolicy.evaluate(done: "goal achieved", predicateMatched: true, lastError: "step failed"))
+    }
+
+    func test_walkthroughRetryPolicy_allowsOnlyOneStepFailureRetry() {
+        XCTAssertTrue(WalkthroughSuccessPolicy.shouldRetryStepFailure(policy: .oneRetryResnapshot, alreadyRetried: false))
+        XCTAssertFalse(WalkthroughSuccessPolicy.shouldRetryStepFailure(policy: .oneRetryResnapshot, alreadyRetried: true))
+        XCTAssertFalse(WalkthroughSuccessPolicy.shouldRetryStepFailure(policy: .none, alreadyRetried: false))
+    }
 }

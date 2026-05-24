@@ -110,6 +110,7 @@ describe('handleSnapshot', () => {
 
     expect(result.snapshot).toContain('[e1] button "OK"')
     expect(result.elementCount).toBe(1)
+    expect(result.url).toBe('http://localhost:3000')
   })
 
   it('includes screenshot when requested', async () => {

@@ -28,11 +28,18 @@
 import { readFile, writeFile, appendFile, mkdir } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { parse as parseYaml } from 'yaml'
-import { evaluatePredicate, fractionalFactorial16, type SuccessPredicate } from '../lib/score.js'
+import {
+  combineTurnLatencies,
+  evaluatePredicateFromSnapshot,
+  fractionalFactorial16,
+  shouldRetryStepFailure,
+  type PredicateSnapshotInput,
+  type SuccessPredicate,
+} from '../lib/score.js'
 
 // ─── Paths ────────────────────────────────────────────────────
 
@@ -79,6 +86,8 @@ interface RunRow {
   steps_executed: number
   turns: number
   latency_ms_per_step: number[]
+  llmLatencyMs: number[]
+  executorLatencyMs: number[]
   tokens_in_per_step: number[]
   tokens_out_per_step: number[]
   cost_estimate_usd: number
@@ -101,11 +110,18 @@ interface MessagesResponse {
   stop_reason?: string
 }
 
+type UserContent =
+  | string
+  | Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; source: { type: 'base64'; media_type: 'image/png'; data: string } }
+  >
+
 async function callAnthropic(opts: {
   apiKey: string
   model: string
   system: string
-  user: string
+  user: UserContent
 }): Promise<MessagesResponse> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -243,6 +259,21 @@ function buildUserPrompt(instruction: string, snapshot: string, history: string[
   return s
 }
 
+function buildUserContent(
+  instruction: string,
+  snapshot: PredicateSnapshotInput,
+  history: string[],
+  granularity: string,
+  screenshot?: string,
+): UserContent {
+  const text = buildUserPrompt(instruction, snapshot.snapshot, history, granularity)
+  if (!screenshot) return text
+  return [
+    { type: 'text', text },
+    { type: 'image', source: { type: 'base64', media_type: 'image/png', data: screenshot } },
+  ]
+}
+
 function parsePlan(raw: string): { actions: Array<{ type: string; elementId: string; value?: string; intent?: string }>; done?: string; error?: string } {
   let body = raw.trim()
   if (body.startsWith('```')) body = body.replace(/^```[a-z]*\n/, '').replace(/```$/, '')
@@ -254,7 +285,15 @@ function parsePlan(raw: string): { actions: Array<{ type: string; elementId: str
 
 // ─── Per-cell execution ───────────────────────────────────────
 
-interface ConnectResult { sessionId: string; snapshot: string }
+interface ConnectResult { sessionId: string; snapshot: string; url?: string }
+interface SnapshotResponse { snapshot: string; url?: string; screenshot?: string }
+
+export function snapshotArgs(sessionId: string, cell: Pick<CellConfig, 'snapshot'>): Record<string, unknown> {
+  return {
+    sessionId,
+    screenshot: cell.snapshot === 'axPlusScreenshot',
+  }
+}
 
 async function runTaskForCell(opts: {
   cell: CellConfig
@@ -264,7 +303,8 @@ async function runTaskForCell(opts: {
 }): Promise<RunRow> {
   const { cell, task, daemon, apiKey } = opts
   const startedAt = Date.now()
-  const latencies: number[] = []
+  const llmLatencies: number[] = []
+  const executorLatencies: number[] = []
   const tokensIn: number[] = []
   const tokensOut: number[] = []
   const history: string[] = []
@@ -275,22 +315,24 @@ async function runTaskForCell(opts: {
 
   const maxTurns = 10
   let sessionId: string | null = null
+  let stepFailureRetryUsed = false
 
   try {
     // 1. Connect with launcher.
+    const expandedTarget = task.target.replace(/^~/, homedir())
     const connect = await daemon.callTool<ConnectResult>('spectra_connect', {
-      target: task.target_kind === 'appName' ? task.target : 'auto',
-      repoPath: task.target_kind === 'repoPath' ? task.target.replace(/^~/, homedir()) : undefined,
+      target: task.target_kind === 'appName' || task.target_kind === 'url' ? expandedTarget : 'auto',
+      repoPath: task.target_kind === 'repoPath' ? expandedTarget : undefined,
     })
     sessionId = connect.sessionId
 
     for (let t = 0; t < maxTurns; t++) {
       turns = t + 1
-      const snapResp = await daemon.callTool<{ snapshot: string }>('spectra_snapshot', { sessionId })
-      const snapshot = snapResp.snapshot
+      const snapResp = await daemon.callTool<SnapshotResponse>('spectra_snapshot', snapshotArgs(sessionId, cell))
+      const snapshotInput: PredicateSnapshotInput = { snapshot: snapResp.snapshot, url: snapResp.url ?? connect.url }
 
       // Predicate check before acting — handles the "already there" case.
-      if (evaluatePredicate(task.success_predicate, snapshot)) {
+      if (evaluatePredicateFromSnapshot(task.success_predicate, snapshotInput)) {
         success = true
         break
       }
@@ -302,7 +344,7 @@ async function runTaskForCell(opts: {
           apiKey,
           model: cell.model,
           system: buildSystemPrompt(cell),
-          user: buildUserPrompt(task.instruction, snapshot, history, cell.granularity),
+          user: buildUserContent(task.instruction, snapshotInput, history, cell.granularity, snapResp.screenshot),
         })
       } catch (err) {
         if (cell.retry !== 'none') {
@@ -312,7 +354,7 @@ async function runTaskForCell(opts: {
               apiKey,
               model: cell.model,
               system: buildSystemPrompt(cell),
-              user: buildUserPrompt(task.instruction, snapshot, history, cell.granularity),
+              user: buildUserContent(task.instruction, snapshotInput, history, cell.granularity, snapResp.screenshot),
             })
           } catch (err2) {
             lastError = `llm: ${(err2 as Error).message}`
@@ -323,7 +365,8 @@ async function runTaskForCell(opts: {
           break
         }
       }
-      latencies.push(Date.now() - tCallStart)
+      const llmLatency = Date.now() - tCallStart
+      llmLatencies.push(llmLatency)
       tokensIn.push(llmResp.usage.input_tokens)
       tokensOut.push(llmResp.usage.output_tokens)
 
@@ -338,8 +381,11 @@ async function runTaskForCell(opts: {
 
       if ((plan.done && (!plan.actions || plan.actions.length === 0))) {
         // Re-snapshot + score to confirm.
-        const finalSnap = (await daemon.callTool<{ snapshot: string }>('spectra_snapshot', { sessionId })).snapshot
-        success = evaluatePredicate(task.success_predicate, finalSnap)
+        const finalSnap = await daemon.callTool<SnapshotResponse>('spectra_snapshot', snapshotArgs(sessionId, cell))
+        success = evaluatePredicateFromSnapshot(task.success_predicate, {
+          snapshot: finalSnap.snapshot,
+          url: finalSnap.url ?? snapshotInput.url,
+        })
         if (!success) lastError = `claimed done but predicate fails: ${plan.done}`
         break
       }
@@ -348,6 +394,7 @@ async function runTaskForCell(opts: {
         break
       }
 
+      const executorStartedAt = Date.now()
       const stepResp = await daemon.callTool<{
         success: boolean
         stepsExecuted: number
@@ -356,6 +403,8 @@ async function runTaskForCell(opts: {
         sessionId,
         actions: plan.actions,
       })
+      const executorLatency = Date.now() - executorStartedAt
+      executorLatencies.push(executorLatency)
       stepsExecuted += stepResp.stepsExecuted
       plan.actions.forEach((a, i) => {
         const r = stepResp.results[i]
@@ -363,13 +412,20 @@ async function runTaskForCell(opts: {
       })
       if (!stepResp.success) {
         lastError = `step failed at index ${stepResp.stepsExecuted - 1}`
-        if (cell.retry === 'none') break
-        // retry = oneRetryResnapshot: continue the loop; next iteration re-snapshots.
+        if (shouldRetryStepFailure(cell.retry, stepFailureRetryUsed)) {
+          stepFailureRetryUsed = true
+          lastError = null
+          continue
+        }
+        break
       }
 
       // Post-step predicate check.
-      const postSnap = (await daemon.callTool<{ snapshot: string }>('spectra_snapshot', { sessionId })).snapshot
-      if (evaluatePredicate(task.success_predicate, postSnap)) {
+      const postSnap = await daemon.callTool<SnapshotResponse>('spectra_snapshot', snapshotArgs(sessionId, cell))
+      if (evaluatePredicateFromSnapshot(task.success_predicate, {
+        snapshot: postSnap.snapshot,
+        url: postSnap.url ?? snapshotInput.url,
+      })) {
         success = true
         break
       }
@@ -388,8 +444,9 @@ async function runTaskForCell(opts: {
   const totalOut = tokensOut.reduce((a, b) => a + b, 0)
   const cost = (totalIn * pricing.input + totalOut * pricing.output) / 1_000_000
 
-  const medianLatency = latencies.length
-    ? latencies.slice().sort((a, b) => a - b)[Math.floor(latencies.length / 2)]
+  const combinedLatencies = combineTurnLatencies(llmLatencies, executorLatencies)
+  const medianLatency = combinedLatencies.length
+    ? combinedLatencies.slice().sort((a, b) => a - b)[Math.floor(combinedLatencies.length / 2)]
     : 0
 
   return {
@@ -402,7 +459,9 @@ async function runTaskForCell(opts: {
     success,
     steps_executed: stepsExecuted,
     turns,
-    latency_ms_per_step: latencies,
+    latency_ms_per_step: combinedLatencies,
+    llmLatencyMs: llmLatencies,
+    executorLatencyMs: executorLatencies,
     tokens_in_per_step: tokensIn,
     tokens_out_per_step: tokensOut,
     cost_estimate_usd: Number(cost.toFixed(6)),
@@ -506,7 +565,9 @@ async function main() {
   process.stdout.write(`Run analyze.ts next to produce verdict.md.\n`)
 }
 
-main().catch((err) => {
-  process.stderr.write(`FATAL: ${(err as Error).message}\n`)
-  process.exit(1)
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    process.stderr.write(`FATAL: ${(err as Error).message}\n`)
+    process.exit(1)
+  })
+}
