@@ -12,6 +12,7 @@ import { handleSession } from './tools/session.js';
 import { handleAnalyze } from './tools/analyze.js';
 import { handleDiscover } from './tools/discover.js';
 import { handleWalkthrough } from './tools/walkthrough.js';
+import { handleLlmStep } from './tools/llm-step.js';
 import { handleRecord, handleReplay } from './tools/record.js';
 import { handleLibrary } from './tools/library.js';
 import { registerResources } from './resources.js';
@@ -163,6 +164,19 @@ server.tool('spectra_walkthrough', 'Execute a multi-step UI flow with optional s
 // annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
 { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, steps, clean }) => {
     return wrapHandler(() => handleWalkthrough({ sessionId, steps, clean }, ctx), 'spectra_walkthrough');
+});
+server.tool('spectra_llm_step', 'Execute a fully-formed action plan from a client-side LLM planner (the Spectra menu-bar app holds the API key; the daemon never sees it). Each action is { type, elementId, value?, intent?, waitAfterMs? }. Short-circuits on first failure unless continueOnError=true.', {
+    sessionId: z.string().describe('Active session ID'),
+    actions: z.array(z.object({
+        type: z.enum(['click', 'type', 'clear', 'select', 'scroll', 'hover', 'focus']),
+        elementId: z.string(),
+        value: z.string().optional(),
+        intent: z.string().optional(),
+        waitAfterMs: z.number().optional(),
+    })).describe('Action plan to execute in order'),
+    continueOnError: z.boolean().optional().describe('Continue past a failing step (default: false)'),
+}, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, actions, continueOnError }) => {
+    return wrapHandler(() => handleLlmStep({ sessionId, actions, continueOnError }, ctx), 'spectra_llm_step');
 });
 server.tool('spectra_session', 'List, get, close, or close all sessions.', {
     action: z.enum(['list', 'get', 'close', 'close_all']),
