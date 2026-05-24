@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+		Developer ID app export — for future notarization-ready DMG.
+		The current Makefile dmg target ships straight from Release build
+		(no archive/export step) because that path needs a Developer ID
+		Distribution profile which isn't required for personal use.
+		This file is here so a future notarized release pass can use it
+		via `xcodebuild -exportArchive -exportOptionsPlist ExportOptions.plist`.
+	-->
+	<key>method</key>
+	<string>developer-id</string>
+	<key>teamID</key>
+	<string>7AK2KDLAVP</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>destination</key>
+	<string>export</string>
+</dict>
+</plist>
