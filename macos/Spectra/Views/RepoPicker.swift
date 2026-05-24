@@ -1,7 +1,10 @@
 // RepoPicker.swift
 //
-// Repo selector: shows a Recents list + a Browse… button. Selection updates
-// the view-model's selectedRepoPath.
+// Project-folder selector: a "Choose a folder…" button + a Recent list.
+// Selection updates the view-model's selectedRepoPath.
+//
+// Calm Precision: single border around grouped Recents (Gestalt); three-line
+// hierarchy within each row (name / path / metadata); content > chrome.
 //
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
@@ -12,88 +15,125 @@ struct RepoPicker: View {
     @Bindable var vm: SpectraViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: SpectraSpacing.sm) {
+
+            // ─── Section header ──────────────────────────────
             HStack {
-                Text("Repository")
-                    .font(.caption)
+                Text(SpectraCopy.repoSectionTitle)
+                    .font(SpectraText.metadata)
                     .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
-                Button("Browse…") {
+                Button(SpectraCopy.repoBrowseButton) {
                     vm.showBrowseDialog()
                 }
-                .controlSize(.small)
+                .spectraStandard(size: .small)
+                .accessibilityLabel(SpectraCopy.repoBrowseButton)
+                .accessibilityHint("Opens a folder picker to choose a project for Spectra to capture.")
             }
 
+            // ─── Selected repo / empty state ─────────────────
             if let display = vm.selectedRepoDisplayName, let path = vm.selectedRepoPath {
-                HStack {
-                    Image(systemName: "folder.fill")
-                        .foregroundStyle(.tint)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(display)
-                            .font(.system(size: 13, weight: .medium))
-                        Text(path)
-                            .font(.system(size: 11))
+                selectedRepoRow(display: display, path: path)
+            } else {
+                emptyRow
+            }
+
+            // ─── Recents ─────────────────────────────────────
+            if !vm.recents.isEmpty {
+                Text(SpectraCopy.repoRecentsTitle)
+                    .font(SpectraText.metadata)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, SpectraSpacing.xs)
+                    .accessibilityAddTraits(.isHeader)
+
+                recentsList
+            }
+        }
+    }
+
+    // MARK: - Subviews
+
+    private func selectedRepoRow(display: String, path: String) -> some View {
+        HStack {
+            Image(systemName: "folder.fill")
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(display)
+                    .font(SpectraText.bodyEmphasized)
+                Text(path)
+                    .font(SpectraText.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer()
+        }
+        .padding(SpectraSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: SpectraRadius.card)
+                .fill(SpectraSurface.subtle)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Selected folder: \(display)")
+        .accessibilityValue(path)
+    }
+
+    private var emptyRow: some View {
+        HStack(spacing: SpectraSpacing.md) {
+            Image(systemName: "folder")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(SpectraCopy.repoEmptyMessage)
+                .font(SpectraText.description)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: SpectraRadius.card)
+                .fill(SpectraSurface.subtle.opacity(0.5))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(SpectraCopy.repoEmptyMessage)
+    }
+
+    // Single border around the whole Recents group, dividers between rows.
+    private var recentsList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(vm.recents) { recent in
+                Button {
+                    vm.pickRepo(path: recent.path)
+                } label: {
+                    HStack {
+                        Text(recent.displayName)
+                            .font(SpectraText.body)
+                        Spacer()
+                        Text(recent.path)
+                            .font(SpectraText.metadata)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
+                            .frame(maxWidth: 180, alignment: .trailing)
                     }
-                    Spacer()
+                    .contentShape(Rectangle())
+                    .padding(.vertical, SpectraSpacing.xs)
+                    .padding(.horizontal, SpectraSpacing.md)
+                    .frame(minHeight: 24) // WCAG 2.5.8 desktop floor
                 }
-                .padding(8)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.08))
-                )
-            } else {
-                Text("No repository selected")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.gray.opacity(0.05))
-                    )
-            }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open recent folder \(recent.displayName)")
+                .accessibilityHint("Located at \(recent.path)")
 
-            if !vm.recents.isEmpty {
-                Text("Recents")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(vm.recents) { recent in
-                        Button {
-                            vm.pickRepo(path: recent.path)
-                        } label: {
-                            HStack {
-                                Text(recent.displayName)
-                                    .font(.system(size: 12))
-                                Spacer()
-                                Text(recent.path)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .frame(maxWidth: 180, alignment: .trailing)
-                            }
-                            .contentShape(Rectangle())
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 8)
-                        }
-                        .buttonStyle(.plain)
-
-                        if recent.id != vm.recents.last?.id {
-                            Divider()
-                        }
-                    }
+                if recent.id != vm.recents.last?.id {
+                    Divider()
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.04))
-                )
             }
         }
+        .background(
+            RoundedRectangle(cornerRadius: SpectraRadius.card)
+                .fill(SpectraSurface.subtle.opacity(0.6))
+        )
     }
 }

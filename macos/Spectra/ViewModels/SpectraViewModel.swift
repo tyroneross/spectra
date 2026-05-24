@@ -31,6 +31,9 @@ public final class SpectraViewModel {
     public var activeSessionId: String?
     public var isRecording: Bool = false
     public var lastErrorMessage: String?
+    /// Recovery-shaped representation of the latest error. UI prefers this
+    /// over `lastErrorMessage` (which retains raw text for legacy callers).
+    public var recoveryError: RecoveryError?
     public var showAccessibilityPanel: Bool = false
     public var showSettings: Bool = false
     /// Mirrors KeychainStore presence so UI can enable / disable walkthrough
@@ -126,6 +129,7 @@ public final class SpectraViewModel {
     /// Best-effort: install + bootstrap the LaunchAgent, then re-probe.
     public func installDaemon() async {
         lastErrorMessage = nil
+        recoveryError = nil
         do {
             let mgr = try LaunchAgentManager()
             try mgr.install()
@@ -134,7 +138,9 @@ public final class SpectraViewModel {
             try? await Task.sleep(nanoseconds: 700_000_000)
             await checkDaemon()
         } catch {
-            lastErrorMessage = "Install failed: \(error.localizedDescription)"
+            let recovery = RecoveryError.from(error, defaultTitle: SpectraCopy.errorInstallTitle)
+            recoveryError = recovery
+            lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
         }
     }
 
@@ -162,8 +168,12 @@ public final class SpectraViewModel {
             self.sessions = result.sessions
         } catch {
             // Polling failures shouldn't spam the UI; only set if not already set.
-            if lastErrorMessage == nil {
-                lastErrorMessage = "Poll failed: \(error.localizedDescription)"
+            if recoveryError == nil {
+                let recovery = RecoveryError.from(error, defaultTitle: SpectraCopy.errorPollTitle)
+                recoveryError = recovery
+                if lastErrorMessage == nil {
+                    lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
+                }
             }
         }
     }
@@ -193,6 +203,7 @@ public final class SpectraViewModel {
     public func startSession() async {
         guard let repoPath = selectedRepoPath else { return }
         lastErrorMessage = nil
+        recoveryError = nil
         do {
             let args: [String: Any] = [
                 "target": "auto",
@@ -204,13 +215,16 @@ public final class SpectraViewModel {
             self.activeSessionId = result.sessionId
             self.isRecording = (result.launched != nil) // optimistic; refined by poll
         } catch {
-            lastErrorMessage = error.localizedDescription
+            let recovery = RecoveryError.from(error, defaultTitle: SpectraCopy.errorSessionTitle)
+            recoveryError = recovery
+            lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
         }
     }
 
     public func stopSession() async {
         guard let sid = activeSessionId else { return }
         lastErrorMessage = nil
+        recoveryError = nil
         // Best-effort stop recording first
         _ = try? await client.callTool(name: "spectra_capture", arguments: [
             "sessionId": sid,
@@ -225,7 +239,9 @@ public final class SpectraViewModel {
             self.activeSessionId = nil
             self.isRecording = false
         } catch {
-            lastErrorMessage = error.localizedDescription
+            let recovery = RecoveryError.from(error, defaultTitle: SpectraCopy.errorStopTitle)
+            recoveryError = recovery
+            lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
         }
     }
 
@@ -242,6 +258,7 @@ public final class SpectraViewModel {
 
     public func clearError() {
         lastErrorMessage = nil
+        recoveryError = nil
     }
 
     // ─── Walkthrough (C5-client) ─────────────────────────────
@@ -251,18 +268,21 @@ public final class SpectraViewModel {
         let instruction = instructionText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !instruction.isEmpty else { return }
         lastErrorMessage = nil
+        recoveryError = nil
         lastWalkthroughOutcomeText = nil
         walkthroughRunning = true
         defer { walkthroughRunning = false }
         let planner = WalkthroughPlanner(daemon: client)
         do {
             let outcome = try await planner.run(sessionId: sid, instruction: instruction)
-            var summary = "Walkthrough: \(outcome.success ? "completed" : "stopped") — \(outcome.stepsExecuted) steps over \(outcome.turns) turns; in=\(outcome.totalInputTokens), out=\(outcome.totalOutputTokens) tokens"
-            if let done = outcome.done { summary += " — \(done)" }
-            if let err = outcome.error { summary += " — error: \(err)" }
+            var summary = "Walkthrough \(outcome.success ? "completed" : "stopped") — \(outcome.stepsExecuted) steps over \(outcome.turns) turns. Used \(outcome.totalInputTokens) input + \(outcome.totalOutputTokens) output tokens."
+            if let done = outcome.done { summary += " " + done }
+            if let err = outcome.error { summary += " — \(err)" }
             lastWalkthroughOutcomeText = summary
         } catch {
-            lastErrorMessage = "Walkthrough failed: \(error.localizedDescription)"
+            let recovery = RecoveryError.from(error, defaultTitle: SpectraCopy.errorWalkthroughTitle)
+            recoveryError = recovery
+            lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
         }
     }
 }

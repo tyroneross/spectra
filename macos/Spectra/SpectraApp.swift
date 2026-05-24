@@ -20,9 +20,11 @@ struct SpectraApp: App {
                     viewModel.showAccessibilityPanel = AccessibilityPanel.shouldShow()
                 }
         } label: {
-            // Red dot when recording; gray dot when idle; faded when daemon offline.
+            // The symbol communicates state: outlined viewfinder = ready,
+            // outlined-with-slash = service offline, filled-record = recording.
             Image(systemName: menuBarSymbolName)
                 .accessibilityLabel("Spectra")
+                .accessibilityValue(menuBarA11yValue)
         }
         .menuBarExtraStyle(.window)
     }
@@ -35,6 +37,17 @@ struct SpectraApp: App {
         case .ready: return "viewfinder.circle"
         case .unreachable, .versionSkew: return "viewfinder.circle.slash"
         case .unknown: return "viewfinder.circle"
+        }
+    }
+
+    /// Speakable description of the menu-bar icon's current state.
+    private var menuBarA11yValue: String {
+        if viewModel.isRecording { return "Recording" }
+        switch viewModel.daemonStatus {
+        case .ready: return "Ready"
+        case .unreachable: return "Background service offline"
+        case .versionSkew: return "Background service needs an update"
+        case .unknown: return "Checking background service"
         }
     }
 }

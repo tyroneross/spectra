@@ -1,8 +1,9 @@
 // AccessibilityPanel.swift
 //
-// One-time first-run panel prompting the user to grant Accessibility access
-// in System Settings. Without it, the daemon's macOS native driver can't
-// read the AX tree of other apps.
+// One-time first-run panel asking the user to grant Spectra permission to
+// read other apps' content (System Settings → Privacy & Security →
+// Accessibility). Without this permission, Spectra can't capture or walk
+// through other macOS apps.
 //
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
@@ -17,59 +18,71 @@ struct AccessibilityPanel: View {
     private static let dismissedKey = "accessibilityPanel.dismissed.v1"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        VStack(alignment: .leading, spacing: SpectraSpacing.lg) {
+            // Title row
+            HStack(spacing: SpectraSpacing.md) {
                 Image(systemName: "lock.shield")
                     .font(.title2)
                     .foregroundStyle(.tint)
-                Text("Accessibility Access Required")
-                    .font(.headline)
+                    .accessibilityHidden(true)
+                Text(SpectraCopy.accessibilityPanelTitle)
+                    .font(SpectraText.title)
             }
 
-            Text(
-                "Spectra reads the accessibility tree of other apps to capture and walk through their UI. macOS requires you to grant Accessibility access in System Settings before this works."
-            )
-            .font(.system(size: 12))
-            .foregroundStyle(.primary)
+            // Body copy — plain language, no "AX tree"
+            Text(SpectraCopy.accessibilityPanelBody)
+                .font(SpectraText.description)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 8) {
-                Button("Open System Settings") {
+            // Action row — prominent primary, standard secondary
+            HStack(spacing: SpectraSpacing.md) {
+                Button(SpectraCopy.accessibilityOpenButton) {
                     openAccessibilitySettings()
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .spectraProminent(size: .small)
+                .accessibilityLabel(SpectraCopy.accessibilityOpenButton)
+                .accessibilityHint("Opens System Settings to the Accessibility privacy pane.")
 
-                Button("Check Again") {
+                Button(SpectraCopy.accessibilityCheckButton) {
                     lastChecked = AXIsProcessTrusted()
-                    if lastChecked {
-                        dismiss()
-                    }
+                    if lastChecked { dismiss() }
                 }
-                .controlSize(.small)
+                .spectraStandard(size: .small)
+                .accessibilityLabel(SpectraCopy.accessibilityCheckButton)
+                .accessibilityHint("Re-checks whether the permission has been granted.")
 
                 Spacer()
 
-                Button("Skip for now") {
+                Button(SpectraCopy.accessibilitySkipButton) {
                     dismiss()
                 }
-                .controlSize(.small)
+                .spectraStandard(size: .small)
+                .accessibilityLabel(SpectraCopy.accessibilitySkipButton)
+                .accessibilityHint("Hides this prompt until next launch. You can grant the permission later.")
             }
 
             if lastChecked {
-                Text("Granted. You can capture macOS apps now.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.green)
+                HStack(spacing: SpectraSpacing.sm) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .accessibilityHidden(true)
+                    Text(SpectraCopy.accessibilityGrantedLine)
+                        .font(SpectraText.metadata)
+                        .foregroundStyle(.green)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(SpectraCopy.accessibilityGrantedLine)
             }
         }
-        .padding(12)
+        .padding(SpectraSpacing.lg)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.accentColor.opacity(0.08))
+            RoundedRectangle(cornerRadius: SpectraRadius.panel)
+                .fill(SpectraSurface.info)
         )
     }
 
     private func openAccessibilitySettings() {
-        // The X-Apple URL scheme jumps straight to the Accessibility privacy pane.
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
