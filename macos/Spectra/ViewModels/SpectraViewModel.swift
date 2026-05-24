@@ -105,6 +105,27 @@ public final class SpectraViewModel {
         }
     }
 
+    /// Returns true if the LaunchAgent plist exists on disk.
+    public var daemonInstalled: Bool {
+        (try? LaunchAgentManager()) != nil &&
+        (try? LaunchAgentManager().isInstalled()) ?? false
+    }
+
+    /// Best-effort: install + bootstrap the LaunchAgent, then re-probe.
+    public func installDaemon() async {
+        lastErrorMessage = nil
+        do {
+            let mgr = try LaunchAgentManager()
+            try mgr.install()
+            try mgr.bootstrap()
+            // Give launchd a beat to start the process.
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            await checkDaemon()
+        } catch {
+            lastErrorMessage = "Install failed: \(error.localizedDescription)"
+        }
+    }
+
     private func startPolling() {
         stopPolling()
         pollTask = Task { [weak self] in

@@ -28,6 +28,31 @@ struct MenuBarPopover: View {
                 AccessibilityPanel(vm: vm)
             }
 
+            // ─── Daemon-not-running CTA ──────────────────────
+            if case .unreachable = vm.daemonStatus {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "bolt.slash.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Daemon not running")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("Install the LaunchAgent to keep it running across reboots.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Button("Install daemon") {
+                            Task { await vm.installDaemon() }
+                        }
+                        .controlSize(.small)
+                    }
+                    Spacer()
+                }
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.orange.opacity(0.08))
+                )
+            }
+
             // ─── Repo picker ─────────────────────────────────
             RepoPicker(vm: vm)
 

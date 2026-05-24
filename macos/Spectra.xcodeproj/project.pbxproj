@@ -11,10 +11,12 @@
 		39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */; };
 		3BCC266A696445F1F6F1C60E /* MenuBarPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278800AE363109BC3AEBABD2 /* MenuBarPopover.swift */; };
 		3E09B6EB3A6AFECDEA669096 /* DaemonClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */; };
+		44A4BBCC352D0A3430F35ABA /* LaunchAgentManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C306B0717CC3D368FE8879C7 /* LaunchAgentManagerTests.swift */; };
 		46AC00560A61E021AC719E21 /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78339EDBC016669BC072EB55 /* DaemonClient.swift */; };
 		61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */; };
 		74542E58408799E856FCCC51 /* SpectraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */; };
 		7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */; };
+		806CA5A1913F5723C4601356 /* LaunchAgentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997ED47033ED4BB417D21757 /* LaunchAgentManager.swift */; };
 		B0CA003FD67A04DABCB9DA22 /* Recents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330C13C09396C4A295B9346A /* Recents.swift */; };
 		B24E8B3C9A264FD85548D355 /* RecentsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */; };
 		F57925FC146AC34DDB4A3C55 /* DaemonModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFE6B6426F27011EFA5547F /* DaemonModels.swift */; };
@@ -40,7 +42,9 @@
 		6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraViewModel.swift; sourceTree = "<group>"; };
 		78339EDBC016669BC072EB55 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
 		8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientTests.swift; sourceTree = "<group>"; };
+		997ED47033ED4BB417D21757 /* LaunchAgentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAgentManager.swift; sourceTree = "<group>"; };
 		C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepoPicker.swift; sourceTree = "<group>"; };
+		C306B0717CC3D368FE8879C7 /* LaunchAgentManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAgentManagerTests.swift; sourceTree = "<group>"; };
 		CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStoreTests.swift; sourceTree = "<group>"; };
 		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
@@ -72,6 +76,7 @@
 				5C8E2BC2D1A3C879E43E0C46 /* Info.plist */,
 				D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */,
 				2425CB59BFE4F70929658B44 /* SpectraApp.swift */,
+				F5F40BF248938DF418395BA0 /* Daemon */,
 				AB8D311A7A4DF2F15C80AB1C /* Net */,
 				1DD078A297634B69437EF022 /* Storage */,
 				2C06F40E681A6C474477AA62 /* ViewModels */,
@@ -103,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */,
+				C306B0717CC3D368FE8879C7 /* LaunchAgentManagerTests.swift */,
 				D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */,
 			);
 			path = SpectraTests;
@@ -124,6 +130,14 @@
 				DBFA11753B3BEC3E4F64E4F7 /* SpectraTests */,
 				DD5F659EAE7458C6B06431F2 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		F5F40BF248938DF418395BA0 /* Daemon */ = {
+			isa = PBXGroup;
+			children = (
+				997ED47033ED4BB417D21757 /* LaunchAgentManager.swift */,
+			);
+			path = Daemon;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -223,6 +237,7 @@
 				7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */,
 				46AC00560A61E021AC719E21 /* DaemonClient.swift in Sources */,
 				F57925FC146AC34DDB4A3C55 /* DaemonModels.swift in Sources */,
+				806CA5A1913F5723C4601356 /* LaunchAgentManager.swift in Sources */,
 				3BCC266A696445F1F6F1C60E /* MenuBarPopover.swift in Sources */,
 				B0CA003FD67A04DABCB9DA22 /* Recents.swift in Sources */,
 				61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */,
@@ -236,6 +251,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3E09B6EB3A6AFECDEA669096 /* DaemonClientTests.swift in Sources */,
+				44A4BBCC352D0A3430F35ABA /* LaunchAgentManagerTests.swift in Sources */,
 				B24E8B3C9A264FD85548D355 /* RecentsStoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
