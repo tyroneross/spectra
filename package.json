@@ -1,10 +1,13 @@
 {
   "name": "spectra",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "AI-native UI automation across web, macOS, iOS, and watchOS",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "spectra": "./bin/spectra"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,6 +18,7 @@
     "build": "tsc",
     "build:native": "swiftc native/swift/Types.swift native/swift/main.swift native/swift/AppTarget.swift native/swift/AXBridge.swift native/swift/SimBridge.swift native/swift/MediaCapture.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -o $HOME/.spectra/bin/spectra-native",
     "build:test-app": "swiftc native/swift/TestApp/TestApp.swift -framework SwiftUI -framework AppKit -o $HOME/.spectra/bin/spectra-test-app",
+    "daemon": "node dist/cli/index.js daemon",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist",

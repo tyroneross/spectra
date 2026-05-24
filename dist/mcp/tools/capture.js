@@ -5,6 +5,7 @@ import { screenshot } from '../../media/capture.js';
 import { scoreElements, findRegions } from '../../intelligence/importance.js';
 import { frame } from '../../intelligence/framing.js';
 import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js';
+import { recordings } from '../../media/recordings.js';
 /** Parse an aspect ratio string like "16:9" or "4:3" into a numeric ratio (w/h). */
 function parseAspectRatio(value) {
     const parts = value.split(':');
@@ -102,8 +103,57 @@ export async function handleCapture(params, ctx) {
             }
         }
     }
-    if (params.type === 'start_recording' || params.type === 'stop_recording') {
-        return { error: 'Video recording available in Phase 3a for web. Use sim: targets for simulator recording.' };
+    if (params.type === 'start_recording') {
+        const outputDir = join(getStoragePath(), 'sessions', params.sessionId);
+        await mkdir(outputDir, { recursive: true });
+        const videoOptions = {};
+        if (params.fps)
+            videoOptions.fps = params.fps;
+        if (params.quality)
+            videoOptions.quality = params.quality;
+        if (params.hardware !== undefined)
+            videoOptions.hardware = params.hardware;
+        try {
+            const r = await recordings.start({
+                sessionId: params.sessionId,
+                platform,
+                outputDir,
+                options: videoOptions,
+            });
+            return {
+                recordingId: r.recordingId,
+                startedAt: r.startedAt,
+                fps: r.options.fps,
+                codec: r.options.hardware ? 'h264_videotoolbox' : 'libx264',
+            };
+        }
+        catch (err) {
+            return { error: err instanceof Error ? err.message : String(err) };
+        }
+    }
+    if (params.type === 'stop_recording') {
+        const outputDir = join(getStoragePath(), 'sessions', params.sessionId);
+        await mkdir(outputDir, { recursive: true });
+        try {
+            const r = await recordings.stop({
+                sessionId: params.sessionId,
+                outputDir,
+            });
+            return {
+                recordingId: r.recordingId,
+                path: r.path,
+                format: 'mp4',
+                durationMs: r.durationMs,
+                sizeBytes: r.sizeBytes,
+                codec: r.codec,
+                fps: r.fps,
+                droppedFrames: r.droppedFrames,
+                alreadyStopped: r.alreadyStopped,
+            };
+        }
+        catch (err) {
+            return { error: err instanceof Error ? err.message : String(err) };
+        }
     }
     return { error: `Unknown capture type: ${params.type}` };
 }

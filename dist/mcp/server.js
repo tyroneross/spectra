@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { createContext } from './context.js';
+import { getVersionInfo } from './version.js';
 import { handleConnect } from './tools/connect.js';
 import { handleSnapshot } from './tools/snapshot.js';
 import { handleAct } from './tools/act.js';
@@ -17,7 +18,7 @@ import { registerResources } from './resources.js';
 const ctx = createContext();
 const server = new McpServer({
     name: 'spectra',
-    version: '0.1.0',
+    version: getVersionInfo().daemonVersion,
 });
 registerResources(server, ctx);
 // ─── Error handling helpers ───────────────────────────────────
@@ -263,9 +264,27 @@ server.prompt('full-audit', 'Discover and capture all screens in an app', {
             },
         }],
 }));
-async function main() {
+/** Get the configured McpServer instance (for HTTP transport mounting). */
+export function getMcpServer() {
+    return server;
+}
+/** Connect the McpServer to the given transport. Returns when transport is ready. */
+export async function connectTransport(transport) {
+    await server.connect(transport);
+}
+/** Default stdio entry — preserves the existing Claude Code MCP path. */
+export async function startStdio() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
-main().catch(console.error);
+// Run stdio if this file is the entry point (preserves legacy
+// `node dist/mcp/server.js` invocation from .claude-plugin/plugin.json).
+const isEntry = import.meta.url === `file://${process.argv[1]}` ||
+    import.meta.url.endsWith(process.argv[1] ?? '');
+if (isEntry) {
+    startStdio().catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
+}
 //# sourceMappingURL=server.js.map

@@ -8,6 +8,10 @@ export interface CaptureParams {
     aspectRatio?: string;
     clean?: boolean;
     quality?: 'lossless' | 'high' | 'medium';
+    fps?: 30 | 60;
+    codec?: 'h264' | 'hevc';
+    bitrate?: '4M' | '8M';
+    hardware?: boolean;
 }
 export interface CaptureResult {
     path?: string;
@@ -16,6 +20,14 @@ export interface CaptureResult {
     label?: string;
     cleanApplied?: boolean;
     error?: string;
+    recordingId?: string;
+    durationMs?: number;
+    sizeBytes?: number;
+    codec?: string;
+    fps?: number;
+    droppedFrames?: number;
+    startedAt?: number;
+    alreadyStopped?: boolean;
 }
 export declare function handleCapture(params: CaptureParams, ctx: ToolContext): Promise<CaptureResult>;
 //# sourceMappingURL=capture.d.ts.map

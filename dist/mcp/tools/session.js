@@ -1,3 +1,4 @@
+import { recordings } from '../../media/recordings.js';
 export async function handleSession(params, ctx) {
     switch (params.action) {
         case 'list':
@@ -21,6 +22,8 @@ export async function handleSession(params, ctx) {
         case 'close': {
             if (!params.sessionId)
                 throw new Error('sessionId required for close');
+            // Abort any active recording first so we don't orphan an ffmpeg process
+            await recordings.abort(params.sessionId).catch(() => { });
             const driver = ctx.drivers.get(params.sessionId);
             if (driver) {
                 await driver.close();
@@ -31,6 +34,7 @@ export async function handleSession(params, ctx) {
         }
         case 'close_all':
             for (const [id, drv] of ctx.drivers) {
+                await recordings.abort(id).catch(() => { });
                 await drv.close().catch(() => { });
                 ctx.drivers.delete(id);
             }
