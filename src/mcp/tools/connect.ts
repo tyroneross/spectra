@@ -74,6 +74,9 @@ export async function handleConnect(
     name: params.name,
     platform,
     target: driverTarget,
+    // C2.6: anchor storage under the supplied repo so launchd-spawned daemons
+    // (CWD=$HOME) still write into <repo>/.spectra/ instead of ~/.spectra/.
+    repoPath: params.repoPath,
   })
 
   // Stash the launch handle so close-session can tear it down. ctx.launches

@@ -8,6 +8,12 @@ export interface CreateSessionOptions {
   name?: string
   platform: Platform
   target: DriverTarget
+  /**
+   * Absolute path to the repo that this session was launched against, if any.
+   * When present, the session's `storageRoot` is anchored under this repo
+   * regardless of daemon CWD (fixes launchd-spawned daemons writing to $HOME).
+   */
+  repoPath?: string
 }
 
 export interface AddStepOptions {
@@ -34,6 +40,13 @@ export class SessionManager {
     const name = options.name ?? this.generateName(options.target)
     const now = Date.now()
 
+    // When repoPath is supplied, anchor storage under it; this is what the
+    // SwiftUI app passes on every spectra_connect so artifacts land in the
+    // repo's .spectra/ instead of the daemon's CWD ($HOME under launchd).
+    const storageRoot = options.repoPath
+      ? join(getStoragePath(options.repoPath), 'sessions', id)
+      : join(this.basePath, id)
+
     const session: Session = {
       id,
       name,
@@ -42,11 +55,11 @@ export class SessionManager {
       steps: [],
       createdAt: now,
       updatedAt: now,
+      storageRoot,
     }
 
-    // Create session directory
-    const dir = this.sessionDir(id)
-    await mkdir(join(dir, 'snapshots'), { recursive: true })
+    // Create session directory (always under storageRoot now)
+    await mkdir(join(storageRoot, 'snapshots'), { recursive: true })
 
     this.sessions.set(id, session)
     await this.persist(session)
@@ -112,7 +125,14 @@ export class SessionManager {
     }
   }
 
-  private sessionDir(sessionId: string): string {
+  /**
+   * Returns the absolute path to the session directory. Prefers the per-session
+   * `storageRoot` recorded at creation time (set when `repoPath` was supplied);
+   * falls back to the manager-level `basePath` for legacy sessions.
+   */
+  sessionDir(sessionId: string): string {
+    const session = this.sessions.get(sessionId)
+    if (session?.storageRoot) return session.storageRoot
     return join(this.basePath, sessionId)
   }
 
