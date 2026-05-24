@@ -26,10 +26,13 @@ export function Nav() {
               key={tab.href}
               href={tab.href}
               aria-current={isActive ? 'page' : undefined}
+              // Aurora Glass §"Sidebar": active state = accent-glow background
+              // pill + primary text (NOT a bottom border, which is Calm
+              // Precision). Rounded 8px matches Aurora Glass nav-item radius.
               className={[
                 'relative flex h-14 shrink-0 items-center px-3 text-sm transition-colors',
                 isActive
-                  ? 'text-zinc-50 font-medium after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-white'
+                  ? 'aurora-nav-active font-medium rounded-md my-2 h-10 px-3 self-center'
                   : 'text-zinc-400 hover:text-zinc-200',
               ].join(' ')}
             >
