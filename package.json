@@ -25,7 +25,9 @@
     "serve": "cd web-ui && npm run dev -- -p 4300",
     "build:dmg": "bash scripts/build-and-refresh.sh",
     "build:dmg:adhoc": "bash scripts/build-and-refresh.sh --adhoc",
-    "postinstall": "bash scripts/postinstall.sh || true"
+    "postinstall": "bash scripts/postinstall.sh || true",
+    "bench:walkthrough": "tsx .build-loop/experiments/walkthrough-bench/runner.ts",
+    "bench:walkthrough:analyze": "tsx .build-loop/experiments/walkthrough-bench/analyze.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -33,8 +35,10 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "tsx": "^4.20.1",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "yaml": "^2.6.1"
   },
   "engines": {
     "node": ">=22.0.0"

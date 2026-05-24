@@ -20,3 +20,5 @@ macos/release/
 Spectra.app/
 Spectra.dmg
 
+.build-loop/experiments/walkthrough-bench/runs.jsonl
+.build-loop/experiments/walkthrough-bench/verdict.md
