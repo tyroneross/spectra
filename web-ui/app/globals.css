@@ -1,8 +1,39 @@
 @import "tailwindcss";
 
-/* shadcn/ui CSS variables — New York style, Zinc, dark mode */
+/* ──────────────────────────────────────────────────────────────────────
+ * Visual register: Aurora Glass
+ * (see .ibr/ui-guidance/active.md for the rationale and full token map)
+ *
+ * Aurora Glass — refined translucent surfaces over a near-black neutral
+ * field. Indigo primary accent, static ambient gradient (no animation,
+ * deliberate: Spectra is a sidekick utility, not a primary workspace).
+ *
+ * Source: ~/dev/git-folder/UI Guidance/aurora-glass.md
+ * ──────────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
+    /* ─── Aurora Glass tokens (raw, register-native) ─────────────── */
+    --aurora-bg: #09090b;                       /* near-black neutral */
+    --aurora-surface: rgba(255, 255, 255, 0.03);
+    --aurora-surface-hover: rgba(255, 255, 255, 0.06);
+    --aurora-glass: rgba(255, 255, 255, 0.04);
+    --aurora-glass-border: rgba(255, 255, 255, 0.08);
+    --aurora-glass-lit: rgba(255, 255, 255, 0.12);
+
+    --aurora-primary: #fafafa;    /* zinc-50 — titles, primary content */
+    --aurora-secondary: #a1a1aa;  /* zinc-400 — body, descriptions    */
+    --aurora-muted: #52525b;      /* zinc-600 — metadata, placeholders */
+
+    --aurora-accent: #818cf8;                       /* indigo */
+    --aurora-accent-glow: rgba(129, 140, 248, 0.15);
+    --aurora-accent-glow-soft: rgba(129, 140, 248, 0.08);
+    --aurora-success: #34d399;                      /* emerald */
+    --aurora-warning: #fbbf24;                      /* amber */
+    --aurora-danger: #fb7185;                       /* rose */
+
+    /* ─── shadcn/ui CSS variables — rebound to Aurora Glass ──────── */
+    /* Light mode kept for completeness; dashboard ships in dark.    */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -26,29 +57,131 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    /* Aurora Glass HSL bindings for shadcn vars — keeps every shadcn   */
+    /* primitive (button, card, input, dialog, etc.) consuming the      */
+    /* register without forcing a rewrite of each primitive.            */
+    --background: 240 6% 5%;            /* #09090b ≈ hsl(240 6% 5%)   */
+    --foreground: 0 0% 98%;             /* #fafafa                     */
+    --card: 240 6% 5%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 240 6% 5%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
+    --primary: 234 89% 74%;             /* #818cf8 indigo accent       */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4% 16%;            /* zinc-800 surface            */
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;     /* ≈ zinc-400                  */
+    --accent: 234 89% 74%;              /* indigo accent               */
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 351 95% 71%;         /* rose #fb7185                */
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --border: 240 4% 16%;               /* zinc-800                    */
+    --input: 240 4% 16%;
+    --ring: 234 89% 74%;                /* indigo focus ring           */
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Body — Aurora Glass dark field
+ *
+ * Background is a single near-black layer; ambient gradient lives on
+ * `body::before` so it sits beneath all content without affecting flow.
+ * ──────────────────────────────────────────────────────────────────── */
 body {
-  background-color: #09090b; /* zinc-950 */
-  color: #fafafa; /* zinc-50 */
+  background-color: var(--aurora-bg);
+  color: var(--aurora-primary);
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ─── Aurora Glass ambient gradient ────────────────────────────────────
+ * Static (no animation) — Aurora Glass distinguishes itself from
+ * Aurora Deep by NOT drifting. Three soft radial hotspots, combined
+ * opacity never exceeds 0.06 at any point.
+ *
+ * Lives on `body::before` so content always paints over it. Pointer
+ * events disabled so it can't intercept clicks. z-index 0 keeps it
+ * below the natural document flow.
+ * ──────────────────────────────────────────────────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(129, 140, 248, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(34, 211, 238, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(251, 191, 36, 0.03) 0%, transparent 50%);
+}
+
+/* Ensure all body children sit ABOVE the ambient layer */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Aurora Glass utility classes
+ *
+ * Small, opt-in helpers for the surfaces the Aurora Glass spec calls
+ * out by name. The dashboard's existing zinc-based scaffolding stays
+ * untouched; these add the register's identity layer.
+ * ──────────────────────────────────────────────────────────────────── */
+
+/* Active-nav pill (Aurora Glass §"Sidebar"): accent-glow background +
+ * primary text. Replaces the bottom-border active state used by Calm
+ * Precision — Aurora Glass active state is the glow pill. */
+.aurora-nav-active {
+  background-color: var(--aurora-accent-glow);
+  color: var(--aurora-accent);
+}
+
+.aurora-nav-active-soft {
+  background-color: var(--aurora-accent-glow-soft);
+  color: var(--aurora-accent);
+}
+
+/* Focus ring (Aurora Glass §"Inputs"): 3px accent-glow spread.
+ * Use on interactive elements that don't get the shadcn ring var. */
+.aurora-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--aurora-accent-glow);
+  border-color: var(--aurora-accent);
+}
+
+/* Glass surface (Aurora Glass §"Glassmorphism Surfaces").
+ * Background, backdrop blur, and border in one. */
+.aurora-glass-surface {
+  background-color: var(--aurora-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--aurora-glass-border);
+  border-radius: 12px;
+}
+
+/* CTA glow (Aurora Glass §"Buttons"): primary button shadow.
+ * Lighter than Aurora Deep's 12px spread. */
+.aurora-cta-glow {
+  box-shadow: 0 2px 8px rgba(129, 140, 248, 0.25);
+}
+
+.aurora-cta-glow:hover {
+  box-shadow: 0 4px 16px rgba(129, 140, 248, 0.35);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Accessibility — reduced motion
+ *
+ * Aurora Glass doesn't animate the gradient (that's Aurora Deep's
+ * flourish), but transitions on hover/focus still respect the user's
+ * preference.
+ * ──────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

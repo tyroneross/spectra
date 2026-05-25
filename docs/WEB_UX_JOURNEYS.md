@@ -75,3 +75,18 @@ npm run dev -- -p 4300
 ```
 
 Then scan `http://localhost:4300/captures`, `http://localhost:4300/export`, and one capture detail route with the verifier tooling.
+
+## Visual register
+
+**Aurora Glass** — see `.ibr/ui-guidance/active.md` for the full rationale and token map; source template at `~/dev/git-folder/UI Guidance/aurora-glass.md`.
+
+The web dashboard is the screen-sized companion to Spectra's menu-bar app. It catalogs captures, exports media, and surfaces guidance. Aurora Glass's positioning ("refined but not immersive… one of many tools the user switches between") fits the dashboard's role: it sits in a browser tab the user revisits between coding bursts, not a workspace they live inside.
+
+What the register adds to each web journey above:
+
+- **Ambient gradient.** `body::before` paints three soft radial hotspots (indigo, cyan, amber, combined opacity ≤ 0.06) over the near-black field. Static — no drift. Sits beneath all content, pointer-events disabled.
+- **Indigo accent on the active nav pill.** `components/nav.tsx` swaps the Calm Precision bottom-border active state for Aurora Glass's accent-glow pill (`.aurora-nav-active` utility = `var(--aurora-accent-glow)` background + `var(--aurora-accent)` text). The hover state on inactive tabs stays neutral zinc.
+- **shadcn primitives rebound to Aurora Glass.** `:root.dark` now drives `--primary`, `--accent`, `--ring` from the indigo `#818cf8`, and `--background` / `--card` / `--popover` from `#09090b`. Every shadcn primitive (button, card, input, dialog, dropdown, etc.) inherits Aurora Glass automatically — no per-component rewrites required.
+- **Focus rings.** `.aurora-focus-ring` opt-in utility provides Aurora Glass's 3px `--accent-glow` spread for any control that doesn't pick up shadcn's `--ring` automatically.
+
+All structural patterns above (page layouts, list/detail flows, empty/error/loading state placement, a11y semantics, keyboard navigation) stay verbatim. The re-skin is token-only.

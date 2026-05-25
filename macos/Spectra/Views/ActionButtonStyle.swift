@@ -5,6 +5,14 @@
 // (muted) visuals so the button's weight signals actionability before the
 // user clicks.
 //
+// Visual register: Aurora Glass.
+// Prominent enabled = solid indigo fill (Aurora `--accent` #818cf8) with a
+// soft glow shadow (Aurora Glass §"Buttons" CTA spec, lightened from the
+// Deep variant — "0 2px 8px rgba(99,102,241,0.25)").
+// Prominent disabled = hollow outline using `--glass-border`, dim label.
+// Standard enabled = `--surface` glass fill with `--glass-border`.
+// Standard disabled = same border softened, no fill.
+//
 // Two styles:
 // - SpectraProminentButtonStyle: high-emphasis primary action (Save, Start,
 //   Run walkthrough, Open System Settings). Filled when enabled; faded outline
@@ -22,7 +30,7 @@ import SwiftUI
 
 /// Prominent action — Save, Start, Run walkthrough, Open System Settings.
 ///
-/// Enabled: filled accent background, white label.
+/// Enabled: indigo accent fill, white label, soft accent glow.
 /// Disabled: hollow outline, dimmed label, no fill. Signals "not yet" without
 /// looking broken.
 struct SpectraProminentButtonStyle: ButtonStyle {
@@ -36,14 +44,22 @@ struct SpectraProminentButtonStyle: ButtonStyle {
             .padding(.vertical, size == .small ? 4 : 6)
             .background(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
-                    .fill(isEnabled ? Color.accentColor : Color.clear)
+                    .fill(isEnabled ? SpectraAccent.primary : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
                     .strokeBorder(
-                        isEnabled ? Color.clear : SpectraStroke.input,
+                        isEnabled ? Color.clear : SpectraStroke.hairline,
                         lineWidth: 1
                     )
+            )
+            // Aurora Glass CTA glow — softer than Aurora Deep's 12px spread,
+            // tighter on the menu-bar surface to avoid bloom on dense rows.
+            .shadow(
+                color: isEnabled ? SpectraAccent.primary.opacity(0.25) : Color.clear,
+                radius: 6,
+                x: 0,
+                y: 2
             )
             .foregroundStyle(isEnabled ? Color.white : Color.secondary)
             .opacity(configuration.isPressed ? 0.75 : 1.0)
@@ -54,8 +70,8 @@ struct SpectraProminentButtonStyle: ButtonStyle {
 
 /// Standard action — Stop, Reveal, Remove, Browse, Check Again, Done.
 ///
-/// Enabled: bordered with subtle fill.
-/// Disabled: same border but dimmed label + no fill.
+/// Enabled: bordered with subtle fill (Aurora Glass `--surface`).
+/// Disabled: same border softened + dimmed label + no fill.
 struct SpectraStandardButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     var size: ControlSize = .regular
@@ -72,7 +88,7 @@ struct SpectraStandardButtonStyle: ButtonStyle {
             .overlay(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
                     .strokeBorder(
-                        isEnabled ? SpectraStroke.input : SpectraStroke.input.opacity(0.4),
+                        isEnabled ? SpectraStroke.hairline : SpectraStroke.hairline.opacity(0.4),
                         lineWidth: 1
                     )
             )

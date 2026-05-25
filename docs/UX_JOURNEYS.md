@@ -96,3 +96,16 @@ The highest-value journey — Spectra's reason for existing on macOS.
 - Live `ibr:native-testing` scan once Spectra.app is launched (requires the running app + Accessibility permission). Code-review verification was used for this pass.
 - High-contrast mode visual QA on real hardware.
 - VoiceOver pass on a Mac with VoiceOver enabled (the labels and hints are coded, but a live screen-reader test would confirm flow).
+
+## Visual register
+
+**Aurora Glass** — see `.ibr/ui-guidance/active.md` for the full rationale and token map; source template at `~/dev/git-folder/UI Guidance/aurora-glass.md`.
+
+Spectra is a macOS menu-bar utility — a sidekick the user reaches for between bursts of work in Claude Code / Codex. Aurora Glass's own guidance is explicit about this fit: "Use Aurora Glass when the interface is one of many tools the user switches between — it should feel refined but not immersive." That's the right register: refined, not a place to inhabit.
+
+Two consequences of that decision shape the macOS surfaces in this doc:
+
+- **No ambient animation.** Aurora Deep drifts its background; Aurora Glass holds it static. The menu-bar popover opens and closes hundreds of times a day, so the GPU savings matter. The popover keeps its native NSPopover vibrancy; Aurora Glass tokens layer on top.
+- **Indigo accent on enabled primary CTAs with a soft glow.** `SpectraAccent.primary` (#818cf8) backs the Start / Save / Run-walkthrough / Open-System-Settings buttons. The glow uses Aurora Glass's CTA shadow spec (`0 2px 8px rgba(129,140,248,0.25)`) — softer than Aurora Deep's 12px spread so it doesn't bloom in the compact popover.
+
+All structural patterns above (single-border grouping, three-line hierarchy, action-button enabled/disabled distinction, accessibility labels and hints) stay verbatim. The re-skin is token-only.
