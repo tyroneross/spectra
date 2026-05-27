@@ -1,7 +1,7 @@
 {
-  "name": "spectra",
+  "name": "@tyroneross/spectra",
   "version": "0.3.0",
-  "description": "AI-native UI automation across web, macOS, iOS, and watchOS",
+  "description": "AI-native UI automation across web, macOS, iOS, and watchOS. Claude Code + Codex plugin + MCP server + standalone CLI.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,6 +14,17 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist/",
+    "bin/",
+    "scripts/postinstall.sh",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    "commands/",
+    "skills/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "build:native": "swiftc native/swift/Types.swift native/swift/main.swift native/swift/AppTarget.swift native/swift/AXBridge.swift native/swift/SimBridge.swift native/swift/MediaCapture.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -o $HOME/.spectra/bin/spectra-native",
@@ -41,5 +52,33 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Tyrone Ross"
+  },
+  "homepage": "https://github.com/tyroneross/spectra",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tyroneross/spectra.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tyroneross/spectra/issues"
+  },
+  "keywords": [
+    "screenshots",
+    "video-capture",
+    "content-creation",
+    "marketing",
+    "demo-recording",
+    "accessibility",
+    "ui-automation",
+    "mcp",
+    "claude-code",
+    "codex",
+    "plugin"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  }
 }
