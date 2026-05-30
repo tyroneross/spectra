@@ -4,6 +4,22 @@ Spectra captures screenshots, videos, and app usage sequences from running appli
 
 **Setup:** Add `artifacts/` and `.spectra/` to `.gitignore`
 
+## Design Guidance
+
+Before updating any Spectra UI or visual design, consult the local UI Guidance
+repo at `~/dev/git-folder/UI Guidance`. Use it for visual-register selection,
+token choices, and sibling-app continuity. Calm Precision remains the structural
+rule set; UI Guidance supplies the surface treatment.
+
+Current active register: **Aurora Glass**, documented in
+`.ibr/ui-guidance/active.md`. If a future design change would alter that
+register, update the active guidance note first with the source template,
+candidate rationale, rejected alternatives, and affected token surfaces.
+
+For new screens or uncertain visual direction, use UI Guidance and, when useful,
+Mockup Gallery as the upstream design-target stage before implementation. Ask
+for a decision when the target register or mockup choice is ambiguous.
+
 ## When to Use
 
 - **After shipping a feature** — capture visuals for announcement posts
@@ -62,6 +78,7 @@ Move or duplicate a session capture into the library by calling `spectra_library
 
 | Command | Purpose |
 |---------|---------|
+| `/spectra [intent]` | Main spectra entry. Dispatches to a subcommand based on your request, or lists options if unclear. Use `spectra:<subcommand>` to target a specific action directly. |
 | `/spectra:connect <target>` | Start a capture session |
 | `/spectra:walk <description>` | Walk through a flow with natural language |
 | `/spectra:capture` | Screenshot current state |
