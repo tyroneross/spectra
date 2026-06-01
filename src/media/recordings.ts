@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto'
 import { stat } from 'node:fs/promises'
 import type { RecordingHandle, VideoOptions, VideoResult } from './pipeline.js'
-import { startRecording, encodeRecording } from './pipeline.js'
+import { startRecording, encodeRecording, resolveVideoOptions } from './pipeline.js'
 import type { Platform } from '../core/types.js'
 
 export interface RecordingRecord {
@@ -72,13 +72,7 @@ class RecordingRegistry {
       throw new Error(`Recording already active for session ${opts.sessionId}`)
     }
     // Resolve effective options now so we can return them deterministically
-    const effective: VideoOptions = {
-      fps: 30,
-      quality: 'high',
-      hardware: true,
-      maxDuration: 300,
-      ...(opts.options ?? {}),
-    } as VideoOptions
+    const effective = resolveVideoOptions(opts.options)
 
     const handle = await startRecording(opts.platform, opts.outputDir, effective)
 

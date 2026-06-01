@@ -13,9 +13,10 @@ export function detectState(snapshot) {
     const empty = { score: 0, ids: [] };
     const populated = { score: 0, ids: [] };
     let focusedInteractiveId = null;
+    let explicitEmpty = false;
     for (const el of elements) {
         const role = el.role.toLowerCase();
-        const label = el.label;
+        const label = `${el.label} ${el.value ?? ''}`.trim();
         // ── Loading indicators ──────────────────────────────────────
         if (role === 'progressbar') {
             loading.score += 3;
@@ -51,13 +52,15 @@ export function detectState(snapshot) {
             error.ids.push(el.id);
         }
         // ── Empty indicators ────────────────────────────────────────
-        if (/no items|no results|nothing here|empty|get started/i.test(label)) {
+        if (/no items|no results|nothing here|empty|no data|nothing to show|add your first/i.test(label)) {
             empty.score += 3;
             empty.ids.push(el.id);
+            explicitEmpty = true;
         }
-        if (/no data|nothing to show|add your first/i.test(label)) {
+        if (/start by|create your first|set up your first/i.test(label)) {
             empty.score += 2;
             empty.ids.push(el.id);
+            explicitEmpty = true;
         }
         // ── Focused indicator ───────────────────────────────────────
         if (el.focused && INTERACTIVE_ROLES.has(role)) {
@@ -67,9 +70,14 @@ export function detectState(snapshot) {
     // ── Empty: few but non-zero elements ───────────────────────────
     // Only score "few elements" when the snapshot has some content (avoids
     // misidentifying a completely empty snapshot as empty rather than unknown).
-    if (nonStruct.length > 0 && nonStruct.length < 5) {
-        empty.score += 2;
-        empty.ids.push(...nonStruct.slice(0, 1).map(e => e.id));
+    if (!explicitEmpty && nonStruct.length > 0 && nonStruct.length < 5) {
+        const interactiveCount = nonStruct.filter(e => INTERACTIVE_ROLES.has(e.role.toLowerCase())).length;
+        const hasTextualContent = nonStruct.some(e => /heading|paragraph|text|listitem|article|image|img/i.test(e.role) &&
+            e.label.trim().length > 0);
+        if (interactiveCount === 0 || !hasTextualContent) {
+            empty.score += 1;
+            empty.ids.push(...nonStruct.slice(0, 1).map(e => e.id));
+        }
     }
     // ── Populated indicators ────────────────────────────────────────
     if (nonStruct.length > 10) {

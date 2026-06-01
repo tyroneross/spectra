@@ -80,16 +80,14 @@ describe('detectState', () => {
     expect(result.state).toBe('empty')
   })
 
-  it('contributes to empty score when fewer than 5 non-structural elements', () => {
-    // Only 3 non-structural elements — empty gets +2 from count
+  it('does not treat a small ordinary screen as empty without empty-state copy', () => {
     const snapshot = makeSnapshot([
       makeElement({ role: 'button', label: 'Add' }),
       makeElement({ role: 'text', label: 'Welcome' }),
       makeElement({ role: 'link', label: 'Learn more' }),
     ])
     const result = detectState(snapshot)
-    // empty score ≥ 2 from count; should win or at least have empty score contribution
-    expect(result.state).toBe('empty')
+    expect(result.state).toBe('populated')
   })
 
   it('detects populated state from many diverse elements', () => {

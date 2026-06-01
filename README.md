@@ -172,6 +172,10 @@ Take a screenshot or manage video recording. Supports intelligent framing modes.
 | `aspectRatio` | string | | Output aspect ratio: `"16:9"`, `"4:3"`, `"1:1"` |
 | `clean` | boolean | | Apply visual cleanup before capture (default: true) |
 | `quality` | enum | | `lossless`, `high`, `medium` |
+| `fps` | enum | | Recording frame rate: `30`, `60` |
+| `codec` | enum | | Recording codec: `h264`, `hevc` |
+| `bitrate` | enum | | Recording bitrate: `4M`, `8M` |
+| `hardware` | boolean | | Use hardware encoding when available |
 
 **Capture modes:**
 - **`full`** — standard full-page screenshot

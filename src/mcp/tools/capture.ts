@@ -56,6 +56,7 @@ export interface CaptureResult {
   sizeBytes?: number
   codec?: string
   fps?: number
+  bitrate?: string
   droppedFrames?: number
   startedAt?: number
   alreadyStopped?: boolean
@@ -175,6 +176,8 @@ export async function handleCapture(params: CaptureParams, ctx: ToolContext): Pr
     if (params.fps) videoOptions.fps = params.fps
     if (params.quality) videoOptions.quality = params.quality
     if (params.hardware !== undefined) videoOptions.hardware = params.hardware
+    if (params.codec) videoOptions.codec = params.codec
+    if (params.bitrate) videoOptions.bitrate = params.bitrate
 
     try {
       const r = await recordings.start({
@@ -187,7 +190,8 @@ export async function handleCapture(params: CaptureParams, ctx: ToolContext): Pr
         recordingId: r.recordingId,
         startedAt: r.startedAt,
         fps: r.options.fps,
-        codec: r.options.hardware ? 'h264_videotoolbox' : 'libx264',
+        codec: resolveCodecName(r.options),
+        bitrate: r.options.bitrate,
       }
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) }
@@ -220,4 +224,11 @@ export async function handleCapture(params: CaptureParams, ctx: ToolContext): Pr
   }
 
   return { error: `Unknown capture type: ${params.type}` }
+}
+
+function resolveCodecName(options: VideoOptions): string {
+  if (options.hardware && options.quality !== 'lossless') {
+    return options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox'
+  }
+  return options.codec === 'hevc' ? 'libx265' : 'libx264'
 }

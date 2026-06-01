@@ -7,7 +7,7 @@
 // © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
 import { randomUUID } from 'node:crypto';
 import { stat } from 'node:fs/promises';
-import { startRecording, encodeRecording } from './pipeline.js';
+import { startRecording, encodeRecording, resolveVideoOptions } from './pipeline.js';
 /**
  * Singleton registry. The daemon process owns one of these; HTTP requests
  * across multiple connections share state via this module.
@@ -25,13 +25,7 @@ class RecordingRegistry {
             throw new Error(`Recording already active for session ${opts.sessionId}`);
         }
         // Resolve effective options now so we can return them deterministically
-        const effective = {
-            fps: 30,
-            quality: 'high',
-            hardware: true,
-            maxDuration: 300,
-            ...(opts.options ?? {}),
-        };
+        const effective = resolveVideoOptions(opts.options);
         const handle = await startRecording(opts.platform, opts.outputDir, effective);
         const record = {
             id: randomUUID().slice(0, 8),

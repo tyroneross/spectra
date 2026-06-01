@@ -151,6 +151,18 @@ describe('fingerprint()', () => {
     const snapB = makeSnapshot({ elements: [makeElement({ role: 'button', label: 'Logout' })] })
     expect(fingerprint(snapA)).not.toBe(fingerprint(snapB))
   })
+
+  it('normalizes volatile long numbers in labels', () => {
+    const snapA = makeSnapshot({ elements: [makeElement({ role: 'text', label: 'Build 123456' })] })
+    const snapB = makeSnapshot({ elements: [makeElement({ role: 'text', label: 'Build 987654' })] })
+    expect(fingerprint(snapA)).toBe(fingerprint(snapB))
+  })
+
+  it('distinguishes same labels in different screen regions', () => {
+    const snapA = makeSnapshot({ elements: [makeElement({ role: 'button', label: 'Settings', bounds: [0, 0, 100, 40] })] })
+    const snapB = makeSnapshot({ elements: [makeElement({ role: 'button', label: 'Settings', bounds: [500, 500, 100, 40] })] })
+    expect(fingerprint(snapA)).not.toBe(fingerprint(snapB))
+  })
 })
 
 describe('crawl()', () => {
@@ -420,5 +432,31 @@ describe('crawl()', () => {
     expect(edge.action.elementId).toBe('link-contact')
     expect(edge.action.type).toBe('click')
     expect(edge.action.label).toBe('Contact')
+  })
+
+  it('test 11: skips destructive controls during capture discovery', async () => {
+    const deleteEl = makeElement({ role: 'button', label: 'Delete account', id: 'delete-account' })
+    const safeEl = makeElement({ role: 'tab', label: 'Details', id: 'tab-details' })
+    const snapA = makeSnapshot({ url: 'http://example.com/', elements: [deleteEl, safeEl] })
+    const snapDetails = makeSnapshot({
+      url: 'http://example.com/details',
+      elements: [makeElement({ role: 'heading', label: 'Details' })],
+    })
+
+    const screens = new Map([
+      ['home', { snapshot: snapA, screenshot: makeGradientPng(true) }],
+      ['details', { snapshot: snapDetails, screenshot: makeGradientPng(false) }],
+    ])
+    const transitions = new Map([
+      ['delete-account', 'deleted'],
+      ['tab-details', 'details'],
+    ])
+
+    const driver = new MockDriver(screens, transitions)
+    const graph = await crawl(driver, { scrollDiscover: false, changeThreshold: 0.0 })
+
+    expect(driver.getActLog().some(a => a.elementId === 'delete-account')).toBe(false)
+    expect(driver.getActLog().some(a => a.elementId === 'tab-details')).toBe(true)
+    expect(graph.nodes.size).toBe(2)
   })
 })

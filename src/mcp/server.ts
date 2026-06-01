@@ -170,12 +170,16 @@ server.tool(
     aspectRatio: z.string().optional().describe('Output aspect ratio e.g. "16:9", "4:3", "1:1"'),
     clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
     quality: z.enum(['lossless', 'high', 'medium']).optional().describe('Output quality'),
+    fps: z.union([z.literal(30), z.literal(60)]).optional().describe('Recording frame rate'),
+    codec: z.enum(['h264', 'hevc']).optional().describe('Recording codec'),
+    bitrate: z.enum(['4M', '8M']).optional().describe('Recording bitrate'),
+    hardware: z.boolean().optional().describe('Use hardware encoding when available'),
   },
   // annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
   { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
-  async ({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality }) => {
+  async ({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }) => {
     return wrapHandler(
-      () => handleCapture({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality }, ctx),
+      () => handleCapture({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }, ctx),
       'spectra_capture',
     )
   },

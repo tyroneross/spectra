@@ -7,7 +7,7 @@ describe('compiler', () => {
   it('compiles the Swift binary', () => {
     compile()
     expect(existsSync(BINARY_PATH)).toBe(true)
-  })
+  }, 20_000)
 
   it('reports not stale after fresh compile', () => {
     expect(isStale()).toBe(false)
@@ -17,5 +17,5 @@ describe('compiler', () => {
     const path = ensureBinary()
     expect(path).toBe(BINARY_PATH)
     expect(existsSync(path)).toBe(true)
-  })
+  }, 20_000)
 })

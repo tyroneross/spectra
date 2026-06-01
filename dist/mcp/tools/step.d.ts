@@ -12,6 +12,7 @@ export interface StepResult {
     }>;
     autoExecuted?: boolean;
     action?: string;
+    actionReason?: string;
     error?: string;
     visionFallback?: boolean;
     screenshot?: string;

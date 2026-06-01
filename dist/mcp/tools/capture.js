@@ -128,6 +128,10 @@ export async function handleCapture(params, ctx) {
             videoOptions.quality = params.quality;
         if (params.hardware !== undefined)
             videoOptions.hardware = params.hardware;
+        if (params.codec)
+            videoOptions.codec = params.codec;
+        if (params.bitrate)
+            videoOptions.bitrate = params.bitrate;
         try {
             const r = await recordings.start({
                 sessionId: params.sessionId,
@@ -139,7 +143,8 @@ export async function handleCapture(params, ctx) {
                 recordingId: r.recordingId,
                 startedAt: r.startedAt,
                 fps: r.options.fps,
-                codec: r.options.hardware ? 'h264_videotoolbox' : 'libx264',
+                codec: resolveCodecName(r.options),
+                bitrate: r.options.bitrate,
             };
         }
         catch (err) {
@@ -171,5 +176,11 @@ export async function handleCapture(params, ctx) {
         }
     }
     return { error: `Unknown capture type: ${params.type}` };
+}
+function resolveCodecName(options) {
+    if (options.hardware && options.quality !== 'lossless') {
+        return options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox';
+    }
+    return options.codec === 'hevc' ? 'libx265' : 'libx264';
 }
 //# sourceMappingURL=capture.js.map

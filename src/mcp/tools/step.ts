@@ -1,6 +1,7 @@
 import type { ToolContext } from '../context.js'
 import { resolve } from '../../core/resolve.js'
 import { serializeSnapshot, serializeElement } from '../../core/serialize.js'
+import { selectActionForElement } from '../../core/actions.js'
 
 export interface StepParams {
   sessionId: string
@@ -12,6 +13,7 @@ export interface StepResult {
   candidates?: Array<{ id: string; role: string; label: string }>
   autoExecuted?: boolean
   action?: string
+  actionReason?: string
   error?: string
   visionFallback?: boolean
   screenshot?: string
@@ -26,15 +28,29 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
 
   // High confidence → auto-execute
   if (resolved.confidence > 0.9 && !resolved.candidates) {
-    const actionType = inferActionFromIntent(params.intent)
-    const value = extractValue(params.intent)
+    const selected = selectActionForElement(resolved.element, {
+      intent: params.intent,
+      purpose: 'step',
+    })
+    if (!selected) {
+      return {
+        snapshot: serializeSnapshot(snap),
+        candidates: [{
+          id: resolved.element.id,
+          role: resolved.element.role,
+          label: resolved.element.label,
+        }],
+        error: `No supported action found for ${serializeElement(resolved.element)}`,
+      }
+    }
+
     const start = Date.now()
-    const actResult = await driver.act(resolved.element.id, actionType, value)
+    const actResult = await driver.act(resolved.element.id, selected.action, selected.value)
     const duration = Date.now() - start
     const screenshot = await driver.screenshot()
 
     await ctx.sessions.addStep(params.sessionId, {
-      action: { type: actionType, elementId: resolved.element.id, value },
+      action: { type: selected.action, elementId: resolved.element.id, value: selected.value },
       snapshotBefore: snap,
       snapshotAfter: actResult.snapshot,
       screenshot,
@@ -47,7 +63,8 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
     return {
       snapshot: serializeSnapshot(actResult.snapshot),
       autoExecuted: true,
-      action: `${actionType} on ${serializeElement(resolved.element)}`,
+      action: `${selected.action} on ${serializeElement(resolved.element)}`,
+      actionReason: selected.reason,
     }
   }
 
@@ -71,18 +88,4 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
   }
 
   return result
-}
-
-function inferActionFromIntent(intent: string): 'click' | 'type' | 'clear' | 'scroll' | 'hover' | 'focus' | 'select' {
-  const lower = intent.toLowerCase()
-  if (lower.includes('type') || lower.includes('enter') || lower.includes('fill')) return 'type'
-  if (lower.includes('clear')) return 'clear'
-  if (lower.includes('scroll')) return 'scroll'
-  if (lower.includes('hover')) return 'hover'
-  return 'click'
-}
-
-function extractValue(intent: string): string | undefined {
-  const match = intent.match(/"([^"]+)"/)
-  return match?.[1]
 }

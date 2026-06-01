@@ -3,6 +3,8 @@ export interface VideoOptions {
     fps: 30 | 60;
     quality: 'lossless' | 'high' | 'medium';
     hardware: boolean;
+    codec: 'h264' | 'hevc';
+    bitrate: '4M' | '8M';
     maxDuration?: number;
 }
 export interface VideoResult {
@@ -22,6 +24,7 @@ export type ProcessRunner = (cmd: string, args: string[]) => {
 };
 export declare function setProcessRunner(r: ProcessRunner): void;
 export declare function resetProcessRunner(): void;
+export declare function resolveVideoOptions(options?: Partial<VideoOptions>): VideoOptions;
 /**
  * Build FFmpeg (or xcrun simctl) arguments for the capture phase.
  * Returns args without the leading command name.

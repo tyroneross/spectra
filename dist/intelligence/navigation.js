@@ -1,10 +1,22 @@
 import { detectChange } from './change.js';
 import { scoreElements } from './importance.js';
+import { selectActionForElement, isElementVisible } from '../core/actions.js';
 // ─── Debug ───────────────────────────────────────────────────
 const DEBUG = process.env.SPECTRA_DEBUG === '1';
 // ─── Constants ───────────────────────────────────────────────
 const SENSITIVE_PATTERNS = /password|secret|token|api.?key|credit.?card|ssn|social.?security/i;
-const NAVIGABLE_ROLES = new Set(['link', 'button', 'tab', 'menuitem']);
+const STRUCTURAL_ROLES = new Set(['group', 'generic', 'none', 'presentation', 'separator']);
+const NAVIGABLE_ROLES = new Set([
+    'link',
+    'button',
+    'tab',
+    'menuitem',
+    'checkbox',
+    'radio',
+    'switch',
+    'combobox',
+    'option',
+]);
 const DEFAULT_CRAWL_OPTIONS = {
     maxDepth: 3,
     maxScreens: 50,
@@ -26,11 +38,38 @@ function simpleHash(str) {
 }
 // ─── Screen Fingerprint ──────────────────────────────────────
 export function fingerprint(snapshot) {
-    // Use role:label pairs (stable, DOM-position independent)
     const pairs = snapshot.elements
-        .map(el => `${el.role}:${el.label}`)
+        .map(stableElementToken)
+        .filter((token) => token !== null)
         .sort();
     return simpleHash(pairs.join('|'));
+}
+function stableElementToken(el) {
+    const role = normalizeRole(el.role);
+    const label = normalizeLabel(el.label);
+    const value = normalizeLabel(el.value ?? '');
+    if (!label && !value && STRUCTURAL_ROLES.has(role))
+        return null;
+    const [x, y, w, h] = el.bounds;
+    const bounds = w > 0 && h > 0
+        ? `${bucket(x)}:${bucket(y)}:${bucket(w)}:${bucket(h)}`
+        : '';
+    return `${role}:${label}:${value}:${bounds}`;
+}
+function normalizeLabel(label) {
+    return label
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/[a-f0-9]{8}-[a-f0-9-]{27,}/g, '{uuid}')
+        .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '{time}')
+        .replace(/\b\d{4,}\b/g, '{number}');
+}
+function normalizeRole(role) {
+    return role.toLowerCase().replace(/^ax/, '');
+}
+function bucket(value) {
+    return Math.round(value / 48);
 }
 // ─── Screen ID ───────────────────────────────────────────────
 function screenId(snapshot) {
@@ -124,23 +163,32 @@ export async function crawl(driver, options) {
             scrollSnapshot = await driver.snapshot();
         }
         // 5. Find navigable elements from post-scroll snapshot
+        const actionByElementId = new Map();
         const navigableElements = scrollSnapshot.elements.filter(el => {
-            if (!NAVIGABLE_ROLES.has(el.role))
+            const role = normalizeRole(el.role);
+            if (!NAVIGABLE_ROLES.has(role))
                 return false;
-            if (el.actions.length === 0)
+            if (!isElementVisible(el))
                 return false;
             // Filter external links
-            if (el.role === 'link' && !opts.allowExternal) {
+            if (role === 'link' && !opts.allowExternal) {
                 if (isExternalUrl(el.label, currentUrl))
                     return false;
             }
             // Filter sensitive element labels
             if (SENSITIVE_PATTERNS.test(el.label))
                 return false;
+            const selected = selectActionForElement(el, {
+                purpose: 'navigation',
+                allowFormSubmit: opts.allowFormSubmit,
+            });
+            if (!selected)
+                return false;
+            actionByElementId.set(el.id, selected);
             return true;
         });
-        // Cap at 20 per screen
-        const candidates = navigableElements.slice(0, 20);
+        // Cap at 20 per screen after ranking the most navigation-like targets.
+        const candidates = rankNavigationCandidates(navigableElements, scrollSnapshot).slice(0, 20);
         if (DEBUG) {
             console.log(`[navigation] screen ${nodeId} — ${candidates.length} candidates at depth ${depth}`);
         }
@@ -148,10 +196,16 @@ export async function crawl(driver, options) {
         for (const el of candidates) {
             if (nodes.size >= opts.maxScreens)
                 break;
-            // Act: click the element
+            const selected = actionByElementId.get(el.id) ?? selectActionForElement(el, {
+                purpose: 'navigation',
+                allowFormSubmit: opts.allowFormSubmit,
+            });
+            if (!selected)
+                continue;
+            // Act on the element using the safest supported action for capture discovery.
             let actResult;
             try {
-                actResult = await driver.act(el.id, 'click');
+                actResult = await driver.act(el.id, selected.action, selected.value);
             }
             catch (err) {
                 console.warn(`[navigation] act failed for element ${el.id}:`, err);
@@ -169,7 +223,7 @@ export async function crawl(driver, options) {
                 // Add edge if not duplicate
                 const edgeExists = edges.some(e => e.from === nodeId && e.to === existingId && e.action.elementId === el.id);
                 if (!edgeExists) {
-                    edges.push({ from: nodeId, to: existingId, action: { elementId: el.id, type: 'click', label: el.label } });
+                    edges.push({ from: nodeId, to: existingId, action: { elementId: el.id, type: selected.action, label: el.label } });
                 }
                 // Backtrack
                 await backtrack(driver, currentUrl);
@@ -196,7 +250,7 @@ export async function crawl(driver, options) {
             nodes.set(newId, newNode);
             fingerprintToNode.set(newFp, newId);
             snapshotCache.set(newId, { snapshot: newSnapshot, screenshot: newScreenshot });
-            edges.push({ from: nodeId, to: newId, action: { elementId: el.id, type: 'click', label: el.label } });
+            edges.push({ from: nodeId, to: newId, action: { elementId: el.id, type: selected.action, label: el.label } });
             if (depth + 1 < opts.maxDepth) {
                 queue.push({ nodeId: newId, depth: depth + 1 });
             }
@@ -207,6 +261,28 @@ export async function crawl(driver, options) {
     const result = { nodes, edges, root: rootId };
     result._snapshotCache = snapshotCache;
     return result;
+}
+function rankNavigationCandidates(elements, snapshot) {
+    const scoreById = new Map(scoreElements(snapshot.elements, DEFAULT_VIEWPORT).map(s => [s.elementId, s.score]));
+    const originalIndex = new Map(snapshot.elements.map((el, index) => [el.id, index]));
+    return [...elements].sort((a, b) => {
+        const scoreDelta = navigationScore(b, scoreById) - navigationScore(a, scoreById);
+        if (scoreDelta !== 0)
+            return scoreDelta;
+        return (originalIndex.get(a.id) ?? 0) - (originalIndex.get(b.id) ?? 0);
+    });
+}
+function navigationScore(element, scoreById) {
+    const role = normalizeRole(element.role);
+    const [x, y, w, h] = element.bounds;
+    const importance = scoreById.get(element.id) ?? 0;
+    const roleBonus = role === 'tab' ? 0.35
+        : role === 'link' || role === 'menuitem' ? 0.3
+            : role === 'button' ? 0.2
+                : 0.1;
+    const navZoneBonus = y <= 160 || x <= 240 ? 0.15 : 0;
+    const sizePenalty = w * h > 300_000 ? 0.1 : 0;
+    return importance + roleBonus + navZoneBonus - sizePenalty;
 }
 // ─── Backtrack ───────────────────────────────────────────────
 async function backtrack(driver, previousUrl) {
@@ -220,13 +296,13 @@ async function backtrack(driver, previousUrl) {
 // ─── Discover by Scroll ──────────────────────────────────────
 export async function discoverByScroll(driver, maxScrolls = 20) {
     const discovered = [];
-    const initialSnapshot = await driver.snapshot();
-    let prevElementCount = initialSnapshot.elements.length;
-    let prevFp = fingerprint(initialSnapshot);
+    let currentSnapshot = await driver.snapshot();
+    let prevElementCount = currentSnapshot.elements.length;
+    let prevFp = fingerprint(currentSnapshot);
     let noNewCount = 0;
     for (let i = 0; i < maxScrolls; i++) {
         // Find a scrollable element to act on, or fall back to first interactive element
-        const scrollTarget = initialSnapshot.elements.find(el => el.actions.includes('scroll')) ?? initialSnapshot.elements.find(el => el.actions.length > 0);
+        const scrollTarget = currentSnapshot.elements.find(el => el.actions.includes('scroll')) ?? currentSnapshot.elements.find(el => el.actions.length > 0);
         if (!scrollTarget)
             break;
         try {
@@ -263,6 +339,7 @@ export async function discoverByScroll(driver, maxScrolls = 20) {
         }
         prevElementCount = newCount;
         prevFp = newFp;
+        currentSnapshot = newSnapshot;
     }
     return discovered;
 }

@@ -25,6 +25,7 @@ export interface CaptureResult {
     sizeBytes?: number;
     codec?: string;
     fps?: number;
+    bitrate?: string;
     droppedFrames?: number;
     startedAt?: number;
     alreadyStopped?: boolean;

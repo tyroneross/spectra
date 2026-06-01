@@ -54,6 +54,8 @@ describe('RecordingRegistry', () => {
     expect(r.options.fps).toBe(60)
     expect(r.options.quality).toBe('medium')
     expect(r.options.hardware).toBe(false)
+    expect(r.options.codec).toBe('h264')
+    expect(r.options.bitrate).toBe('4M')
     expect(recordings.has('sess-a')).toBe(true)
   })
 
@@ -119,7 +121,7 @@ describe('RecordingRegistry', () => {
       sessionId: 's',
       platform: 'macos',
       outputDir: workDir,
-      options: { fps: 60, quality: 'high', hardware: true },
+      options: { fps: 60, quality: 'high', hardware: true, codec: 'hevc', bitrate: '8M' },
     })
     await recordings.stop({ sessionId: 's', outputDir: workDir })
 
@@ -128,6 +130,7 @@ describe('RecordingRegistry', () => {
     expect(calls[0].args).toContain('-framerate')
     expect(calls[0].args).toContain('60')
     // Encode call uses hardware encoder since hardware=true and quality!=lossless
-    expect(calls[1].args).toContain('h264_videotoolbox')
+    expect(calls[1].args).toContain('hevc_videotoolbox')
+    expect(calls[1].args).toContain('8M')
   })
 })

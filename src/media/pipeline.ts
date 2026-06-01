@@ -8,6 +8,8 @@ export interface VideoOptions {
   fps: 30 | 60
   quality: 'lossless' | 'high' | 'medium'
   hardware: boolean       // use VideoToolbox on macOS
+  codec: 'h264' | 'hevc'
+  bitrate: '4M' | '8M'
   maxDuration?: number    // seconds, safety limit (default: 300)
 }
 
@@ -60,7 +62,20 @@ const DEFAULT_OPTIONS: VideoOptions = {
   fps: 30,
   quality: 'high',
   hardware: true,
+  codec: 'h264',
+  bitrate: '8M',
   maxDuration: 300,
+}
+
+export function resolveVideoOptions(options?: Partial<VideoOptions>): VideoOptions {
+  const quality = options?.quality ?? DEFAULT_OPTIONS.quality
+  const bitrate = options?.bitrate ?? (quality === 'medium' ? '4M' : '8M')
+  return {
+    ...DEFAULT_OPTIONS,
+    ...options,
+    quality,
+    bitrate,
+  } as VideoOptions
 }
 
 /**
@@ -76,7 +91,7 @@ export function buildCaptureArgs(
     // simctl path — not ffmpeg
     return [
       'simctl', 'io', 'booted', 'recordVideo',
-      '--codec', 'h264',
+      '--codec', options.codec,
       '--force',
       outputPath,
     ]
@@ -106,32 +121,43 @@ export function buildEncodeArgs(
   const useHardware = options.hardware && options.quality !== 'lossless'
 
   if (useHardware) {
-    const bitrate = options.quality === 'high' ? '5M' : '2M'
-    return [
+    const encoder = options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox'
+    const args = [
       '-i', inputPath,
-      '-c:v', 'h264_videotoolbox',
-      '-b:v', bitrate,
+      '-c:v', encoder,
+      '-b:v', options.bitrate,
       '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
       outputPath,
     ]
+    if (options.codec === 'hevc') {
+      args.splice(args.length - 1, 0, '-tag:v', 'hvc1')
+    }
+    return args
   }
 
-  // Software encoding with libx264
+  // Software encoding with libx264/libx265
   const crfMap: Record<VideoOptions['quality'], number> = {
     lossless: 0,
-    high: 20,
-    medium: 28,
+    high: options.codec === 'hevc' ? 22 : 18,
+    medium: options.codec === 'hevc' ? 28 : 24,
   }
   const crf = crfMap[options.quality]
+  const encoder = options.codec === 'hevc' ? 'libx265' : 'libx264'
 
-  return [
+  const args = [
     '-i', inputPath,
-    '-c:v', 'libx264',
+    '-c:v', encoder,
     '-crf', String(crf),
     '-preset', 'slow',
     '-pix_fmt', 'yuv420p',
+    '-movflags', '+faststart',
     outputPath,
   ]
+  if (options.codec === 'hevc') {
+    args.splice(args.length - 1, 0, '-tag:v', 'hvc1')
+  }
+  return args
 }
 
 // ─── Recording ───────────────────────────────────────────────
@@ -144,7 +170,7 @@ export async function startRecording(
   outputDir: string,
   options?: Partial<VideoOptions>,
 ): Promise<RecordingHandle> {
-  const opts: VideoOptions = { ...DEFAULT_OPTIONS, ...options } as VideoOptions
+  const opts = resolveVideoOptions(options)
 
   const timestamp = Date.now()
   const isSimctl = platform === 'ios' || platform === 'watchos'
@@ -184,7 +210,7 @@ export async function encodeRecording(
   outputDir: string,
   options?: Partial<VideoOptions>,
 ): Promise<VideoResult> {
-  const opts: VideoOptions = { ...DEFAULT_OPTIONS, ...options } as VideoOptions
+  const opts = resolveVideoOptions(options)
 
   const timestamp = Date.now()
   const outputPath = join(outputDir, `video-${timestamp}.mp4`)
@@ -199,8 +225,7 @@ export async function encodeRecording(
 
   const fileStat = await stat(outputPath)
 
-  const useHardware = opts.hardware && opts.quality !== 'lossless'
-  const codec = useHardware ? 'h264_videotoolbox' : 'libx264'
+  const codec = resolveCodecName(opts)
 
   return {
     path: outputPath,
@@ -209,4 +234,11 @@ export async function encodeRecording(
     codec,
     fps: opts.fps,
   }
+}
+
+function resolveCodecName(options: VideoOptions): string {
+  if (options.hardware && options.quality !== 'lossless') {
+    return options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox'
+  }
+  return options.codec === 'hevc' ? 'libx265' : 'libx264'
 }

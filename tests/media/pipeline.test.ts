@@ -14,7 +14,15 @@ import { tmpdir } from 'node:os'
 // ─── Helpers ─────────────────────────────────────────────────
 
 function makeOpts(overrides: Partial<VideoOptions> = {}): VideoOptions {
-  return { fps: 30, quality: 'high', hardware: false, maxDuration: 300, ...overrides }
+  return {
+    fps: 30,
+    quality: 'high',
+    hardware: false,
+    codec: 'h264',
+    bitrate: '8M',
+    maxDuration: 300,
+    ...overrides,
+  }
 }
 
 /**
@@ -64,6 +72,12 @@ describe('buildCaptureArgs', () => {
     expect(args).toContain('recordVideo')
   })
 
+  it('simulator recording passes requested codec', () => {
+    const args = buildCaptureArgs('ios', '/tmp/out.mp4', makeOpts({ codec: 'hevc' }))
+    expect(args).toContain('--codec')
+    expect(args[args.indexOf('--codec') + 1]).toBe('hevc')
+  })
+
   it('fps 60 — contains -framerate 60', () => {
     const args = buildCaptureArgs('web', '/tmp/out.mkv', makeOpts({ fps: 60 }))
     expect(args).toContain('-framerate')
@@ -80,35 +94,35 @@ describe('buildCaptureArgs', () => {
 // ─── buildEncodeArgs ──────────────────────────────────────────
 
 describe('buildEncodeArgs', () => {
-  it('high quality software — contains -crf 20, -preset slow, libx264', () => {
+  it('high quality software — contains -crf 18, -preset slow, libx264', () => {
     const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts({ quality: 'high', hardware: false }))
     expect(args).toContain('libx264')
     expect(args).toContain('-crf')
-    expect(args[args.indexOf('-crf') + 1]).toBe('20')
+    expect(args[args.indexOf('-crf') + 1]).toBe('18')
     expect(args).toContain('-preset')
     expect(args[args.indexOf('-preset') + 1]).toBe('slow')
   })
 
-  it('high quality hardware — contains h264_videotoolbox, -b:v 5M', () => {
+  it('high quality hardware — contains h264_videotoolbox, -b:v 8M', () => {
     const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts({ quality: 'high', hardware: true }))
     expect(args).toContain('h264_videotoolbox')
     expect(args).toContain('-b:v')
-    expect(args[args.indexOf('-b:v') + 1]).toBe('5M')
+    expect(args[args.indexOf('-b:v') + 1]).toBe('8M')
     expect(args).not.toContain('-crf')
   })
 
-  it('medium quality software — CRF 28', () => {
+  it('medium quality software — CRF 24', () => {
     const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts({ quality: 'medium', hardware: false }))
     expect(args).toContain('-crf')
-    expect(args[args.indexOf('-crf') + 1]).toBe('28')
+    expect(args[args.indexOf('-crf') + 1]).toBe('24')
     expect(args).toContain('libx264')
   })
 
-  it('medium quality hardware — -b:v 2M', () => {
-    const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts({ quality: 'medium', hardware: true }))
+  it('medium quality hardware — -b:v 4M', () => {
+    const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts({ quality: 'medium', hardware: true, bitrate: '4M' }))
     expect(args).toContain('h264_videotoolbox')
     expect(args).toContain('-b:v')
-    expect(args[args.indexOf('-b:v') + 1]).toBe('2M')
+    expect(args[args.indexOf('-b:v') + 1]).toBe('4M')
   })
 
   it('lossless — CRF 0 with libx264 (hardware ignored for lossless)', () => {
@@ -131,6 +145,19 @@ describe('buildEncodeArgs', () => {
       expect(args).toContain('-pix_fmt')
       expect(args[args.indexOf('-pix_fmt') + 1]).toBe('yuv420p')
     }
+  })
+
+  it('supports HEVC hardware encoding with hvc1 tag', () => {
+    const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts({ codec: 'hevc', hardware: true }))
+    expect(args).toContain('hevc_videotoolbox')
+    expect(args).toContain('-tag:v')
+    expect(args[args.indexOf('-tag:v') + 1]).toBe('hvc1')
+  })
+
+  it('always enables faststart for distribution output', () => {
+    const args = buildEncodeArgs('/tmp/raw.mkv', '/tmp/out.mp4', makeOpts())
+    expect(args).toContain('-movflags')
+    expect(args[args.indexOf('-movflags') + 1]).toBe('+faststart')
   })
 })
 
