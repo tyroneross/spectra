@@ -1,6 +1,7 @@
 node_modules/
 .spectra/
 *.tsbuildinfo
+.DS_Store
 
 web-ui/.next/
 web-ui/node_modules/
