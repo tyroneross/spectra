@@ -10,6 +10,8 @@ web-ui/next-env.d.ts
 .bookmark/
 .navgator/
 .superpowers/
+.archive/
+.claude-code-debugger/
 
 # Capture output
 artifacts/

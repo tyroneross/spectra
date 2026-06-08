@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Resolve version
         id: ver
@@ -34,12 +34,13 @@ jobs:
           fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24.x"
           registry-url: "https://npm.pkg.github.com"
           scope: "@tyroneross"
           always-auth: true
+          package-manager-cache: false
 
       - name: Wait for propagation
         if: github.event_name == 'workflow_run'
@@ -70,7 +71,7 @@ jobs:
             fi
           done
 
-          # Smoke import — proves the package loads under Node 22 ESM.
+          # Smoke import proves the package loads under the release Node runtime.
           node -e "import('@tyroneross/spectra').then(m => { console.log('imported:', Object.keys(m).slice(0, 5)); }).catch(e => { console.error('import failed:', e.message); process.exit(1); });"
 
           FILE_COUNT=$(find node_modules/@tyroneross/spectra -type f | wc -l | tr -d ' ')

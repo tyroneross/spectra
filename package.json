@@ -1,7 +1,7 @@
 {
   "name": "@tyroneross/spectra",
   "version": "0.3.0",
-  "description": "AI-native UI automation across web, macOS, iOS, and watchOS. Claude Code + Codex plugin + MCP server + standalone CLI.",
+  "description": "AI-native UI automation across web, macOS, iOS, and watchOS with plugin, MCP server, and standalone CLI surfaces.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -54,7 +54,8 @@
   },
   "license": "Apache-2.0",
   "author": {
-    "name": "Tyrone Ross"
+    "name": "Tyrone Ross, Jr",
+    "email": "46267523+tyroneross@users.noreply.github.com"
   },
   "homepage": "https://github.com/tyroneross/spectra",
   "repository": {
@@ -73,8 +74,6 @@
     "accessibility",
     "ui-automation",
     "mcp",
-    "claude-code",
-    "codex",
     "plugin"
   ],
   "publishConfig": {
