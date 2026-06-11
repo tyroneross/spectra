@@ -17,6 +17,12 @@ export async function GET(req: NextRequest) {
     const type = sp.get('type')
     if (type === 'screenshot' || type === 'video') filters.type = type
 
+    const project = sp.get('project')
+    if (project) filters.project = project
+
+    const sessionType = sp.get('sessionType')
+    if (sessionType) filters.sessionType = sessionType
+
     const search = sp.get('search')
     if (search) filters.search = search
 

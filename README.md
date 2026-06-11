@@ -166,6 +166,7 @@ Take a screenshot or manage video recording. Supports intelligent framing modes.
 |-------|------|:--------:|-------------|
 | `sessionId` | string | yes | Active session ID |
 | `type` | enum | yes | `screenshot`, `start_recording`, `stop_recording` |
+| `preset` | enum | | Production preset: `docs`, `demo`, `social`, `app-store` |
 | `mode` | enum | | Capture mode: `full` (default), `element`, `region`, `auto` |
 | `elementId` | string | | Target element for `mode=element` |
 | `region` | string | | Region label for `mode=region` (e.g., `"Navigation"`, `"Form"`) |
@@ -183,12 +184,20 @@ Take a screenshot or manage video recording. Supports intelligent framing modes.
 - **`region`** — crops to a detected region by label (run `spectra_analyze` first to see available regions)
 - **`auto`** — automatically frames the most important content on screen
 
+**Production presets:**
+- **`docs`** — clean 16:9 auto-framed screenshots and lossless 30 fps recordings for documentation.
+- **`demo`** — clean 16:9 full-screen screenshots and smooth 60 fps H.264 recordings for product walkthroughs.
+- **`social`** — clean 9:16 auto-framed screenshots and H.264 recordings for short social clips.
+- **`app-store`** — stable clean full-screen captures for marketplace-style product shots.
+
+Explicit capture options override preset defaults, so `preset="demo"` with `fps=30` records at 30 fps while keeping the rest of the demo defaults.
+
 **Visual cleanup** (`clean: true`):
 - Hides scrollbars (web)
 - Cleans simulator status bar — 9:41, full battery, full signal (iOS/watchOS)
 - Removes cursor artifacts (web)
 
-**Returns:** `{ path, format, crop?, label?, cleanApplied }`
+**Returns:** `{ path, format, preset?, crop?, label?, cleanApplied }`
 
 ---
 
@@ -456,7 +465,31 @@ const captureArgs = buildCaptureArgs('web', '/tmp/raw.mkv', {
 const encodeArgs = buildEncodeArgs('/tmp/raw.mkv', '/tmp/output.mp4', {
   fps: 30, quality: 'high', hardware: true,
 })
-// → ['-i', '/tmp/raw.mkv', '-c:v', 'h264_videotoolbox', '-b:v', '5M', '-pix_fmt', 'yuv420p', ...]
+// → ['-i', '/tmp/raw.mkv', '-c:v', 'h264_videotoolbox', '-b:v', '8M', '-pix_fmt', 'yuv420p', ...]
+```
+
+### Media — Production Bundles
+
+```typescript
+import { createProductionBundle } from 'spectra'
+
+const bundle = await createProductionBundle([
+  {
+    id: 'capture-1',
+    path: '/absolute/path/to/capture.png',
+    type: 'screenshot',
+    preset: 'demo',
+    caption: 'Dashboard overview',
+  },
+], {
+  outDir: '/absolute/path/to/.spectra/productions/demo-bundle',
+  title: 'Demo launch assets',
+})
+
+// Writes masters/, derivatives/, manifest.json, quality-report.json, and README.md.
+// PNG screenshots get thumbnail derivatives. Videos are packaged as masters
+// with quality checks until probe/transcode derivatives are explicitly added.
+console.log(bundle.manifest.quality.status)
 ```
 
 ### Resolution Engine

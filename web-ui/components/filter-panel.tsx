@@ -1,21 +1,26 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 
-interface SessionOption {
-  id: string
+interface ProjectOption {
   name: string
   count: number
 }
 
 interface FilterPanelProps {
-  sessions: SessionOption[]
+  projects: ProjectOption[]
   className?: string
+  display?: 'desktop' | 'mobile' | 'both'
+}
+
+interface FilterContentProps {
+  projects: ProjectOption[]
+  density?: 'rail' | 'compact'
+  onFilterChange?: () => void
 }
 
 const PLATFORMS = ['web', 'macos', 'ios', 'watchos'] as const
@@ -33,9 +38,10 @@ const DATE_PRESETS = [
   { label: 'This Month', value: 'month' },
 ]
 
-function FilterContent({ sessions }: FilterPanelProps) {
+function FilterContent({ projects, density = 'rail', onFilterChange }: FilterContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const isCompact = density === 'compact'
 
   const setParam = useCallback(
     (key: string, value: string | null) => {
@@ -45,12 +51,14 @@ function FilterContent({ sessions }: FilterPanelProps) {
       } else {
         params.set(key, value)
       }
+      if (key === 'project') params.delete('sessionId')
       router.push(`/captures?${params.toString()}`)
+      onFilterChange?.()
     },
-    [router, searchParams]
+    [onFilterChange, router, searchParams]
   )
 
-  const currentSession = searchParams.get('sessionId') ?? ''
+  const currentProject = searchParams.get('project') ?? ''
   const currentPlatform = searchParams.get('platform') ?? ''
   const currentType = searchParams.get('type') ?? ''
   const currentDate = searchParams.get('date') ?? ''
@@ -75,43 +83,46 @@ function FilterContent({ sessions }: FilterPanelProps) {
       if (range.dateFrom) params.set('dateFrom', String(range.dateFrom))
     }
     router.push(`/captures?${params.toString()}`)
+    onFilterChange?.()
   }
 
   return (
-    <div className="space-y-6">
+    <div className={cn(isCompact ? 'space-y-4' : 'space-y-6')}>
       <div>
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
-          Sessions
+          Projects
         </p>
         <div className="overflow-hidden rounded-md border border-zinc-800">
           <button
             type="button"
-            onClick={() => setParam('sessionId', null)}
-            aria-pressed={!currentSession}
+            onClick={() => setParam('project', null)}
+            aria-pressed={!currentProject}
             className={cn(
-              'flex min-h-11 w-full items-center justify-between px-3 text-sm transition-colors sm:min-h-8',
-              !currentSession
+              'flex w-full items-center justify-between px-3 text-sm transition-colors',
+              isCompact ? 'min-h-9' : 'min-h-11 sm:min-h-8',
+              !currentProject
                 ? 'text-zinc-50 font-medium'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
             )}
           >
-            <span>All Sessions</span>
+            <span>All Projects</span>
           </button>
-          {sessions.map((s) => (
+          {projects.map((project) => (
             <button
-              key={s.id}
+              key={project.name}
               type="button"
-              onClick={() => setParam('sessionId', s.id)}
-              aria-pressed={currentSession === s.id}
+              onClick={() => setParam('project', project.name)}
+              aria-pressed={currentProject === project.name}
               className={cn(
-                'flex min-h-11 w-full items-center justify-between border-t border-zinc-800 px-3 text-sm transition-colors sm:min-h-8',
-                currentSession === s.id
+                'flex w-full items-center justify-between border-t border-zinc-800 px-3 text-sm transition-colors',
+                isCompact ? 'min-h-9' : 'min-h-11 sm:min-h-8',
+                currentProject === project.name
                   ? 'text-zinc-50 font-medium'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
               )}
             >
-              <span className="truncate text-left">{s.name}</span>
-              <span className="text-xs text-zinc-600 ml-2 shrink-0">{s.count}</span>
+              <span className="truncate text-left">{project.name}</span>
+              <span className="text-xs text-zinc-600 ml-2 shrink-0">{project.count}</span>
             </button>
           ))}
         </div>
@@ -121,15 +132,23 @@ function FilterContent({ sessions }: FilterPanelProps) {
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Platform
         </p>
-        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-zinc-800">
-          {PLATFORMS.map((p) => (
+        <div
+          className={cn(
+            'grid overflow-hidden rounded-md border border-zinc-800',
+            isCompact ? 'grid-cols-4' : 'grid-cols-2'
+          )}
+        >
+          {PLATFORMS.map((p, index) => (
             <button
               key={p}
               type="button"
               onClick={() => setParam('platform', currentPlatform === p ? null : p)}
               aria-pressed={currentPlatform === p}
               className={cn(
-                'min-h-11 px-2 text-xs transition-colors odd:border-r odd:border-zinc-800 [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-zinc-800 sm:min-h-8',
+                'px-2 text-xs transition-colors',
+                isCompact
+                  ? cn('min-h-9', index > 0 && 'border-l border-zinc-800')
+                  : 'min-h-11 odd:border-r odd:border-zinc-800 [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-zinc-800 sm:min-h-8',
                 currentPlatform === p
                   ? 'text-zinc-50 font-medium'
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-300'
@@ -153,7 +172,8 @@ function FilterContent({ sessions }: FilterPanelProps) {
               onClick={() => setParam('type', currentType === t ? null : t)}
               aria-pressed={currentType === t}
               className={cn(
-                'min-h-11 px-2 text-xs capitalize transition-colors first:border-r first:border-zinc-800 sm:min-h-8',
+                'px-2 text-xs capitalize transition-colors first:border-r first:border-zinc-800',
+                isCompact ? 'min-h-9' : 'min-h-11 sm:min-h-8',
                 currentType === t
                   ? 'text-zinc-50 font-medium'
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-300'
@@ -169,15 +189,27 @@ function FilterContent({ sessions }: FilterPanelProps) {
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Date
         </p>
-        <div className="overflow-hidden rounded-md border border-zinc-800">
-          {DATE_PRESETS.map((preset) => (
+        <div
+          className={cn(
+            'overflow-hidden rounded-md border border-zinc-800',
+            isCompact && 'grid grid-cols-2 sm:grid-cols-4'
+          )}
+        >
+          {DATE_PRESETS.map((preset, index) => (
             <button
               key={preset.value}
               type="button"
               onClick={() => setDatePreset(preset.value)}
               aria-pressed={currentDate === preset.value}
               className={cn(
-                'min-h-11 w-full border-t border-zinc-800 px-3 text-left text-sm first:border-t-0 transition-colors sm:min-h-8',
+                'min-h-11 w-full px-3 text-sm transition-colors sm:min-h-8',
+                isCompact
+                  ? cn(
+                      'min-h-9 text-center text-xs',
+                      index > 0 && 'border-l border-zinc-800',
+                      index > 1 && 'border-t border-zinc-800 sm:border-t-0'
+                    )
+                  : 'border-t border-zinc-800 text-left first:border-t-0',
                 currentDate === preset.value
                   ? 'text-zinc-50 font-medium'
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
@@ -192,27 +224,46 @@ function FilterContent({ sessions }: FilterPanelProps) {
   )
 }
 
-export function FilterPanel({ sessions, className }: FilterPanelProps) {
+export function FilterPanel({ projects, className, display = 'both' }: FilterPanelProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const mobilePanelId = 'capture-mobile-filters'
+
   return (
     <>
-      <aside className={cn('hidden md:block w-60 shrink-0 pr-6', className)}>
-        <FilterContent sessions={sessions} />
-      </aside>
+      {(display === 'desktop' || display === 'both') && (
+        <aside className={cn('hidden md:block w-60 shrink-0 pr-6', className)}>
+          <FilterContent projects={projects} />
+        </aside>
+      )}
 
-      <div className="md:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="min-h-11 border-zinc-700 text-zinc-300">
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
-              Filters
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="bg-zinc-950 border-zinc-800 w-72 p-6">
-            <p className="text-sm font-medium text-zinc-200 mb-6">Filters</p>
-            <FilterContent sessions={sessions} />
-          </SheetContent>
-        </Sheet>
-      </div>
+      {(display === 'mobile' || display === 'both') && (
+        <div className="md:hidden space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-controls={mobilePanelId}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="min-h-11 border-zinc-700 text-zinc-300"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            Filters
+          </Button>
+          {filtersOpen && (
+            <div
+              id={mobilePanelId}
+              className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950/95 p-3 shadow-lg shadow-black/20 sm:p-4"
+            >
+              <FilterContent
+                projects={projects}
+                density="compact"
+                onFilterChange={() => setFiltersOpen(false)}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </>
   )
 }

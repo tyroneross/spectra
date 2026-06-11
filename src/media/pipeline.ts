@@ -19,6 +19,8 @@ export interface VideoResult {
   size: number
   codec: string
   fps: number
+  width?: number
+  height?: number
 }
 
 export interface RecordingHandle {
@@ -26,15 +28,34 @@ export interface RecordingHandle {
   platform: Platform
 }
 
+export interface VideoProbeResult {
+  durationMs?: number
+  width?: number
+  height?: number
+  fps?: number
+  codec?: string
+}
+
+export interface PosterFrameOptions {
+  atSeconds?: number
+  maxWidth?: number
+}
+
 // ─── Process Runner ──────────────────────────────────────────
 
 export type ProcessRunner = (cmd: string, args: string[]) => {
   kill: () => void
   waitForExit: () => Promise<number>
+  stdout?: () => Promise<string>
+  stderr?: () => Promise<string>
 }
 
 function defaultRunner(cmd: string, args: string[]): ReturnType<ProcessRunner> {
   const proc = spawn(cmd, args, { stdio: 'pipe' })
+  const stdoutChunks: Buffer[] = []
+  const stderrChunks: Buffer[] = []
+  proc.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(Buffer.from(chunk)))
+  proc.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(Buffer.from(chunk)))
 
   return {
     kill: () => proc.kill(),
@@ -43,6 +64,8 @@ function defaultRunner(cmd: string, args: string[]): ReturnType<ProcessRunner> {
         proc.on('close', (code) => resolve(code ?? 0))
         proc.on('error', reject)
       }),
+    stdout: async () => Buffer.concat(stdoutChunks).toString('utf-8'),
+    stderr: async () => Buffer.concat(stderrChunks).toString('utf-8'),
   }
 }
 
@@ -160,6 +183,34 @@ export function buildEncodeArgs(
   return args
 }
 
+export function buildProbeArgs(inputPath: string): string[] {
+  return [
+    '-v', 'error',
+    '-select_streams', 'v:0',
+    '-show_entries', 'stream=codec_name,width,height,avg_frame_rate,r_frame_rate,duration:format=duration',
+    '-of', 'json',
+    inputPath,
+  ]
+}
+
+export function buildPosterFrameArgs(
+  inputPath: string,
+  outputPath: string,
+  options: PosterFrameOptions = {},
+): string[] {
+  const atSeconds = options.atSeconds ?? 1
+  const maxWidth = options.maxWidth ?? 1280
+  return [
+    '-y',
+    '-ss', String(atSeconds),
+    '-i', inputPath,
+    '-frames:v', '1',
+    '-vf', `scale=min(${maxWidth}\\,iw):-2`,
+    '-q:v', '2',
+    outputPath,
+  ]
+}
+
 // ─── Recording ───────────────────────────────────────────────
 
 /**
@@ -225,14 +276,64 @@ export async function encodeRecording(
 
   const fileStat = await stat(outputPath)
 
-  const codec = resolveCodecName(opts)
+  const probe = await probeVideo(outputPath).catch(() => undefined)
+  const codec = probe?.codec ?? resolveCodecName(opts)
 
   return {
     path: outputPath,
-    duration: 0,   // duration requires ffprobe — set to 0 as placeholder
+    duration: probe?.durationMs ? probe.durationMs / 1000 : 0,
     size: fileStat.size,
     codec,
-    fps: opts.fps,
+    fps: probe?.fps ?? opts.fps,
+    width: probe?.width,
+    height: probe?.height,
+  }
+}
+
+export async function probeVideo(inputPath: string): Promise<VideoProbeResult | undefined> {
+  const proc = runner('ffprobe', buildProbeArgs(inputPath))
+  const exitCode = await proc.waitForExit()
+  if (exitCode !== 0 || !proc.stdout) return undefined
+
+  const raw = await proc.stdout()
+  if (!raw.trim()) return undefined
+
+  const data = JSON.parse(raw) as {
+    streams?: Array<{
+      codec_name?: string
+      width?: number
+      height?: number
+      avg_frame_rate?: string
+      r_frame_rate?: string
+      duration?: string
+    }>
+    format?: {
+      duration?: string
+    }
+  }
+  const stream = data.streams?.[0]
+  const durationSeconds = numberFromString(stream?.duration) ?? numberFromString(data.format?.duration)
+  const fps = parseFps(stream?.avg_frame_rate) ?? parseFps(stream?.r_frame_rate)
+
+  return {
+    durationMs: durationSeconds !== undefined ? Math.round(durationSeconds * 1000) : undefined,
+    width: typeof stream?.width === 'number' ? stream.width : undefined,
+    height: typeof stream?.height === 'number' ? stream.height : undefined,
+    fps,
+    codec: stream?.codec_name,
+  }
+}
+
+export async function extractPosterFrame(
+  inputPath: string,
+  outputPath: string,
+  options?: PosterFrameOptions,
+): Promise<void> {
+  const proc = runner('ffmpeg', buildPosterFrameArgs(inputPath, outputPath, options))
+  const exitCode = await proc.waitForExit()
+  if (exitCode !== 0) {
+    const detail = proc.stderr ? await proc.stderr().catch(() => '') : ''
+    throw new Error(`ffmpeg poster extraction failed with exit code ${exitCode}${detail ? `: ${detail}` : ''}`)
   }
 }
 
@@ -241,4 +342,20 @@ function resolveCodecName(options: VideoOptions): string {
     return options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox'
   }
   return options.codec === 'hevc' ? 'libx265' : 'libx264'
+}
+
+function numberFromString(value: string | undefined): number | undefined {
+  if (!value) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function parseFps(value: string | undefined): number | undefined {
+  if (!value || value === '0/0') return undefined
+  const [rawNumerator, rawDenominator] = value.split('/')
+  const numerator = Number(rawNumerator)
+  const denominator = rawDenominator === undefined ? 1 : Number(rawDenominator)
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) return undefined
+  const fps = numerator / denominator
+  return Number.isFinite(fps) ? Math.round(fps * 100) / 100 : undefined
 }

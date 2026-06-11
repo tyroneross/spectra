@@ -117,6 +117,7 @@ server.tool('spectra_step', 'Natural language step: describe what to do, Spectra
 server.tool('spectra_capture', 'Capture screenshot or manage video recording. Supports intelligent framing modes: full, element, region, auto.', {
     sessionId: z.string(),
     type: z.enum(['screenshot', 'start_recording', 'stop_recording']),
+    preset: z.enum(['docs', 'demo', 'social', 'app-store']).optional().describe('Production capture preset'),
     mode: z.enum(['full', 'element', 'region', 'auto']).optional().describe('Capture mode (default: full)'),
     elementId: z.string().optional().describe('Element ID for mode=element'),
     region: z.string().optional().describe('Region label for mode=region (e.g., "Navigation", "Form")'),
@@ -128,9 +129,9 @@ server.tool('spectra_capture', 'Capture screenshot or manage video recording. Su
     bitrate: z.enum(['4M', '8M']).optional().describe('Recording bitrate'),
     hardware: z.boolean().optional().describe('Use hardware encoding when available'),
 }, 
-// annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
-{ readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async ({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }) => {
-    return wrapHandler(() => handleCapture({ sessionId, type, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }, ctx), 'spectra_capture');
+// annotations: writes media and recording state; start/stop are not tool-level idempotent.
+{ readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async ({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }) => {
+    return wrapHandler(() => handleCapture({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }, ctx), 'spectra_capture');
 });
 server.tool('spectra_analyze', 'Score the current screen and identify regions of interest, UI state, and top elements by importance', {
     sessionId: z.string().describe('Active session ID'),
@@ -182,8 +183,8 @@ server.tool('spectra_llm_step', 'Execute a fully-formed action plan from a clien
 }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, actions, continueOnError }) => {
     return wrapHandler(() => handleLlmStep({ sessionId, actions, continueOnError }, ctx), 'spectra_llm_step');
 });
-server.tool('spectra_session', 'List, get, close, close all sessions, or record LLM token usage against a session.', {
-    action: z.enum(['list', 'get', 'close', 'close_all', 'record_llm_usage']),
+server.tool('spectra_session', 'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session.', {
+    action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage']),
     sessionId: z.string().optional(),
     usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
 }, 

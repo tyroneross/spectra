@@ -80,6 +80,20 @@ export async function handleLlmStep(params, ctx) {
         // Persist as a Session.Step so reveal/Save lands the screenshot.
         if (session && actResult.success) {
             try {
+                const selectedElement = snapshotBefore.elements.find((el) => el.id === step.elementId);
+                const decision = await ctx.sessions.addDecision(params.sessionId, {
+                    tool: 'spectra_llm_step',
+                    plannerSource: 'standalone-fallback',
+                    intent: step.intent,
+                    outcome: 'planned',
+                    selected: {
+                        id: step.elementId,
+                        role: selectedElement?.role ?? 'unknown',
+                        label: selectedElement?.label ?? step.elementId,
+                    },
+                    action: { type: step.type, elementId: step.elementId, value: step.value },
+                    actionReason: 'Client-side planner supplied an explicit element action.',
+                });
                 const screenshot = await driver.screenshot();
                 await ctx.sessions.addStep(params.sessionId, {
                     action: { type: step.type, elementId: step.elementId, value: step.value },
@@ -90,6 +104,9 @@ export async function handleLlmStep(params, ctx) {
                     error: actResult.error,
                     duration: Date.now() - startedAt,
                     intent: step.intent,
+                    tool: 'spectra_llm_step',
+                    plannerSource: 'standalone-fallback',
+                    decisionId: decision.id,
                 });
             }
             catch {

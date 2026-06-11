@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rename, rm, mkdir, writeFile } from 'node:fs/promises'
 import { join, basename, extname } from 'node:path'
-import { getStoragePath } from 'spectra'
-import { listArchived, resolveMediaPath } from '@/lib/data'
+import { getProjectRoot, getSpectraDir, listArchived, resolveMediaPath } from '@/lib/data'
 
 function getArchiveDir(): string {
-  return join(getStoragePath(process.cwd()), 'archive')
+  return join(getSpectraDir(), 'archive')
 }
 
 function getArtifactsUploadsDir(): string {
-  // Resolve artifacts relative to cwd (project root detection mirrors lib/data.ts)
-  return join(process.cwd(), 'artifacts', 'uploads')
+  return join(getProjectRoot(), 'artifacts', 'uploads')
 }
 
 export async function GET() {

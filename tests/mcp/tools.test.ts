@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { handleConnect } from '../../src/mcp/tools/connect.js'
 import { handleSnapshot } from '../../src/mcp/tools/snapshot.js'
 import { handleAct } from '../../src/mcp/tools/act.js'
@@ -9,10 +9,13 @@ import type { ToolContext } from '../../src/mcp/context.js'
 import type { SessionManager } from '../../src/core/session.js'
 import type { CdpDriver } from '../../src/cdp/driver.js'
 import type { Snapshot } from '../../src/core/types.js'
+import { recordings } from '../../src/media/recordings.js'
+import { resetProcessRunner, setProcessRunner, type ProcessRunner } from '../../src/media/pipeline.js'
 
 vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
+  stat: vi.fn().mockResolvedValue({ size: 32 }),
 }))
 vi.mock('../../src/core/storage.js', () => ({
   getStoragePath: vi.fn().mockReturnValue('/tmp/spectra'),
@@ -47,11 +50,15 @@ function mockContext(): ToolContext {
         steps: [], createdAt: Date.now(), updatedAt: Date.now(),
       }),
       addStep: vi.fn().mockResolvedValue(undefined),
+      addDecision: vi.fn().mockResolvedValue({ id: 'decision-1' }),
+      addArtifact: vi.fn().mockResolvedValue({ id: 'artifact-1' }),
+      setRecordingStatus: vi.fn().mockResolvedValue({ state: 'idle' }),
       get: vi.fn().mockReturnValue({
         id: 'abc123', name: 'test', platform: 'web',
         target: { url: 'http://localhost:3000' },
         steps: [], createdAt: Date.now(), updatedAt: Date.now(),
       }),
+      getRun: vi.fn().mockReturnValue(null),
       list: vi.fn().mockReturnValue([]),
       close: vi.fn().mockResolvedValue(undefined),
       closeAll: vi.fn().mockResolvedValue(undefined),
@@ -59,6 +66,19 @@ function mockContext(): ToolContext {
     drivers: new Map(),
   }
 }
+
+afterEach(() => {
+  recordings._reset()
+  resetProcessRunner()
+})
+
+const fakeRecordingRunner: ProcessRunner = (cmd) => ({
+  kill: () => {},
+  waitForExit: () => Promise.resolve(0),
+  stdout: () => Promise.resolve(cmd === 'ffprobe'
+    ? JSON.stringify({ streams: [{ codec_name: 'h264', width: 1280, height: 720, avg_frame_rate: '30/1' }], format: { duration: '1.5' } })
+    : ''),
+})
 
 describe('handleConnect', () => {
   it('creates a web session for URL targets', async () => {
@@ -206,6 +226,55 @@ describe('handleCapture', () => {
 
     expect(result.format).toBe('png')
     expect(driver.screenshot).toHaveBeenCalled()
+  })
+
+  it('records capture preset metadata on screenshot artifacts', async () => {
+    const ctx = mockContext()
+    const driver = mockDriver()
+    ctx.drivers.set('abc123', driver)
+
+    const result = await handleCapture({
+      sessionId: 'abc123',
+      type: 'screenshot',
+      preset: 'demo',
+    }, ctx)
+
+    expect(result.preset).toBe('demo')
+    expect(ctx.sessions.addArtifact).toHaveBeenCalledWith('abc123', expect.objectContaining({
+      metadata: expect.objectContaining({
+        preset: 'demo',
+        mode: 'full',
+        aspectRatio: '16:9',
+        quality: 'high',
+        productionReady: true,
+      }),
+    }))
+  })
+
+  it('does not duplicate video artifacts when stop_recording is retried', async () => {
+    setProcessRunner(fakeRecordingRunner)
+    const ctx = mockContext()
+    const driver = mockDriver()
+    const run = {
+      artifacts: [] as Array<{ type: string; path: string; metadata?: Record<string, unknown> }>,
+      recording: { state: 'idle' },
+    }
+    ctx.drivers.set('abc123', driver)
+    vi.mocked(ctx.sessions.getRun).mockReturnValue(run as never)
+    vi.mocked(ctx.sessions.addArtifact).mockImplementation(async (_sessionId, options) => {
+      const artifact = { id: `artifact-${run.artifacts.length + 1}`, createdAt: Date.now(), ...options }
+      run.artifacts.push(artifact)
+      return artifact as never
+    })
+
+    await handleCapture({ sessionId: 'abc123', type: 'start_recording' }, ctx)
+    const firstStop = await handleCapture({ sessionId: 'abc123', type: 'stop_recording' }, ctx)
+    const secondStop = await handleCapture({ sessionId: 'abc123', type: 'stop_recording' }, ctx)
+
+    expect(firstStop.alreadyStopped).toBe(false)
+    expect(secondStop.alreadyStopped).toBe(true)
+    expect(run.artifacts).toHaveLength(1)
+    expect(ctx.sessions.addArtifact).toHaveBeenCalledTimes(1)
   })
 })
 

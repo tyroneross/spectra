@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getStoragePath } from 'spectra'
-import { listSessions } from '@/lib/data'
+import { getSpectraDir, listSessions } from '@/lib/data'
 
 function getSessionsDir(): string {
-  return join(getStoragePath(process.cwd()), 'sessions')
+  return join(getSpectraDir(), 'sessions')
 }
 
 export async function GET() {

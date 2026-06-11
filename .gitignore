@@ -13,6 +13,10 @@ web-ui/next-env.d.ts
 .superpowers/
 .archive/
 .claude-code-debugger/
+.rally/
+.build-loop/state.json
+.build-loop/worktree-gc-last.txt
+.build-loop/architecture/.scan.lock
 
 # Capture output
 artifacts/

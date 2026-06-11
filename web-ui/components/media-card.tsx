@@ -128,10 +128,15 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
         </div>
 
         {/* Card footer */}
-        <div className="px-3 py-2">
+        <div className="min-h-[4.75rem] px-3 py-2">
           <p className="text-xs font-mono text-zinc-300 truncate" title={capture.filename}>
             {capture.filename}
           </p>
+          {capture.guide && (
+            <p className="mt-1 truncate text-xs text-zinc-400" title={capture.guide}>
+              {capture.guide}
+            </p>
+          )}
           <p className="text-xs text-zinc-500 mt-0.5">{relativeTime(capture.timestamp)}</p>
         </div>
       </div>

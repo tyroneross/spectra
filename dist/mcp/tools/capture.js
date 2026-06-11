@@ -1,7 +1,12 @@
 import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { getStoragePath } from '../../core/storage.js';
 import { screenshot } from '../../media/capture.js';
+import { scoreElements, findRegions } from '../../intelligence/importance.js';
+import { frame } from '../../intelligence/framing.js';
+import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js';
+import { recordings } from '../../media/recordings.js';
+import { getCapturePresetDefinition, resolveRecordingCaptureOptions, resolveScreenshotCaptureOptions, } from '../../media/presets.js';
 /**
  * Resolve the per-session storage directory. Prefers the SessionManager's
  * record (which honors a `repoPath` passed at connect time) so launchd-spawned
@@ -17,10 +22,6 @@ function sessionStorageDir(ctx, sessionId) {
     }
     return join(getStoragePath(), 'sessions', sessionId);
 }
-import { scoreElements, findRegions } from '../../intelligence/importance.js';
-import { frame } from '../../intelligence/framing.js';
-import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js';
-import { recordings } from '../../media/recordings.js';
 /** Parse an aspect ratio string like "16:9" or "4:3" into a numeric ratio (w/h). */
 function parseAspectRatio(value) {
     const parts = value.split(':');
@@ -33,6 +34,16 @@ function parseAspectRatio(value) {
     return w / h;
 }
 const DEFAULT_VIEWPORT = { width: 1280, height: 800, devicePixelRatio: 1 };
+function buildMetadata(values) {
+    const metadata = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined));
+    return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+function hasVideoArtifact(ctx, sessionId, recordingId, artifactPath) {
+    const run = ctx.sessions.getRun(sessionId);
+    return Boolean(run?.artifacts.some((artifact) => (artifact.type === 'video'
+        && (artifact.path === artifactPath
+            || artifact.metadata?.recordingId === recordingId))));
+}
 export async function handleCapture(params, ctx) {
     const driver = ctx.drivers.get(params.sessionId);
     if (!driver)
@@ -40,9 +51,12 @@ export async function handleCapture(params, ctx) {
     const session = ctx.sessions.get(params.sessionId);
     const platform = session?.platform ?? 'web';
     if (params.type === 'screenshot') {
-        const mode = params.mode ?? 'full';
-        const cleanRequested = params.clean !== false; // default: true
-        const aspectRatio = params.aspectRatio ? parseAspectRatio(params.aspectRatio) : undefined;
+        const screenshotOptions = resolveScreenshotCaptureOptions(params);
+        const mode = screenshotOptions.mode;
+        const cleanRequested = screenshotOptions.clean;
+        const aspectRatio = screenshotOptions.aspectRatio
+            ? parseAspectRatio(screenshotOptions.aspectRatio)
+            : undefined;
         // Extract CDP connection if the driver exposes one
         const connection = driver.getConnection?.();
         const conn = (connection?.conn ?? null);
@@ -62,7 +76,20 @@ export async function handleCapture(params, ctx) {
                 await mkdir(dir, { recursive: true });
                 const path = join(dir, filename);
                 await writeFile(path, result.buffer);
-                return { path, format: result.format, cleanApplied };
+                await ctx.sessions.addArtifact(params.sessionId, {
+                    type: 'screenshot',
+                    path: filename,
+                    format: result.format,
+                    label: 'Full screen',
+                    metadata: buildMetadata({
+                        mode,
+                        preset: screenshotOptions.preset,
+                        aspectRatio: screenshotOptions.aspectRatio,
+                        quality: screenshotOptions.quality,
+                        productionReady: screenshotOptions.productionReady,
+                    }),
+                });
+                return { path, format: result.format, cleanApplied, preset: screenshotOptions.preset };
             }
             // All intelligence modes need a snapshot + screenshot
             const snapshot = await driver.snapshot();
@@ -104,12 +131,27 @@ export async function handleCapture(params, ctx) {
             await mkdir(dir, { recursive: true });
             const path = join(dir, filename);
             await writeFile(path, frameResult.buffer);
+            await ctx.sessions.addArtifact(params.sessionId, {
+                type: 'screenshot',
+                path: filename,
+                format: 'png',
+                label: frameResult.label,
+                metadata: {
+                    crop: frameResult.crop,
+                    mode,
+                    preset: screenshotOptions.preset,
+                    aspectRatio: screenshotOptions.aspectRatio,
+                    quality: screenshotOptions.quality,
+                    productionReady: screenshotOptions.productionReady,
+                },
+            });
             return {
                 path,
                 format: 'png',
                 crop: frameResult.crop,
                 label: frameResult.label,
                 cleanApplied,
+                preset: screenshotOptions.preset,
             };
         }
         finally {
@@ -121,17 +163,15 @@ export async function handleCapture(params, ctx) {
     if (params.type === 'start_recording') {
         const outputDir = sessionStorageDir(ctx, params.sessionId);
         await mkdir(outputDir, { recursive: true });
-        const videoOptions = {};
-        if (params.fps)
-            videoOptions.fps = params.fps;
-        if (params.quality)
-            videoOptions.quality = params.quality;
-        if (params.hardware !== undefined)
-            videoOptions.hardware = params.hardware;
-        if (params.codec)
-            videoOptions.codec = params.codec;
-        if (params.bitrate)
-            videoOptions.bitrate = params.bitrate;
+        const videoOptions = resolveRecordingCaptureOptions(params);
+        await ctx.sessions.setRecordingStatus(params.sessionId, {
+            state: 'arming',
+            preset: params.preset,
+            source: platform === 'ios' || platform === 'watchos'
+                ? 'xcrun simctl recordVideo'
+                : 'ffmpeg avfoundation default input',
+            sourceVerified: platform === 'ios' || platform === 'watchos',
+        });
         try {
             const r = await recordings.start({
                 sessionId: params.sessionId,
@@ -139,8 +179,18 @@ export async function handleCapture(params, ctx) {
                 outputDir,
                 options: videoOptions,
             });
+            await ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'recording',
+                recordingId: r.recordingId,
+                preset: params.preset,
+                startedAt: r.startedAt,
+                fps: r.options.fps,
+                codec: resolveCodecName(r.options),
+                bitrate: r.options.bitrate,
+            });
             return {
                 recordingId: r.recordingId,
+                preset: params.preset,
                 startedAt: r.startedAt,
                 fps: r.options.fps,
                 codec: resolveCodecName(r.options),
@@ -148,31 +198,85 @@ export async function handleCapture(params, ctx) {
             };
         }
         catch (err) {
-            return { error: err instanceof Error ? err.message : String(err) };
+            const message = err instanceof Error ? err.message : String(err);
+            await ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'failed',
+                error: message,
+            }).catch(() => { });
+            return { error: message };
         }
     }
     if (params.type === 'stop_recording') {
         const outputDir = sessionStorageDir(ctx, params.sessionId);
         await mkdir(outputDir, { recursive: true });
+        const recordingPreset = params.preset ?? ctx.sessions.getRun(params.sessionId)?.recording.preset;
+        const presetDefinition = getCapturePresetDefinition(recordingPreset);
         try {
+            await ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'encoding',
+                preset: recordingPreset,
+            });
             const r = await recordings.stop({
                 sessionId: params.sessionId,
                 outputDir,
             });
+            const artifactPath = relative(outputDir, r.path) || basename(r.path);
+            await ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'saved',
+                recordingId: r.recordingId,
+                preset: recordingPreset,
+                stoppedAt: Date.now(),
+                path: artifactPath,
+                durationMs: r.durationMs,
+                sizeBytes: r.sizeBytes,
+                codec: r.codec,
+                fps: r.fps,
+                width: r.width,
+                height: r.height,
+                droppedFrames: r.droppedFrames,
+            });
+            if (!hasVideoArtifact(ctx, params.sessionId, r.recordingId, artifactPath)) {
+                await ctx.sessions.addArtifact(params.sessionId, {
+                    type: 'video',
+                    path: artifactPath,
+                    format: 'mp4',
+                    sizeBytes: r.sizeBytes,
+                    metadata: {
+                        recordingId: r.recordingId,
+                        preset: recordingPreset,
+                        productionReady: presetDefinition?.productionReady,
+                        durationMs: r.durationMs,
+                        codec: r.codec,
+                        fps: r.fps,
+                        width: r.width,
+                        height: r.height,
+                        droppedFrames: r.droppedFrames,
+                        alreadyStopped: r.alreadyStopped,
+                    },
+                });
+            }
             return {
                 recordingId: r.recordingId,
+                preset: recordingPreset,
                 path: r.path,
                 format: 'mp4',
                 durationMs: r.durationMs,
                 sizeBytes: r.sizeBytes,
                 codec: r.codec,
                 fps: r.fps,
+                width: r.width,
+                height: r.height,
                 droppedFrames: r.droppedFrames,
                 alreadyStopped: r.alreadyStopped,
             };
         }
         catch (err) {
-            return { error: err instanceof Error ? err.message : String(err) };
+            const message = err instanceof Error ? err.message : String(err);
+            await ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'failed',
+                error: message,
+            }).catch(() => { });
+            return { error: message };
         }
     }
     return { error: `Unknown capture type: ${params.type}` };

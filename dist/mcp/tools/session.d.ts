@@ -1,6 +1,6 @@
 import type { ToolContext } from '../context.js';
 export interface SessionParams {
-    action: 'list' | 'get' | 'close' | 'close_all' | 'record_llm_usage';
+    action: 'list' | 'get' | 'run' | 'close' | 'close_all' | 'record_llm_usage';
     sessionId?: string;
     /** For action=record_llm_usage: arbitrary JSON-serializable token usage payload. */
     usage?: unknown;

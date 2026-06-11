@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getStoragePath } from 'spectra'
-import { getSession } from '@/lib/data'
+import { getSession, getSpectraDir } from '@/lib/data'
 
 function getSessionsDir(): string {
-  return join(getStoragePath(process.cwd()), 'sessions')
+  return join(getSpectraDir(), 'sessions')
 }
 
 export async function GET(
@@ -50,6 +49,17 @@ export async function PATCH(
     data.updatedAt = Date.now()
 
     await writeFile(sessionFile, JSON.stringify(data, null, 2), 'utf-8')
+
+    const runFile = join(getSessionsDir(), id, 'run.json')
+    try {
+      const runRaw = await readFile(runFile, 'utf-8')
+      const run = JSON.parse(runRaw) as Record<string, unknown>
+      run.name = body.name
+      run.updatedAt = data.updatedAt
+      await writeFile(runFile, JSON.stringify(run, null, 2), 'utf-8')
+    } catch {
+      // Legacy sessions may not have run.json yet.
+    }
 
     const updated = await getSession(id)
     return NextResponse.json(updated)

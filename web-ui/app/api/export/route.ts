@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, writeFile, mkdir, stat, copyFile } from 'node:fs/promises'
-import { join, basename, extname, resolve } from 'node:path'
+import { readFile, writeFile, mkdir, stat, copyFile, rm } from 'node:fs/promises'
+import { join, basename, extname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createWriteStream } from 'node:fs'
 import { createGzip } from 'node:zlib'
-import { pipeline } from 'node:stream/promises'
-import { listCaptures, resolveMediaPath } from '@/lib/data'
-import type { ExportRequest, ExportCapture } from '@/lib/types'
+import { createProductionBundle, type ProductionBundleSource } from 'spectra/media/production'
+import { listCaptures, resolveMediaPath, getSpectraDir, getProjectRoot } from '@/lib/data'
+import { resolveExportOutputDir, validateExportRequestBody } from '@/lib/export-validation'
+import type { ExportCapture } from '@/lib/types'
 
 // ─── Sharp (optional — graceful degradation if unavailable) ─────────────────
 
@@ -30,6 +31,18 @@ try {
 
 function makeTempDir(): string {
   return join(tmpdir(), `spectra-export-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+}
+
+function safePathSegment(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'bundle'
+}
+
+function makeProductionDir(template?: string): string {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return join(getSpectraDir(), 'productions', `${stamp}-${safePathSegment(template ?? 'production')}`)
 }
 
 /** Parse a hex/rgb color string into RGBA bytes for a semi-transparent overlay. */
@@ -179,27 +192,141 @@ async function writeTarGz(srcDir: string, destFile: string, files: string[]): Pr
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as ExportRequest
-
-    const { format, template, outputDir: requestedOutputDir, captures: exportCaptures } = body
-
-    if (!Array.isArray(exportCaptures) || exportCaptures.length === 0) {
-      return NextResponse.json({ error: 'No captures specified' }, { status: 400 })
+    const parsed = validateExportRequestBody(await req.json())
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 })
     }
+
+    const body = parsed.value
+    const { format, template, outputDir: requestedOutputDir, captures: exportCaptures } = body
+    const warnings: string[] = []
 
     // Load all captures to resolve IDs → paths
     const allCaptures = await listCaptures()
     const captureMap = new Map(allCaptures.map((c) => [c.id, c]))
 
     // Resolve and validate output directory
-    const outputDir = requestedOutputDir
-      ? resolve(requestedOutputDir)
+    const defaultOutputDir = format === 'production'
+      ? makeProductionDir(template)
       : makeTempDir()
+    const outputResolution = resolveExportOutputDir(requestedOutputDir, defaultOutputDir, [
+      getProjectRoot(),
+      tmpdir(),
+    ])
+    if (!outputResolution.ok) {
+      return NextResponse.json({ error: outputResolution.error }, { status: 400 })
+    }
+    const outputDir = outputResolution.path
 
     await mkdir(outputDir, { recursive: true })
 
     // Sort by order
     const sorted = [...exportCaptures].sort((a, b) => a.order - b.order)
+
+    if (format === 'production') {
+      const sources: ProductionBundleSource[] = []
+      let productionStagingDir: string | undefined
+
+      for (const ec of sorted) {
+        const capture = captureMap.get(ec.captureId)
+        if (!capture) {
+          warnings.push(`Capture not found: ${ec.captureId}`)
+          continue
+        }
+
+        const absPath = resolveMediaPath(capture.path)
+        if (!absPath) {
+          warnings.push(`Forbidden media path: ${capture.filename}`)
+          continue
+        }
+
+        let sourceInputPath: string | undefined
+        const hasCropOrHighlights = Boolean(ec.crop || (ec.highlights && ec.highlights.length > 0))
+        const shouldProcessScreenshot = capture.type === 'screenshot'
+          && (hasCropOrHighlights || template === 'social')
+
+        if (shouldProcessScreenshot && !sharpLib) {
+          warnings.push(`Production transform unavailable for ${capture.filename}; original media was bundled`)
+        } else if (shouldProcessScreenshot) {
+          try {
+            productionStagingDir ??= makeTempDir()
+            await mkdir(productionStagingDir, { recursive: true })
+            const stagedName = `${String(ec.order).padStart(3, '0')}-${capture.filename}`
+            const stagedPath = join(productionStagingDir, stagedName)
+            const processedBuf = await processCapture(absPath, ec, template)
+            await writeFile(stagedPath, processedBuf)
+            sourceInputPath = stagedPath
+          } catch (err) {
+            warnings.push(`Production transform failed for ${capture.filename}; original media was bundled`)
+            console.warn(`[export] production transform failed for ${capture.filename}:`, err)
+          }
+        } else if (capture.type === 'video' && (hasCropOrHighlights || template === 'social')) {
+          warnings.push(`Crop/highlight/social transforms are not applied to video source: ${capture.filename}`)
+        }
+
+        sources.push({
+          id: `${capture.id}-${String(ec.order).padStart(3, '0')}`,
+          path: absPath,
+          inputPath: sourceInputPath,
+          type: capture.type,
+          filename: capture.filename,
+          caption: ec.caption,
+          preset: capture.preset,
+          projectName: capture.projectName,
+          sessionName: capture.sessionName,
+          capturedAt: new Date(capture.timestamp).toISOString(),
+          metadata: {
+            format: capture.format,
+            sizeBytes: capture.size,
+            guide: capture.guide,
+            guideDetails: capture.guideDetails,
+            productionReady: capture.productionReady,
+            originalPath: capture.path,
+            crop: ec.crop,
+            highlights: ec.highlights,
+            template,
+            transformed: Boolean(sourceInputPath),
+          },
+        })
+      }
+
+      if (sources.length === 0) {
+        if (productionStagingDir) {
+          await rm(productionStagingDir, { recursive: true, force: true }).catch((err) => {
+            console.warn(`[export] failed to clean production staging dir ${productionStagingDir}:`, err)
+          })
+        }
+        if (!requestedOutputDir) {
+          await rm(outputDir, { recursive: true, force: true }).catch((err) => {
+            console.warn(`[export] failed to clean unresolved production dir ${outputDir}:`, err)
+          })
+        }
+        return NextResponse.json({ error: 'No captures could be resolved', warnings }, { status: 422 })
+      }
+
+      const bundle = await createProductionBundle(sources, {
+        outDir: outputDir,
+        title: `Spectra ${template ?? 'production'} bundle`,
+        preset: sources.find((source) => source.preset)?.preset,
+      }).finally(async () => {
+        if (productionStagingDir) {
+          await rm(productionStagingDir, { recursive: true, force: true }).catch((err) => {
+            console.warn(`[export] failed to clean production staging dir ${productionStagingDir}:`, err)
+          })
+        }
+      })
+      const totalSize = bundle.manifest.assets.reduce((sum, asset) => sum + asset.sizeBytes, 0)
+
+      return NextResponse.json({
+        outputPath: bundle.outDir,
+        fileCount: bundle.manifest.assets.length,
+        totalSize,
+        manifestPath: bundle.manifestPath,
+        qualityReportPath: bundle.qualityReportPath,
+        quality: bundle.manifest.quality,
+        warnings,
+      })
+    }
 
     // Process each capture
     const processedFiles: { destPath: string; caption?: string; index: number }[] = []
@@ -207,13 +334,17 @@ export async function POST(req: NextRequest) {
     for (const ec of sorted) {
       const capture = captureMap.get(ec.captureId)
       if (!capture) {
-        console.warn(`[export] capture not found: ${ec.captureId}`)
+        const message = `Capture not found: ${ec.captureId}`
+        warnings.push(message)
+        console.warn(`[export] ${message}`)
         continue
       }
 
       const absPath = resolveMediaPath(capture.path)
       if (!absPath) {
-        console.warn(`[export] forbidden path for capture: ${ec.captureId}`)
+        const message = `Forbidden media path: ${capture.filename}`
+        warnings.push(message)
+        console.warn(`[export] ${message}`)
         continue
       }
 
@@ -221,6 +352,7 @@ export async function POST(req: NextRequest) {
       try {
         processedBuf = await processCapture(absPath, ec, template)
       } catch (err) {
+        warnings.push(`Processing failed for ${capture.filename}; original media was copied`)
         console.warn(`[export] processing failed for ${capture.filename}:`, err)
         processedBuf = await readFile(absPath)
       }
@@ -233,7 +365,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (processedFiles.length === 0) {
-      return NextResponse.json({ error: 'No captures could be resolved' }, { status: 422 })
+      return NextResponse.json({ error: 'No captures could be resolved', warnings }, { status: 422 })
     }
 
     let finalOutputPath = outputDir
@@ -285,7 +417,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ outputPath: finalOutputPath, fileCount, totalSize })
+    return NextResponse.json({ outputPath: finalOutputPath, fileCount, totalSize, warnings })
   } catch (err) {
     console.error('[POST /api/export]', err)
     return NextResponse.json({ error: 'Export failed' }, { status: 500 })

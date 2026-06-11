@@ -34,6 +34,8 @@ export interface StopResult {
     sizeBytes: number;
     codec: string;
     fps: number;
+    width?: number;
+    height?: number;
     droppedFrames?: number;
     alreadyStopped: boolean;
 }
@@ -43,6 +45,7 @@ export interface StopResult {
  */
 declare class RecordingRegistry {
     private records;
+    private starting;
     has(sessionId: string): boolean;
     list(): RecordingRecord[];
     start(opts: StartOptions): Promise<StartResult>;

@@ -3,6 +3,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   buildCaptureArgs,
   buildEncodeArgs,
+  buildPosterFrameArgs,
+  buildProbeArgs,
+  encodeRecording,
+  extractPosterFrame,
+  probeVideo,
   startRecording,
   setProcessRunner,
   resetProcessRunner,
@@ -10,6 +15,8 @@ import {
   type ProcessRunner,
 } from '../../src/media/pipeline.js'
 import { tmpdir } from 'node:os'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -240,5 +247,134 @@ describe('startRecording', () => {
     // the stop method itself calls kill, so we can't distinguish —
     // just verify stop returns without throwing
     expect(isKillCalled()).toBe(true) // stop() calls kill
+  })
+})
+
+// ─── probe/poster/encode metadata ────────────────────────────
+
+describe('video probing and posters', () => {
+  let workDir: string
+
+  beforeEach(() => {
+    workDir = mkdtempSync(join(tmpdir(), 'spectra-pipeline-'))
+  })
+
+  afterEach(() => {
+    resetProcessRunner()
+    rmSync(workDir, { recursive: true, force: true })
+  })
+
+  it('buildProbeArgs requests machine-readable stream and format metadata', () => {
+    const args = buildProbeArgs('/tmp/video.mp4')
+    expect(args).toContain('-of')
+    expect(args[args.indexOf('-of') + 1]).toBe('json')
+    expect(args).toContain('-show_entries')
+    expect(args).toContain('/tmp/video.mp4')
+  })
+
+  it('buildPosterFrameArgs extracts one scaled PNG frame', () => {
+    const args = buildPosterFrameArgs('/tmp/video.mp4', '/tmp/poster.png', { atSeconds: 2, maxWidth: 900 })
+    expect(args).toEqual(expect.arrayContaining([
+      '-ss',
+      '2',
+      '-frames:v',
+      '1',
+      '-q:v',
+      '2',
+      '/tmp/poster.png',
+    ]))
+    expect(args).toContain('scale=min(900\\,iw):-2')
+  })
+
+  it('probeVideo parses duration, dimensions, codec, and rational FPS', async () => {
+    setProcessRunner((_cmd, _args) => ({
+      kill: () => {},
+      waitForExit: () => Promise.resolve(0),
+      stdout: () => Promise.resolve(JSON.stringify({
+        streams: [
+          {
+            codec_name: 'h264',
+            width: 1920,
+            height: 1080,
+            avg_frame_rate: '30000/1001',
+          },
+        ],
+        format: { duration: '12.345' },
+      })),
+    }))
+
+    await expect(probeVideo('/tmp/video.mp4')).resolves.toEqual({
+      codec: 'h264',
+      width: 1920,
+      height: 1080,
+      fps: 29.97,
+      durationMs: 12345,
+    })
+  })
+
+  it('encodeRecording uses probed video values when ffprobe succeeds', async () => {
+    const rawPath = join(workDir, 'raw.mkv')
+    writeFileSync(rawPath, 'raw')
+    setProcessRunner((cmd, args) => {
+      const outputPath = args[args.length - 1]
+      if (cmd === 'ffmpeg' && outputPath) {
+        writeFileSync(outputPath, 'encoded')
+      }
+      return {
+        kill: () => {},
+        waitForExit: () => Promise.resolve(0),
+        stdout: () => Promise.resolve(cmd === 'ffprobe'
+          ? JSON.stringify({
+            streams: [{ codec_name: 'hevc', width: 1280, height: 720, avg_frame_rate: '60/1' }],
+            format: { duration: '3.2' },
+          })
+          : ''),
+      }
+    })
+
+    const result = await encodeRecording(rawPath, workDir, { fps: 30, codec: 'h264', hardware: false })
+
+    expect(result.duration).toBe(3.2)
+    expect(result.codec).toBe('hevc')
+    expect(result.fps).toBe(60)
+    expect(result.width).toBe(1280)
+    expect(result.height).toBe(720)
+  })
+
+  it('encodeRecording falls back to requested values when probing fails', async () => {
+    const rawPath = join(workDir, 'raw.mkv')
+    writeFileSync(rawPath, 'raw')
+    setProcessRunner((cmd, args) => {
+      const outputPath = args[args.length - 1]
+      if (cmd === 'ffmpeg' && outputPath) {
+        writeFileSync(outputPath, 'encoded')
+      }
+      return {
+        kill: () => {},
+        waitForExit: () => Promise.resolve(cmd === 'ffprobe' ? 1 : 0),
+      }
+    })
+
+    const result = await encodeRecording(rawPath, workDir, { fps: 60, codec: 'h264', hardware: false })
+
+    expect(result.duration).toBe(0)
+    expect(result.codec).toBe('libx264')
+    expect(result.fps).toBe(60)
+    expect(result.width).toBeUndefined()
+    expect(result.height).toBeUndefined()
+  })
+
+  it('extractPosterFrame writes through the configured ffmpeg runner', async () => {
+    const posterPath = join(workDir, 'poster.png')
+    setProcessRunner((_cmd, args) => ({
+      kill: () => {},
+      waitForExit: () => {
+        writeFileSync(args[args.length - 1], 'poster')
+        return Promise.resolve(0)
+      },
+    }))
+
+    await extractPosterFrame('/tmp/video.mp4', posterPath)
+    expect(existsSync(posterPath)).toBe(true)
   })
 })

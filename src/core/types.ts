@@ -1,5 +1,7 @@
 // ─── Platform ───────────────────────────────────────────────
 export type Platform = 'web' | 'macos' | 'ios' | 'watchos' | 'terminal'
+export type CaptureMode = 'full' | 'element' | 'region' | 'auto'
+export type CapturePreset = 'docs' | 'demo' | 'social' | 'app-store'
 
 // ─── Elements ───────────────────────────────────────────────
 export interface Element {
@@ -104,6 +106,135 @@ export interface Step {
   timestamp: number
   duration: number
   intent?: string
+  decisionId?: string
+}
+
+// ─── Capture Run ─────────────────────────────────────────────
+export type CaptureRunStatus = 'active' | 'closed' | 'failed'
+export type CaptureRunPlannerSource = 'host-agent' | 'standalone-fallback' | 'manual' | 'unknown'
+export type CaptureRunDecisionOutcome =
+  | 'auto-executed'
+  | 'needs-host-decision'
+  | 'manual'
+  | 'planned'
+  | 'failed'
+export type CaptureRunRecordingState =
+  | 'idle'
+  | 'arming'
+  | 'recording'
+  | 'encoding'
+  | 'saved'
+  | 'failed'
+  | 'aborted'
+
+export interface CaptureRunCandidate {
+  id: string
+  role: string
+  label: string
+  confidence?: number
+}
+
+export interface CaptureRunDecision {
+  id: string
+  timestamp: number
+  tool: string
+  plannerSource: CaptureRunPlannerSource
+  intent?: string
+  mode?: ResolveOptions['mode']
+  confidence?: number
+  outcome: CaptureRunDecisionOutcome
+  selected?: CaptureRunCandidate
+  candidates?: CaptureRunCandidate[]
+  action?: Action
+  actionReason?: string
+  visionFallback?: boolean
+  stepIndex?: number
+  error?: string
+}
+
+export interface CaptureRunAction {
+  stepIndex: number
+  timestamp: number
+  tool?: string
+  plannerSource?: CaptureRunPlannerSource
+  intent?: string
+  action: Action
+  snapshotBefore: string
+  snapshotAfter: string
+  screenshotPath: string
+  success: boolean
+  error?: string
+  duration: number
+  decisionId?: string
+}
+
+export interface CaptureRunArtifact {
+  id: string
+  type: 'screenshot' | 'video' | 'raw-video' | 'snapshot' | 'other'
+  path: string
+  format?: string
+  label?: string
+  createdAt: number
+  stepIndex?: number
+  sizeBytes?: number
+  metadata?: Record<string, unknown>
+}
+
+export interface CaptureRunRecording {
+  state: CaptureRunRecordingState
+  recordingId?: string
+  preset?: CapturePreset
+  startedAt?: number
+  stoppedAt?: number
+  rawPath?: string
+  path?: string
+  durationMs?: number
+  sizeBytes?: number
+  codec?: string
+  fps?: number
+  width?: number
+  height?: number
+  bitrate?: string
+  droppedFrames?: number
+  error?: string
+  source?: string
+  sourceVerified?: boolean
+}
+
+export interface CaptureRunEvent {
+  id: string
+  timestamp: number
+  type: string
+  summary: string
+  data?: Record<string, unknown>
+}
+
+export interface CaptureRunManifest {
+  schemaVersion: 1
+  runId: string
+  sessionId: string
+  name: string
+  platform: Platform
+  target: DriverTarget
+  planner: {
+    source: CaptureRunPlannerSource
+    note?: string
+  }
+  status: CaptureRunStatus
+  recording: CaptureRunRecording
+  stats: {
+    steps: number
+    screenshots: number
+    videos: number
+    errors: number
+  }
+  decisions: CaptureRunDecision[]
+  actions: CaptureRunAction[]
+  artifacts: CaptureRunArtifact[]
+  events: CaptureRunEvent[]
+  createdAt: number
+  updatedAt: number
+  closedAt?: number
 }
 
 // ─── Resolution ─────────────────────────────────────────────

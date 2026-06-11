@@ -85,7 +85,11 @@ function makeContext(driver: Driver | null = new MockDriver()): ToolContext {
   const sessions = {
     create: vi.fn().mockResolvedValue(sessionData),
     addStep: vi.fn().mockResolvedValue(undefined),
+    addDecision: vi.fn().mockResolvedValue({ id: 'decision-1' }),
+    addArtifact: vi.fn().mockResolvedValue({ id: 'artifact-1' }),
+    setRecordingStatus: vi.fn().mockResolvedValue({ state: 'idle' }),
     get: vi.fn().mockReturnValue(sessionData),
+    getRun: vi.fn().mockReturnValue(null),
     list: vi.fn().mockReturnValue([]),
     close: vi.fn().mockResolvedValue(undefined),
     closeAll: vi.fn().mockResolvedValue(undefined),

@@ -83,7 +83,10 @@ describe('SessionManager', () => {
       expect(updated!.steps[0].success).toBe(true)
 
       // Verify files were written
-      expect(writeFile).toHaveBeenCalledTimes(5) // 2 snapshots + 1 screenshot + 2 session.json (create + addStep)
+      // 2 snapshots + 1 screenshot + 2 session.json + 2 run.json (create + addStep)
+      expect(writeFile).toHaveBeenCalledTimes(7)
+      expect(manager.getRun(session.id)?.actions).toHaveLength(1)
+      expect(manager.getRun(session.id)?.artifacts[0].path).toBe('step-000.png')
     })
   })
 

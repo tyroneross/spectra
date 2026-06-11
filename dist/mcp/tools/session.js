@@ -10,6 +10,7 @@ export async function handleSession(params, ctx) {
                     name: s.name,
                     platform: s.platform,
                     steps: s.steps.length,
+                    recordingState: ctx.sessions.getRun(s.id)?.recording.state ?? 'idle',
                     createdAt: new Date(s.createdAt).toISOString(),
                 })),
             };
@@ -19,7 +20,15 @@ export async function handleSession(params, ctx) {
             const session = ctx.sessions.get(params.sessionId);
             if (!session)
                 throw new Error(`Session ${params.sessionId} not found`);
-            return { session };
+            return { session, run: ctx.sessions.getRun(params.sessionId) };
+        }
+        case 'run': {
+            if (!params.sessionId)
+                throw new Error('sessionId required for run');
+            const run = ctx.sessions.getRun(params.sessionId);
+            if (!run)
+                throw new Error(`Run for session ${params.sessionId} not found`);
+            return { run };
         }
         case 'close': {
             if (!params.sessionId)

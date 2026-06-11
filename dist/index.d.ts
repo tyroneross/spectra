@@ -1,4 +1,4 @@
-export type { Platform, Element, Snapshot, SnapshotMetadata, Action, ActionType, ActResult, Driver, DriverTarget, Session, Step, ResolveOptions, ResolveResult, } from './core/types.js';
+export type { Platform, Element, Snapshot, SnapshotMetadata, Action, ActionType, ActResult, Driver, DriverTarget, Session, Step, CaptureMode, CapturePreset, CaptureRunStatus, CaptureRunPlannerSource, CaptureRunDecisionOutcome, CaptureRunRecordingState, CaptureRunCandidate, CaptureRunDecision, CaptureRunAction, CaptureRunArtifact, CaptureRunRecording, CaptureRunEvent, CaptureRunManifest, ResolveOptions, ResolveResult, } from './core/types.js';
 export { SessionManager } from './core/session.js';
 export type { CreateSessionOptions, AddStepOptions } from './core/session.js';
 export { getStoragePath, findProjectRoot } from './core/storage.js';
@@ -19,8 +19,12 @@ export { crawl, discoverByScroll } from './intelligence/navigation.js';
 export type { Viewport, UIState, ImportanceScore, ScoreFactor, RegionOfInterest, ChangeResult, ChangeDetail, StateDetection, NavigationGraph, ScreenNode, NavigationEdge, CrawlOptions, FrameOptions, FrameResult, CaptureIntent, CaptureManifest, CaptureEntry, } from './intelligence/types.js';
 export { prepareForCapture, restoreAfterCapture } from './media/clean.js';
 export type { CleanOptions, CleanState } from './media/clean.js';
-export { buildCaptureArgs, buildEncodeArgs } from './media/pipeline.js';
-export type { VideoOptions, VideoResult } from './media/pipeline.js';
+export { buildCaptureArgs, buildEncodeArgs, buildPosterFrameArgs, buildProbeArgs, encodeRecording, extractPosterFrame, probeVideo, } from './media/pipeline.js';
+export type { PosterFrameOptions, VideoOptions, VideoProbeResult, VideoResult } from './media/pipeline.js';
+export { CAPTURE_PRESETS, getCapturePresetDefinition, resolveRecordingCaptureOptions, resolveScreenshotCaptureOptions, } from './media/presets.js';
+export type { CapturePresetDefinition, RecordingCaptureDefaults, RecordingPresetInput, ResolvedScreenshotCaptureOptions, ScreenshotCaptureDefaults, ScreenshotPresetInput, } from './media/presets.js';
+export { createProductionBundle } from './media/production.js';
+export type { ProductionAsset, ProductionAssetKind, ProductionBundleManifest, ProductionBundleOptions, ProductionBundleResult, ProductionBundleSource, ProductionQualityCheck, ProductionQualityLevel, ProductionQualityReport, ProductionQualityStatus, ProductionSourceType, } from './media/production.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 export type { RawImage } from './media/png.js';
 //# sourceMappingURL=index.d.ts.map

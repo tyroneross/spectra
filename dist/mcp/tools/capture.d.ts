@@ -1,8 +1,10 @@
 import type { ToolContext } from '../context.js';
+import type { CaptureMode, CapturePreset } from '../../core/types.js';
 export interface CaptureParams {
     sessionId: string;
     type: 'screenshot' | 'start_recording' | 'stop_recording';
-    mode?: 'full' | 'element' | 'region' | 'auto';
+    preset?: CapturePreset;
+    mode?: CaptureMode;
     elementId?: string;
     region?: string;
     aspectRatio?: string;
@@ -16,6 +18,7 @@ export interface CaptureParams {
 export interface CaptureResult {
     path?: string;
     format?: string;
+    preset?: CapturePreset;
     crop?: [number, number, number, number];
     label?: string;
     cleanApplied?: boolean;
@@ -25,6 +28,8 @@ export interface CaptureResult {
     sizeBytes?: number;
     codec?: string;
     fps?: number;
+    width?: number;
+    height?: number;
     bitrate?: string;
     droppedFrames?: number;
     startedAt?: number;

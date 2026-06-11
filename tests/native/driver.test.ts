@@ -10,9 +10,10 @@ import { existsSync } from 'node:fs'
 const hasBinaries = existsSync(TEST_APP_PATH)
 
 describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
-  let testApp: ChildProcess
-  let bridge: NativeBridge
-  let driver: NativeDriver
+  let testApp: ChildProcess | undefined
+  let bridge: NativeBridge | undefined
+  let driver: NativeDriver | undefined
+  let setupSkipReason: string | undefined
 
   beforeAll(async () => {
     // Launch test app
@@ -22,24 +23,41 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
 
     bridge = new NativeBridge()
     driver = new NativeDriver(bridge)
-    await driver.connect({ appName: 'spectra-test-app' })
+    try {
+      await driver.connect({ appName: 'spectra-test-app' })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (message.includes('Accessibility permission not granted')) {
+        setupSkipReason = message
+        return
+      }
+      throw err
+    }
   }, 15000)
 
   afterAll(async () => {
-    await driver.close()
-    await bridge.close()
+    await driver?.close()
+    await bridge?.close()
     testApp?.kill()
     // Wait for cleanup
     await new Promise(r => setTimeout(r, 500))
   })
 
+  function skipIfSetupUnavailable(): boolean {
+    if (!setupSkipReason) return false
+    console.log(`SKIP: ${setupSkipReason}`)
+    return true
+  }
+
   it('connects to the test app', () => {
+    if (skipIfSetupUnavailable()) return
     // connect() succeeded in beforeAll
     expect(true).toBe(true)
   })
 
   it('takes a snapshot with valid structure', async () => {
-    const snap = await driver.snapshot()
+    if (skipIfSetupUnavailable()) return
+    const snap = await driver!.snapshot()
 
     expect(snap.platform).toBe('macos')
     expect(snap.appName).toBe('spectra-test-app')
@@ -50,7 +68,8 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
   })
 
   it('finds UI elements when AX tree is accessible', async () => {
-    const snap = await driver.snapshot()
+    if (skipIfSetupUnavailable()) return
+    const snap = await driver!.snapshot()
 
     if (snap.elements.length === 0) {
       // macOS 26 (Tahoe) beta: AX tree does not expose window content.
@@ -72,7 +91,8 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
   })
 
   it('clicks a button when AX tree is accessible', async () => {
-    const snap = await driver.snapshot()
+    if (skipIfSetupUnavailable()) return
+    const snap = await driver!.snapshot()
 
     if (snap.elements.length === 0) {
       console.log('SKIP: AX tree returned 0 elements (macOS 26 AX limitation)')
@@ -89,7 +109,7 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
     // (macOS 26 has known AX staleness issues with SwiftUI @State changes)
     let counter: typeof snap.elements[0] | undefined
     for (let attempt = 0; attempt < 5; attempt++) {
-      const freshSnap = await driver.snapshot()
+      const freshSnap = await driver!.snapshot()
       counter = freshSnap.elements.find(e => e.label?.includes('Clicked:'))
       if (counter && counter.label.includes('1')) break
       await new Promise(r => setTimeout(r, 500))
@@ -102,7 +122,8 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
   })
 
   it('has no duplicate elements (same label+role+bounds)', async () => {
-    const snap = await driver.snapshot()
+    if (skipIfSetupUnavailable()) return
+    const snap = await driver!.snapshot()
 
     if (snap.elements.length === 0) {
       console.log('SKIP: AX tree returned 0 elements (macOS 26 AX limitation)')
@@ -119,7 +140,8 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
   })
 
   it('has no traffic light system chrome buttons', async () => {
-    const snap = await driver.snapshot()
+    if (skipIfSetupUnavailable()) return
+    const snap = await driver!.snapshot()
 
     if (snap.elements.length === 0) {
       console.log('SKIP: AX tree returned 0 elements (macOS 26 AX limitation)')
@@ -140,7 +162,8 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
   })
 
   it('takes a screenshot', async () => {
-    const buf = await driver.screenshot()
+    if (skipIfSetupUnavailable()) return
+    const buf = await driver!.screenshot()
     expect(buf).toBeInstanceOf(Buffer)
     expect(buf.length).toBeGreaterThan(0)
     // PNG header
@@ -149,7 +172,8 @@ describe.skipIf(!hasBinaries)('NativeDriver', { timeout: 30000 }, () => {
   })
 
   it('returns error for stale element ID', async () => {
-    const result = await driver.act('e999', 'click')
+    if (skipIfSetupUnavailable()) return
+    const result = await driver!.act('e999', 'click')
     expect(result.success).toBe(false)
     expect(result.error).toContain('not found')
   })

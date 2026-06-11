@@ -4,7 +4,7 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export interface SessionParams {
-  action: 'list' | 'get' | 'close' | 'close_all' | 'record_llm_usage'
+  action: 'list' | 'get' | 'run' | 'close' | 'close_all' | 'record_llm_usage'
   sessionId?: string
   /** For action=record_llm_usage: arbitrary JSON-serializable token usage payload. */
   usage?: unknown
@@ -19,6 +19,7 @@ export async function handleSession(params: SessionParams, ctx: ToolContext): Pr
           name: s.name,
           platform: s.platform,
           steps: s.steps.length,
+          recordingState: ctx.sessions.getRun(s.id)?.recording.state ?? 'idle',
           createdAt: new Date(s.createdAt).toISOString(),
         })),
       }
@@ -27,7 +28,14 @@ export async function handleSession(params: SessionParams, ctx: ToolContext): Pr
       if (!params.sessionId) throw new Error('sessionId required for get')
       const session = ctx.sessions.get(params.sessionId)
       if (!session) throw new Error(`Session ${params.sessionId} not found`)
-      return { session }
+      return { session, run: ctx.sessions.getRun(params.sessionId) }
+    }
+
+    case 'run': {
+      if (!params.sessionId) throw new Error('sessionId required for run')
+      const run = ctx.sessions.getRun(params.sessionId)
+      if (!run) throw new Error(`Run for session ${params.sessionId} not found`)
+      return { run }
     }
 
     case 'close': {

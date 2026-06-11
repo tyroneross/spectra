@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useState, useRef } from 'react'
-import { Archive, Download, Search } from 'lucide-react'
+import { Archive, Download, FolderDown, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -14,11 +14,14 @@ import {
 } from '@/components/ui/select'
 
 interface ActionBarProps {
+  sessionTypes: { name: string; count: number }[]
   bulkMode: boolean
   onToggleBulk: () => void
   selectedCount: number
   onExport: () => void
   onArchive: () => void
+  onOpenImport: () => void
+  importPanelOpen: boolean
 }
 
 const SORT_OPTIONS = [
@@ -29,11 +32,14 @@ const SORT_OPTIONS = [
 ]
 
 export function ActionBar({
+  sessionTypes,
   bulkMode,
   onToggleBulk,
   selectedCount,
   onExport,
   onArchive,
+  onOpenImport,
+  importPanelOpen,
 }: ActionBarProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -63,6 +69,7 @@ export function ActionBar({
   }
 
   const currentSort = searchParams.get('sort') ?? 'date-desc'
+  const currentSessionType = searchParams.get('sessionType') ?? '__all'
   const hasSelection = selectedCount > 0
 
   return (
@@ -86,6 +93,25 @@ export function ActionBar({
           {SORT_OPTIONS.map((opt) => (
             <SelectItem key={opt.value} value={opt.value} className="focus:bg-zinc-800 focus:text-zinc-100">
               {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={currentSessionType}
+        onValueChange={(v) => setParam('sessionType', v === '__all' ? null : v)}
+      >
+        <SelectTrigger aria-label="Filter by session type" className="min-h-11 w-full border-zinc-700 bg-zinc-900 text-sm text-zinc-300 focus:ring-zinc-600 sm:min-h-9 sm:w-48">
+          <SelectValue placeholder="Session Type" />
+        </SelectTrigger>
+        <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-300">
+          <SelectItem value="__all" className="focus:bg-zinc-800 focus:text-zinc-100">
+            All Session Types
+          </SelectItem>
+          {sessionTypes.map((sessionType) => (
+            <SelectItem key={sessionType.name} value={sessionType.name} className="focus:bg-zinc-800 focus:text-zinc-100">
+              {sessionType.name} ({sessionType.count})
             </SelectItem>
           ))}
         </SelectContent>
@@ -117,6 +143,22 @@ export function ActionBar({
       )}
 
       <Button
+        type="button"
+        size="sm"
+        variant={importPanelOpen ? 'default' : 'outline'}
+        onClick={onOpenImport}
+        className={
+          importPanelOpen
+            ? 'min-h-11 bg-zinc-700 text-zinc-100 hover:bg-zinc-600 sm:min-h-9'
+            : 'min-h-11 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 sm:min-h-9'
+        }
+      >
+        <FolderDown className="size-4" aria-hidden="true" />
+        Import
+      </Button>
+
+      <Button
+        type="button"
         size="sm"
         variant={bulkMode ? 'default' : 'outline'}
         onClick={onToggleBulk}

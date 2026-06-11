@@ -12,6 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./media/production": {
+      "types": "./dist/media/production.d.ts",
+      "import": "./dist/media/production.js"
     }
   },
   "files": [

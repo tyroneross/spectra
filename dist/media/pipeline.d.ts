@@ -13,14 +13,29 @@ export interface VideoResult {
     size: number;
     codec: string;
     fps: number;
+    width?: number;
+    height?: number;
 }
 export interface RecordingHandle {
     stop(): Promise<string>;
     platform: Platform;
 }
+export interface VideoProbeResult {
+    durationMs?: number;
+    width?: number;
+    height?: number;
+    fps?: number;
+    codec?: string;
+}
+export interface PosterFrameOptions {
+    atSeconds?: number;
+    maxWidth?: number;
+}
 export type ProcessRunner = (cmd: string, args: string[]) => {
     kill: () => void;
     waitForExit: () => Promise<number>;
+    stdout?: () => Promise<string>;
+    stderr?: () => Promise<string>;
 };
 export declare function setProcessRunner(r: ProcessRunner): void;
 export declare function resetProcessRunner(): void;
@@ -35,6 +50,8 @@ export declare function buildCaptureArgs(platform: Platform, outputPath: string,
  * Returns args without the leading 'ffmpeg'.
  */
 export declare function buildEncodeArgs(inputPath: string, outputPath: string, options: VideoOptions): string[];
+export declare function buildProbeArgs(inputPath: string): string[];
+export declare function buildPosterFrameArgs(inputPath: string, outputPath: string, options?: PosterFrameOptions): string[];
 /**
  * Start a recording session. Returns a RecordingHandle with stop().
  */
@@ -43,4 +60,6 @@ export declare function startRecording(platform: Platform, outputDir: string, op
  * Encode a raw recording for distribution. Returns VideoResult.
  */
 export declare function encodeRecording(rawPath: string, outputDir: string, options?: Partial<VideoOptions>): Promise<VideoResult>;
+export declare function probeVideo(inputPath: string): Promise<VideoProbeResult | undefined>;
+export declare function extractPosterFrame(inputPath: string, outputPath: string, options?: PosterFrameOptions): Promise<void>;
 //# sourceMappingURL=pipeline.d.ts.map

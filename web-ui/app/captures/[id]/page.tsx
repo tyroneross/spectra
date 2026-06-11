@@ -88,6 +88,12 @@ export default async function CaptureDetailPage({ params }: PageProps) {
             <div className="space-y-3">
               <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Source</p>
               <div className="space-y-2">
+                {capture.projectName && (
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-0.5">Project</p>
+                    <p className="text-sm text-zinc-300">{capture.projectName}</p>
+                  </div>
+                )}
                 {capture.sessionId && capture.sessionName && (
                   <div>
                     <p className="text-xs text-zinc-500 mb-0.5">Session</p>
@@ -99,10 +105,22 @@ export default async function CaptureDetailPage({ params }: PageProps) {
                     </Link>
                   </div>
                 )}
+                {capture.sessionType && (
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-0.5">Session Type</p>
+                    <p className="text-sm text-zinc-300">{capture.sessionType}</p>
+                  </div>
+                )}
                 {!capture.sessionId && (
                   <div>
                     <p className="text-xs text-zinc-500 mb-0.5">Source</p>
                     <p className="text-sm text-zinc-300">Artifacts</p>
+                  </div>
+                )}
+                {capture.repoName && (
+                  <div>
+                    <p className="text-xs text-zinc-500 mb-0.5">Repo</p>
+                    <p className="text-sm text-zinc-300">{capture.repoName}</p>
                   </div>
                 )}
                 {capture.platform && (
@@ -115,6 +133,26 @@ export default async function CaptureDetailPage({ params }: PageProps) {
                 )}
               </div>
             </div>
+
+            {capture.guide && (
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Instruction</p>
+                <p className="text-sm text-zinc-300">{capture.guide}</p>
+              </div>
+            )}
+
+            {capture.guideDetails && capture.guideDetails.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Rebuild Guide</p>
+                <div className="space-y-1.5">
+                  {capture.guideDetails.map((detail) => (
+                    <p key={detail} className="break-words text-xs leading-5 text-zinc-400">
+                      {detail}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Timestamp */}
             <div className="space-y-3">

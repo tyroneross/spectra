@@ -22,6 +22,25 @@ export async function handleAct(params: ActParams, ctx: ToolContext): Promise<Ac
   const session = ctx.sessions.get(params.sessionId)
   const snapshotBefore = await driver.snapshot()
   const startTime = Date.now()
+  const selectedElement = snapshotBefore.elements.find((el) => el.id === params.elementId)
+
+  const decision = session
+    ? await ctx.sessions.addDecision(params.sessionId, {
+      tool: 'spectra_act',
+      plannerSource: 'manual',
+      outcome: 'manual',
+      selected: {
+        id: params.elementId,
+        role: selectedElement?.role ?? 'unknown',
+        label: selectedElement?.label ?? params.elementId,
+      },
+      action: {
+        type: params.action as ActionType,
+        elementId: params.elementId,
+        value: params.value,
+      },
+    })
+    : null
 
   const result = await driver.act(params.elementId, params.action as ActionType, params.value)
 
@@ -36,6 +55,9 @@ export async function handleAct(params: ActParams, ctx: ToolContext): Promise<Ac
       success: result.success,
       error: result.error,
       duration: Date.now() - startTime,
+      tool: 'spectra_act',
+      plannerSource: 'manual',
+      decisionId: decision?.id,
     })
   }
 

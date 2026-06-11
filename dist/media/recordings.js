@@ -14,6 +14,7 @@ import { startRecording, encodeRecording, resolveVideoOptions } from './pipeline
  */
 class RecordingRegistry {
     records = new Map(); // sessionId → record
+    starting = new Set();
     has(sessionId) {
         return this.records.has(sessionId);
     }
@@ -21,27 +22,34 @@ class RecordingRegistry {
         return [...this.records.values()];
     }
     async start(opts) {
-        if (this.records.has(opts.sessionId)) {
+        const existing = this.records.get(opts.sessionId);
+        if (this.starting.has(opts.sessionId) || (existing && !existing.stopped)) {
             throw new Error(`Recording already active for session ${opts.sessionId}`);
         }
-        // Resolve effective options now so we can return them deterministically
-        const effective = resolveVideoOptions(opts.options);
-        const handle = await startRecording(opts.platform, opts.outputDir, effective);
-        const record = {
-            id: randomUUID().slice(0, 8),
-            sessionId: opts.sessionId,
-            handle,
-            rawPath: '', // populated on stop
-            startedAt: Date.now(),
-            options: effective,
-            stopped: false,
-        };
-        this.records.set(opts.sessionId, record);
-        return {
-            recordingId: record.id,
-            startedAt: record.startedAt,
-            options: effective,
-        };
+        this.starting.add(opts.sessionId);
+        try {
+            // Resolve effective options now so we can return them deterministically
+            const effective = resolveVideoOptions(opts.options);
+            const handle = await startRecording(opts.platform, opts.outputDir, effective);
+            const record = {
+                id: randomUUID().slice(0, 8),
+                sessionId: opts.sessionId,
+                handle,
+                rawPath: '', // populated on stop
+                startedAt: Date.now(),
+                options: effective,
+                stopped: false,
+            };
+            this.records.set(opts.sessionId, record);
+            return {
+                recordingId: record.id,
+                startedAt: record.startedAt,
+                options: effective,
+            };
+        }
+        finally {
+            this.starting.delete(opts.sessionId);
+        }
     }
     async stop(opts) {
         const record = this.records.get(opts.sessionId);
@@ -58,6 +66,8 @@ class RecordingRegistry {
                 sizeBytes: r.size,
                 codec: r.codec,
                 fps: r.fps,
+                width: r.width,
+                height: r.height,
                 droppedFrames: r.droppedFrames,
                 alreadyStopped: true,
             };
@@ -70,6 +80,9 @@ class RecordingRegistry {
         // Encode for distribution. For now we keep stderr buffering inside pipeline.encodeRecording;
         // dropped-frame parsing surfaced as 0 by default until pipeline returns it.
         const encoded = await encodeRecording(rawPath, opts.outputDir, record.options);
+        const effectiveDurationMs = encoded.duration > 0
+            ? Math.round(encoded.duration * 1000)
+            : durationMs;
         // Sanity-check encoded file exists and matches reported size
         try {
             const s = await stat(encoded.path);
@@ -79,15 +92,17 @@ class RecordingRegistry {
         catch {
             // best-effort: leave reported size
         }
-        record.lastResult = { ...encoded, duration: durationMs / 1000 };
+        record.lastResult = { ...encoded, duration: effectiveDurationMs / 1000 };
         // Keep record around for idempotent second stop and "alreadyStopped" semantics
         return {
             recordingId: record.id,
             path: encoded.path,
-            durationMs,
+            durationMs: effectiveDurationMs,
             sizeBytes: encoded.size,
             codec: encoded.codec,
             fps: encoded.fps,
+            width: encoded.width,
+            height: encoded.height,
             droppedFrames: undefined, // ffmpeg drop-frame parsing tracked in C7
             alreadyStopped: false,
         };
@@ -113,6 +128,7 @@ class RecordingRegistry {
     /** Test-only: reset the registry. */
     _reset() {
         this.records.clear();
+        this.starting.clear();
     }
 }
 export const recordings = new RecordingRegistry();

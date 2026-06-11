@@ -2,6 +2,7 @@ import type { ToolContext } from '../context.js'
 import { resolve } from '../../core/resolve.js'
 import { serializeSnapshot, serializeElement } from '../../core/serialize.js'
 import { selectActionForElement } from '../../core/actions.js'
+import type { CaptureRunCandidate, Element } from '../../core/types.js'
 
 export interface StepParams {
   sessionId: string
@@ -19,6 +20,14 @@ export interface StepResult {
   screenshot?: string
 }
 
+function toCandidate(element: Element): CaptureRunCandidate {
+  return {
+    id: element.id,
+    role: element.role,
+    label: element.label,
+  }
+}
+
 export async function handleStep(params: StepParams, ctx: ToolContext): Promise<StepResult> {
   const driver = ctx.drivers.get(params.sessionId)
   if (!driver) throw new Error(`Session ${params.sessionId} not found`)
@@ -33,6 +42,16 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
       purpose: 'step',
     })
     if (!selected) {
+      await ctx.sessions.addDecision(params.sessionId, {
+        tool: 'spectra_step',
+        plannerSource: 'host-agent',
+        intent: params.intent,
+        mode: 'claude',
+        confidence: resolved.confidence,
+        outcome: 'failed',
+        selected: toCandidate(resolved.element),
+        error: `No supported action found for ${serializeElement(resolved.element)}`,
+      })
       return {
         snapshot: serializeSnapshot(snap),
         candidates: [{
@@ -43,6 +62,22 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
         error: `No supported action found for ${serializeElement(resolved.element)}`,
       }
     }
+
+    const decision = await ctx.sessions.addDecision(params.sessionId, {
+      tool: 'spectra_step',
+      plannerSource: 'host-agent',
+      intent: params.intent,
+      mode: 'claude',
+      confidence: resolved.confidence,
+      outcome: 'auto-executed',
+      selected: toCandidate(resolved.element),
+      action: {
+        type: selected.action,
+        elementId: resolved.element.id,
+        value: selected.value,
+      },
+      actionReason: selected.reason,
+    })
 
     const start = Date.now()
     const actResult = await driver.act(resolved.element.id, selected.action, selected.value)
@@ -58,6 +93,9 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
       error: actResult.error,
       duration,
       intent: params.intent,
+      tool: 'spectra_step',
+      plannerSource: 'host-agent',
+      decisionId: decision.id,
     })
 
     return {
@@ -74,6 +112,18 @@ export async function handleStep(params: StepParams, ctx: ToolContext): Promise<
     role: el.role,
     label: el.label,
   }))
+
+  await ctx.sessions.addDecision(params.sessionId, {
+    tool: 'spectra_step',
+    plannerSource: 'host-agent',
+    intent: params.intent,
+    mode: 'claude',
+    confidence: resolved.confidence,
+    outcome: 'needs-host-decision',
+    selected: resolved.element ? toCandidate(resolved.element) : undefined,
+    candidates: (resolved.candidates ?? [resolved.element]).filter(Boolean).map(toCandidate),
+    visionFallback: resolved.visionFallback,
+  })
 
   const result: StepResult = {
     snapshot: serializeSnapshot(snap),

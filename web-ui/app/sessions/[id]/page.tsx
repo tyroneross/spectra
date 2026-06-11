@@ -28,6 +28,9 @@ export default async function SessionDetailPage({ params }: PageProps) {
   }
 
   const isActive = session.status === 'active'
+  const run = session.run
+  const projectLabel = session.projectName ?? 'Current project'
+  const sessionTypeLabel = session.sessionType ?? session.name
 
   const targetLabel = typeof session.target === 'string'
     ? session.target
@@ -44,13 +47,18 @@ export default async function SessionDetailPage({ params }: PageProps) {
           Sessions
         </Link>
         <span className="text-zinc-700">/</span>
-        <span className="text-zinc-300 truncate max-w-xs">{session.name}</span>
+        <span className="text-zinc-300 truncate max-w-xs">Run {session.id}</span>
       </div>
 
       {/* Header */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
         <div className="flex flex-wrap items-start gap-3 mb-3">
-          <h1 className="text-base font-semibold text-zinc-50 flex-1 min-w-0">{session.name}</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-semibold text-zinc-50">Run {session.id}</h1>
+            <p className="mt-1 truncate text-sm text-zinc-500">
+              {projectLabel} · {sessionTypeLabel}
+            </p>
+          </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
               {PLATFORM_LABELS[session.platform] ?? session.platform}
@@ -70,6 +78,14 @@ export default async function SessionDetailPage({ params }: PageProps) {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div>
+            <p className="text-zinc-500 mb-0.5">Project</p>
+            <p className="text-zinc-300 truncate">{projectLabel}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 mb-0.5">Session Type</p>
+            <p className="text-zinc-300 truncate">{sessionTypeLabel}</p>
+          </div>
+          <div>
             <p className="text-zinc-500 mb-0.5">Target</p>
             <p className="text-zinc-300 truncate">{targetLabel}</p>
           </div>
@@ -85,8 +101,50 @@ export default async function SessionDetailPage({ params }: PageProps) {
             <p className="text-zinc-500 mb-0.5">Created</p>
             <p className="text-zinc-300">{relativeTime(session.createdAt)}</p>
           </div>
+          <div>
+            <p className="text-zinc-500 mb-0.5">Decisions</p>
+            <p className="text-zinc-300">{run?.decisions.length ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 mb-0.5">Recording</p>
+            <p className="text-zinc-300 capitalize">{run?.recording.state ?? 'idle'}</p>
+          </div>
         </div>
       </div>
+
+      {run && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wide">Run</h2>
+            <span className="text-xs text-zinc-500">schema v{run.schemaVersion}</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div>
+              <p className="text-zinc-500 mb-0.5">Planner</p>
+              <p className="text-zinc-300">{run.planner.source}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500 mb-0.5">Actions</p>
+              <p className="text-zinc-300">{run.actions.length}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500 mb-0.5">Artifacts</p>
+              <p className="text-zinc-300">{run.artifacts.length}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500 mb-0.5">Source</p>
+              <p
+                className={[
+                  'truncate',
+                  run.recording.sourceVerified === false ? 'text-amber-300' : 'text-zinc-300',
+                ].join(' ')}
+              >
+                {run.recording.source ?? 'none'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div>

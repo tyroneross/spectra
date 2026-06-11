@@ -13,6 +13,12 @@ describe('library exports', () => {
     expect(spectra.serializeElement).toBeDefined()
     expect(spectra.getStoragePath).toBeDefined()
     expect(spectra.findProjectRoot).toBeDefined()
+    expect(spectra.createProductionBundle).toBeDefined()
+    expect(spectra.buildProbeArgs).toBeDefined()
+    expect(spectra.buildPosterFrameArgs).toBeDefined()
+    expect(spectra.probeVideo).toBeDefined()
+    expect(spectra.extractPosterFrame).toBeDefined()
+    expect(spectra.CAPTURE_PRESETS).toBeDefined()
   })
 
   it('exports are the correct types', () => {
@@ -22,6 +28,11 @@ describe('library exports', () => {
     expect(typeof spectra.serializeElement).toBe('function')
     expect(typeof spectra.getStoragePath).toBe('function')
     expect(typeof spectra.findProjectRoot).toBe('function')
+    expect(typeof spectra.createProductionBundle).toBe('function')
+    expect(typeof spectra.buildProbeArgs).toBe('function')
+    expect(typeof spectra.buildPosterFrameArgs).toBe('function')
+    expect(typeof spectra.probeVideo).toBe('function')
+    expect(typeof spectra.extractPosterFrame).toBe('function')
   })
 
   it('SessionManager is a class (constructable)', () => {

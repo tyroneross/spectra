@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { Capture, ExportCapture, ExportRequest } from '@/lib/types'
+import type { Capture, ExportCapture, ExportRequest, ExportResult } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -20,12 +20,6 @@ interface ExportWizardProps {
 
 type Step = 1 | 2 | 3
 
-interface ExportResult {
-  outputPath: string
-  fileCount: number
-  totalSize: number
-}
-
 export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProps) {
   const [step, setStep] = useState<Step>(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(preselectedIds))
@@ -33,7 +27,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
   const [annotateIndex, setAnnotateIndex] = useState(0)
   const [format, setFormat] = useState<ExportRequest['format']>('markdown')
   const [template, setTemplate] = useState<ExportRequest['template']>('blog')
-  const [outputDir, setOutputDir] = useState('spectra-export')
+  const [outputDir, setOutputDir] = useState('')
   const [exporting, setExporting] = useState(false)
   const [result, setResult] = useState<ExportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,9 +59,10 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
     const body: ExportRequest = {
       format,
       template,
-      outputDir,
       captures: exportCaptures,
     }
+    const trimmedOutputDir = outputDir.trim()
+    if (trimmedOutputDir) body.outputDir = trimmedOutputDir
 
     fetch('/api/export', {
       method: 'POST',
@@ -287,6 +282,35 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
               <p className="text-zinc-300">
                 <span className="text-zinc-500">Files:</span> {result.fileCount}
               </p>
+              {result.quality && (
+                <p className="text-zinc-300">
+                  <span className="text-zinc-500">Quality:</span>{' '}
+                  {result.quality.status} ({result.quality.score}/100)
+                </p>
+              )}
+              {result.manifestPath && (
+                <p className="text-zinc-300">
+                  <span className="text-zinc-500">Manifest:</span>{' '}
+                  <code className="font-mono text-xs bg-zinc-900 px-1 py-0.5 rounded">{result.manifestPath}</code>
+                </p>
+              )}
+              {result.warnings && result.warnings.length > 0 && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-200">
+                  <p className="mb-1 text-xs font-medium">
+                    {result.warnings.length} warning{result.warnings.length === 1 ? '' : 's'}
+                  </p>
+                  <ul className="space-y-1 text-xs">
+                    {result.warnings.slice(0, 4).map((warning, index) => (
+                      <li key={`${warning}-${index}`}>{warning}</li>
+                    ))}
+                  </ul>
+                  {result.warnings.length > 4 && (
+                    <p className="mt-1 text-xs text-amber-300/80">
+                      {result.warnings.length - 4} more
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -313,6 +337,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
                   { value: 'markdown', label: 'Markdown', description: 'MD file with embedded images' },
                   { value: 'zip', label: 'ZIP (tar.gz)', description: 'Compressed archive' },
                   { value: 'individual', label: 'Individual files', description: 'Flat folder of images' },
+                  { value: 'production', label: 'Production bundle', description: 'Masters, derivatives, manifest, quality report' },
                 ] as const
               ).map((opt) => (
                 <label

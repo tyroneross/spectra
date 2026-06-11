@@ -20,6 +20,8 @@ export { frame, autoFrame } from './intelligence/framing.js';
 export { crawl, discoverByScroll } from './intelligence/navigation.js';
 // ─── Media (enhanced) ───────────────────────────────────────
 export { prepareForCapture, restoreAfterCapture } from './media/clean.js';
-export { buildCaptureArgs, buildEncodeArgs } from './media/pipeline.js';
+export { buildCaptureArgs, buildEncodeArgs, buildPosterFrameArgs, buildProbeArgs, encodeRecording, extractPosterFrame, probeVideo, } from './media/pipeline.js';
+export { CAPTURE_PRESETS, getCapturePresetDefinition, resolveRecordingCaptureOptions, resolveScreenshotCaptureOptions, } from './media/presets.js';
+export { createProductionBundle } from './media/production.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 //# sourceMappingURL=index.js.map

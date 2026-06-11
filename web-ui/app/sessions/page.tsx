@@ -43,6 +43,8 @@ export default async function SessionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sessions.map((session) => {
           const isActive = session.status === 'active'
+          const projectLabel = session.projectName ?? 'Current project'
+          const sessionTypeLabel = session.sessionType ?? session.name
           return (
             <div
               key={session.id}
@@ -58,7 +60,12 @@ export default async function SessionsPage() {
                     ].join(' ')}
                     title={isActive ? 'Active' : 'Closed'}
                   />
-                  <p className="text-sm font-medium text-zinc-100 truncate">{session.name}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-100">Run {session.id}</p>
+                    <p className="mt-0.5 truncate text-xs text-zinc-500">
+                      {projectLabel} · {sessionTypeLabel}
+                    </p>
+                  </div>
                 </div>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 shrink-0">
                   {PLATFORM_LABELS[session.platform] ?? session.platform}

@@ -8,7 +8,7 @@ import { setProcessRunner, resetProcessRunner, type ProcessRunner } from '../../
 
 let workDir: string
 
-function fakeRunnerFactory(): { runner: ProcessRunner, calls: Array<{ cmd: string; args: string[] }> } {
+function fakeRunnerFactory(probeJson?: unknown): { runner: ProcessRunner, calls: Array<{ cmd: string; args: string[] }> } {
   const calls: Array<{ cmd: string; args: string[] }> = []
   const runner: ProcessRunner = (cmd, args) => {
     calls.push({ cmd, args })
@@ -16,12 +16,13 @@ function fakeRunnerFactory(): { runner: ProcessRunner, calls: Array<{ cmd: strin
     // the encoder step (which reads it) finds a file. For the encoder we also
     // write the output file at args[args.length - 1].
     const outputPath = args[args.length - 1]
-    if (outputPath && (outputPath.endsWith('.mkv') || outputPath.endsWith('.mp4'))) {
+    if (cmd !== 'ffprobe' && outputPath && (outputPath.endsWith('.mkv') || outputPath.endsWith('.mp4'))) {
       writeFileSync(outputPath, 'fake media bytes')
     }
     return {
       kill: () => { /* noop */ },
       waitForExit: () => Promise.resolve(0),
+      stdout: () => Promise.resolve(cmd === 'ffprobe' && probeJson ? JSON.stringify(probeJson) : ''),
     }
   }
   return { runner, calls }
@@ -69,6 +70,33 @@ describe('RecordingRegistry', () => {
     ).rejects.toThrow(/already active/)
   })
 
+  it('concurrent starts on same session → only one succeeds', async () => {
+    const { runner } = fakeRunnerFactory()
+    setProcessRunner(runner)
+
+    const results = await Promise.allSettled([
+      recordings.start({ sessionId: 's', platform: 'macos', outputDir: workDir }),
+      recordings.start({ sessionId: 's', platform: 'macos', outputDir: workDir }),
+    ])
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+  })
+
+  it('start after stop on same session → starts a new recording', async () => {
+    const { runner } = fakeRunnerFactory()
+    setProcessRunner(runner)
+
+    await recordings.start({ sessionId: 's', platform: 'macos', outputDir: workDir })
+    const first = await recordings.stop({ sessionId: 's', outputDir: workDir })
+    const secondStart = await recordings.start({ sessionId: 's', platform: 'macos', outputDir: workDir })
+    const second = await recordings.stop({ sessionId: 's', outputDir: workDir })
+
+    expect(secondStart.recordingId).not.toBe(first.recordingId)
+    expect(second.recordingId).toBe(secondStart.recordingId)
+    expect(second.alreadyStopped).toBe(false)
+  })
+
   it('start → stop returns path, duration, size', async () => {
     const { runner } = fakeRunnerFactory()
     setProcessRunner(runner)
@@ -83,6 +111,26 @@ describe('RecordingRegistry', () => {
     expect(stopped.alreadyStopped).toBe(false)
     expect(stopped.codec).toMatch(/(libx264|h264_videotoolbox)/)
     expect(stopped.fps).toBe(30)
+  })
+
+  it('stop returns probe-backed video metadata when available', async () => {
+    const { runner } = fakeRunnerFactory({
+      streams: [{ codec_name: 'h264', width: 1920, height: 1080, avg_frame_rate: '30000/1001' }],
+      format: { duration: '7.5' },
+    })
+    setProcessRunner(runner)
+
+    await recordings.start({ sessionId: 's', platform: 'macos', outputDir: workDir })
+    const stopped = await recordings.stop({ sessionId: 's', outputDir: workDir })
+    const second = await recordings.stop({ sessionId: 's', outputDir: workDir })
+
+    expect(stopped.durationMs).toBe(7500)
+    expect(stopped.codec).toBe('h264')
+    expect(stopped.fps).toBe(29.97)
+    expect(stopped.width).toBe(1920)
+    expect(stopped.height).toBe(1080)
+    expect(second.durationMs).toBe(7500)
+    expect(second.alreadyStopped).toBe(true)
   })
 
   it('stop twice → second is alreadyStopped: true', async () => {
@@ -125,12 +173,13 @@ describe('RecordingRegistry', () => {
     })
     await recordings.stop({ sessionId: 's', outputDir: workDir })
 
-    // First call = capture, second = encode
-    expect(calls.length).toBe(2)
+    // First call = capture, later calls = encode + probe.
+    expect(calls.length).toBeGreaterThanOrEqual(2)
     expect(calls[0].args).toContain('-framerate')
     expect(calls[0].args).toContain('60')
     // Encode call uses hardware encoder since hardware=true and quality!=lossless
-    expect(calls[1].args).toContain('hevc_videotoolbox')
-    expect(calls[1].args).toContain('8M')
+    const encodeCall = calls.find((call) => call.args.includes('hevc_videotoolbox'))
+    expect(encodeCall).toBeDefined()
+    expect(encodeCall!.args).toContain('8M')
   })
 })
