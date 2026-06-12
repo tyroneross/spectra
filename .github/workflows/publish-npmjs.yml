@@ -63,10 +63,14 @@ jobs:
       - name: Publish dry run
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
         run: npm publish --dry-run --provenance --access public --registry https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to npmjs with provenance
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run != 'true')
         run: npm publish --provenance --access public --registry https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Verify npmjs provenance metadata
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run != 'true')
