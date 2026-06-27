@@ -40,11 +40,14 @@ struct SpectraProminentButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(size == .small ? SpectraText.metadata : SpectraText.bodyEmphasized)
-            .padding(.horizontal, size == .small ? 8 : 12)
-            .padding(.vertical, size == .small ? 4 : 6)
+            .padding(.horizontal, size == .small ? 10 : 12)
+            .padding(.vertical, size == .small ? 5 : 6)
+            .frame(minHeight: size == .small ? 24 : 28) // align with standard buttons
             .background(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
-                    .fill(isEnabled ? SpectraAccent.primary : Color.clear)
+                    .fill(isEnabled
+                        ? SpectraAccent.primary.opacity(configuration.isPressed ? 0.82 : 1.0)
+                        : Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
@@ -53,18 +56,18 @@ struct SpectraProminentButtonStyle: ButtonStyle {
                         lineWidth: 1
                     )
             )
-            // Aurora Glass CTA glow — softer than Aurora Deep's 12px spread,
-            // tighter on the menu-bar surface to avoid bloom on dense rows.
+            // Accent CTA glow — kept tight on the compact menu-bar surface so it
+            // signals "primary" without blooming. Disabled = no glow.
             .shadow(
-                color: isEnabled ? SpectraAccent.primary.opacity(0.25) : Color.clear,
-                radius: 6,
+                color: isEnabled ? SpectraAccent.primary.opacity(0.22) : Color.clear,
+                radius: 5,
                 x: 0,
-                y: 2
+                y: 1
             )
             .foregroundStyle(isEnabled ? Color.white : Color.secondary)
-            .opacity(configuration.isPressed ? 0.75 : 1.0)
             .contentShape(Rectangle())
             .animation(.easeOut(duration: 0.12), value: isEnabled)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
 
@@ -79,23 +82,31 @@ struct SpectraStandardButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(size == .small ? SpectraText.metadata : SpectraText.body)
-            .padding(.horizontal, size == .small ? 8 : 10)
-            .padding(.vertical, size == .small ? 4 : 5)
+            .padding(.horizontal, size == .small ? 10 : 12)
+            .padding(.vertical, size == .small ? 5 : 6)
+            .frame(minHeight: size == .small ? 24 : 28) // WCAG 2.5.8 desktop floor
             .background(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
-                    .fill(isEnabled ? SpectraSurface.subtle : Color.clear)
+                    // Enabled: a control fill that reads as a button in BOTH
+                    // light and dark. Pressed: deepen the fill for tactile
+                    // confirmation. Disabled: no fill (outline only).
+                    .fill(
+                        isEnabled
+                            ? (configuration.isPressed ? SpectraSurface.subtleHover : SpectraSurface.control)
+                            : Color.clear
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: SpectraRadius.card)
                     .strokeBorder(
-                        isEnabled ? SpectraStroke.hairline : SpectraStroke.hairline.opacity(0.4),
+                        isEnabled ? SpectraStroke.hairline : SpectraStroke.hairline.opacity(0.45),
                         lineWidth: 1
                     )
             )
             .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
-            .opacity(configuration.isPressed ? 0.75 : 1.0)
             .contentShape(Rectangle())
             .animation(.easeOut(duration: 0.12), value: isEnabled)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 }
 

@@ -84,50 +84,59 @@ enum SpectraAccent {
 
 // MARK: - Semantic surface tokens
 //
-// Map to system materials/colors so they adapt to light/dark/high-contrast
-// while expressing Aurora Glass's translucent intent. The popover background
-// is owned by the host NSPopover (system material) — these tokens layer ON
-// TOP of that vibrancy.
+// IMPORTANT — appearance-adaptive by design.
 //
-// Never hardcode `Color.gray.opacity(0.08)` directly in a view — use these.
+// Aurora Glass's `rgba(255,255,255,0.0x)` surfaces are authored for a FIXED
+// near-black background (#09090b). A macOS menu-bar popover has no such fixed
+// field — `.menuBarExtraStyle(.window)` inherits the system vibrancy material,
+// which is LIGHT in Light Mode (the macOS default). White-on-light is
+// invisible, so the old white-alpha neutrals erased every card, list
+// container, and secondary-button background whenever the user wasn't in Dark
+// Mode.
+//
+// The fix: neutral surfaces use `Color.primary.opacity(...)`, which resolves
+// to a dark tint over a light material and a light tint over a dark one —
+// symmetric visibility in BOTH appearances. Accent-tinted surfaces
+// (info / warning / error) already adapt, since the accent hue carries them.
+//
+// Never hardcode `Color.white.opacity(…)` for a neutral surface again — it
+// only exists over a dark field. Use these tokens.
 
 enum SpectraSurface {
     /// Subtle background for grouped content (recents list, selected-repo card).
-    /// Aurora Glass `--surface` = rgba(255,255,255,0.03) over the dark field.
-    static let subtle: Color = Color.white.opacity(0.03)
+    /// Adaptive: ~4% ink over a light field, ~4% light over a dark field.
+    static let subtle: Color = Color.primary.opacity(0.05)
 
-    /// Hover state for interactive subtle surfaces.
-    /// Aurora Glass `--surface-hover` = rgba(255,255,255,0.06).
-    static let subtleHover: Color = Color.white.opacity(0.06)
+    /// Hover / pressed state for interactive subtle surfaces.
+    static let subtleHover: Color = Color.primary.opacity(0.09)
 
-    /// Slightly stronger background for emphasized regions (banner, callout).
-    /// Aurora Glass `--glass` = rgba(255,255,255,0.04).
-    static let raised: Color = Color.white.opacity(0.04)
+    /// Resting fill for standard (secondary) buttons — strong enough to read
+    /// as a control in both appearances without competing with prominent CTAs.
+    static let control: Color = Color.primary.opacity(0.07)
+
+    /// Slightly stronger background for emphasized neutral regions.
+    static let raised: Color = Color.primary.opacity(0.06)
 
     /// Warning-tinted background for "needs attention" cards (helper offline).
-    /// Aurora amber at low alpha keeps the glass register coherent.
-    static let warning: Color = SpectraAccent.warning.opacity(0.10)
+    static let warning: Color = SpectraAccent.warning.opacity(0.14)
 
     /// Error-tinted background for error toasts.
-    static let error: Color = SpectraAccent.danger.opacity(0.10)
+    static let error: Color = SpectraAccent.danger.opacity(0.14)
 
     /// Info-tinted background for first-run / setup panels.
-    /// Aurora indigo glow at 10% — matches `SpectraAccent.primaryGlow` family.
-    static let info: Color = SpectraAccent.primary.opacity(0.10)
+    static let info: Color = SpectraAccent.primary.opacity(0.14)
 }
 
 enum SpectraStroke {
-    /// 1pt hairline for grouping containers.
-    /// Aurora Glass `--glass-border` = rgba(255,255,255,0.08).
-    static let hairline: Color = Color.white.opacity(0.08)
+    /// 1pt hairline for grouping containers — the canonical macOS adaptive
+    /// separator, visible over both light and dark materials.
+    static let hairline: Color = Color(nsColor: .separatorColor)
 
     /// 1pt subtle outline for inputs (text editor border).
-    /// Slightly softer than hairline so input chrome doesn't shout over text.
-    static let input: Color = Color.white.opacity(0.06)
+    static let input: Color = Color(nsColor: .separatorColor)
 
     /// 1pt focused outline — picks up the accent glow.
-    /// Use on `.focused()` modifiers.
-    static let focused: Color = SpectraAccent.primary.opacity(0.45)
+    static let focused: Color = SpectraAccent.primary.opacity(0.55)
 }
 
 // MARK: - Spacing scale (8pt rhythm, snapped to multiples)
