@@ -17,7 +17,7 @@ BUILD_DIR    = build
 DERIVED      = $(BUILD_DIR)/derived
 RELEASE_DIR  = release
 APP_NAME     = Spectra
-TEAM_ID      = 7AK2KDLAVP
+TEAM_ID      = Q6TB8685V9
 
 .PHONY: build build-adhoc dmg dmg-adhoc clean run test test-adhoc size verify
 
@@ -28,7 +28,7 @@ run:
 		-derivedDataPath $(DERIVED) \
 		build
 
-# Release build with Apple Development signing (Team 7AK2KDLAVP).
+# Release build with Apple Development signing (Team Q6TB8685V9).
 # Requires that a "Mac Development" provisioning profile for
 # dev.spectra.app exists in the user's keychain. To create one:
 #   - Open Spectra.xcodeproj in Xcode once

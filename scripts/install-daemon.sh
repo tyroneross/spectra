@@ -16,6 +16,7 @@ set -euo pipefail
 LABEL="dev.spectra.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
 DAEMON_SCRIPT="$HOME/.spectra/dist/cli/index.js"
+DAEMON_LAUNCHER="$HOME/.spectra/bin/spectra-daemon-launcher"
 LOG_DIR="$HOME/.spectra/logs"
 
 resolve_node() {
@@ -29,6 +30,7 @@ resolve_node() {
 
 install_agent() {
     local node_path
+    local program_args
     node_path="$(resolve_node)"
 
     if [[ ! -f "$DAEMON_SCRIPT" ]]; then
@@ -40,6 +42,20 @@ install_agent() {
     mkdir -p "$(dirname "$PLIST_PATH")"
     mkdir -p "$LOG_DIR"
 
+    if [[ -x "$DAEMON_LAUNCHER" ]]; then
+        program_args="\
+        <string>$DAEMON_LAUNCHER</string>
+        <string>--node</string>
+        <string>$node_path</string>
+        <string>--script</string>
+        <string>$DAEMON_SCRIPT</string>"
+    else
+        program_args="\
+        <string>$node_path</string>
+        <string>$DAEMON_SCRIPT</string>
+        <string>daemon</string>"
+    fi
+
     cat > "$PLIST_PATH" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -49,9 +65,7 @@ install_agent() {
     <string>$LABEL</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$node_path</string>
-        <string>$DAEMON_SCRIPT</string>
-        <string>daemon</string>
+$program_args
     </array>
     <key>RunAtLoad</key>
     <true/>

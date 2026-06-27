@@ -1,5 +1,5 @@
 // src/native/compiler.ts
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
@@ -10,7 +10,11 @@ const BINARY_PATH = join(BIN_DIR, 'spectra-native')
 const HASH_PATH = join(BIN_DIR, '.source-hash')
 const COMPOSITE_BINARY_PATH = join(BIN_DIR, 'spectra-composite-capture')
 const COMPOSITE_HASH_PATH = join(BIN_DIR, '.composite-source-hash')
+const SCREEN_RECORDING_PREFLIGHT_PATH = join(BIN_DIR, 'spectra-screen-recording-preflight')
+const SCREEN_RECORDING_PREFLIGHT_HASH_PATH = join(BIN_DIR, '.screen-recording-preflight-source-hash')
+const DAEMON_LAUNCHER_PATH = join(BIN_DIR, 'spectra-daemon-launcher')
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app')
+const DEFAULT_CODESIGN_IDENTITY = 'Apple Development: tyrone.ross@icloud.com (7AK2KDLAVP)'
 
 // Find project root by looking for native/swift/ directory
 function findSwiftSource(): string {
@@ -31,6 +35,22 @@ function findCompositeSwiftSource(): string {
   return swiftDir
 }
 
+function findScreenRecordingPreflightSource(): string {
+  const swiftDir = join(findSwiftSource(), 'screen-recording-preflight')
+  if (!existsSync(swiftDir)) {
+    throw new Error(`Screen Recording preflight Swift source not found at ${swiftDir}`)
+  }
+  return swiftDir
+}
+
+function findDaemonLauncherSource(): string {
+  const swiftDir = join(findSwiftSource(), 'daemon-launcher')
+  if (!existsSync(swiftDir)) {
+    throw new Error(`Daemon launcher Swift source not found at ${swiftDir}`)
+  }
+  return swiftDir
+}
+
 function getSwiftFiles(swiftDir: string): string[] {
   return readdirSync(swiftDir)
     .filter(f => f.endsWith('.swift'))
@@ -46,9 +66,53 @@ function computeSourceHash(files: string[]): string {
   return hash.digest('hex')
 }
 
+function codesignIdentity(): string | null {
+  if (process.env.SPECTRA_CODESIGN === '0') return null
+  const identity = process.env.SPECTRA_CODESIGN_IDENTITY ?? DEFAULT_CODESIGN_IDENTITY
+  if (identity === 'skip') return null
+  return identity
+}
+
+function hasExpectedSignature(binaryPath: string): boolean {
+  const identity = codesignIdentity()
+  if (!identity) return true
+  if (!existsSync(binaryPath)) return false
+
+  try {
+    const result = spawnSync('codesign', ['-dvv', binaryPath], {
+      encoding: 'utf8',
+    })
+    if (result.status !== 0) return false
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    return output.includes(`Authority=${identity}`)
+      && /TeamIdentifier=(?!not set)/.test(output)
+  } catch {
+    return false
+  }
+}
+
+function signNativeBinary(binaryPath: string): void {
+  const identity = codesignIdentity()
+  if (!identity) return
+
+  try {
+    execFileSync('codesign', [
+      '--force',
+      '--timestamp=none',
+      '--options', 'runtime',
+      '--sign', identity,
+      binaryPath,
+    ], { stdio: 'pipe' })
+  } catch (err) {
+    const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
+    throw new Error(`codesign failed for ${binaryPath}:\n${msg}`)
+  }
+}
+
 export function isStale(): boolean {
   if (!existsSync(BINARY_PATH)) return true
   if (!existsSync(HASH_PATH)) return true
+  if (!hasExpectedSignature(BINARY_PATH)) return true
 
   const swiftDir = findSwiftSource()
   const files = getSwiftFiles(swiftDir)
@@ -61,11 +125,34 @@ export function isStale(): boolean {
 export function isCompositeStale(): boolean {
   if (!existsSync(COMPOSITE_BINARY_PATH)) return true
   if (!existsSync(COMPOSITE_HASH_PATH)) return true
+  if (!existsSync(SCREEN_RECORDING_PREFLIGHT_PATH)) return true
+  if (!existsSync(SCREEN_RECORDING_PREFLIGHT_HASH_PATH)) return true
+  if (!hasExpectedSignature(COMPOSITE_BINARY_PATH)) return true
+  if (!hasExpectedSignature(SCREEN_RECORDING_PREFLIGHT_PATH)) return true
 
   const swiftDir = findCompositeSwiftSource()
   const files = getSwiftFiles(swiftDir)
   const currentHash = computeSourceHash(files)
   const storedHash = readFileSync(COMPOSITE_HASH_PATH, 'utf-8').trim()
+  if (currentHash !== storedHash) return true
+
+  const preflightDir = findScreenRecordingPreflightSource()
+  const preflightFiles = getSwiftFiles(preflightDir)
+  const preflightHash = computeSourceHash(preflightFiles)
+  const storedPreflightHash = readFileSync(SCREEN_RECORDING_PREFLIGHT_HASH_PATH, 'utf-8').trim()
+
+  return preflightHash !== storedPreflightHash
+}
+
+export function isScreenRecordingPreflightStale(): boolean {
+  if (!existsSync(SCREEN_RECORDING_PREFLIGHT_PATH)) return true
+  if (!existsSync(SCREEN_RECORDING_PREFLIGHT_HASH_PATH)) return true
+  if (!hasExpectedSignature(SCREEN_RECORDING_PREFLIGHT_PATH)) return true
+
+  const swiftDir = findScreenRecordingPreflightSource()
+  const files = getSwiftFiles(swiftDir)
+  const currentHash = computeSourceHash(files)
+  const storedHash = readFileSync(SCREEN_RECORDING_PREFLIGHT_HASH_PATH, 'utf-8').trim()
 
   return currentHash !== storedHash
 }
@@ -102,6 +189,7 @@ export function compile(): void {
     const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
     throw new Error(`Swift compilation failed:\n${msg}`)
   }
+  signNativeBinary(BINARY_PATH)
 
   // Write source hash
   const hash = computeSourceHash(files)
@@ -141,9 +229,70 @@ export function compileComposite(): void {
     const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
     throw new Error(`Composite Swift compilation failed:\n${msg}`)
   }
+  signNativeBinary(COMPOSITE_BINARY_PATH)
 
   const hash = computeSourceHash(files)
   writeFileSync(COMPOSITE_HASH_PATH, hash)
+
+  compileScreenRecordingPreflight()
+}
+
+export function compileScreenRecordingPreflight(): void {
+  const swiftDir = findScreenRecordingPreflightSource()
+  const files = getSwiftFiles(swiftDir)
+
+  mkdirSync(BIN_DIR, { recursive: true })
+
+  try {
+    execSync('which swiftc', { stdio: 'pipe' })
+  } catch {
+    throw new Error(
+      'swiftc not found. Install Xcode Command Line Tools:\n'
+      + '  xcode-select --install'
+    )
+  }
+
+  const cmd = [
+    'swiftc', ...files,
+    '-framework', 'Foundation',
+    '-framework', 'CoreGraphics',
+    '-o', SCREEN_RECORDING_PREFLIGHT_PATH,
+  ].join(' ')
+
+  try {
+    execSync(cmd, { stdio: 'pipe' })
+  } catch (err) {
+    const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
+    throw new Error(`Screen Recording preflight Swift compilation failed:\n${msg}`)
+  }
+
+  signNativeBinary(SCREEN_RECORDING_PREFLIGHT_PATH)
+
+  const hash = computeSourceHash(files)
+  writeFileSync(SCREEN_RECORDING_PREFLIGHT_HASH_PATH, hash)
+}
+
+export function compileDaemonLauncher(): string {
+  const swiftDir = findDaemonLauncherSource()
+  const files = getSwiftFiles(swiftDir)
+
+  mkdirSync(BIN_DIR, { recursive: true })
+
+  const cmd = [
+    'swiftc', ...files,
+    '-framework', 'Foundation',
+    '-o', DAEMON_LAUNCHER_PATH,
+  ].join(' ')
+
+  try {
+    execSync(cmd, { stdio: 'pipe' })
+  } catch (err) {
+    const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
+    throw new Error(`Daemon launcher Swift compilation failed:\n${msg}`)
+  }
+
+  signNativeBinary(DAEMON_LAUNCHER_PATH)
+  return DAEMON_LAUNCHER_PATH
 }
 
 export function ensureBinary(): string {
@@ -158,6 +307,13 @@ export function ensureCompositeBinary(): string {
     compileComposite()
   }
   return COMPOSITE_BINARY_PATH
+}
+
+export function ensureScreenRecordingPreflightBinary(): string {
+  if (isScreenRecordingPreflightStale()) {
+    compileScreenRecordingPreflight()
+  }
+  return SCREEN_RECORDING_PREFLIGHT_PATH
 }
 
 export function compileTestApp(): string {
@@ -185,4 +341,11 @@ export function compileTestApp(): string {
   return TEST_APP_PATH
 }
 
-export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, TEST_APP_PATH }
+export {
+  BINARY_PATH,
+  BIN_DIR,
+  COMPOSITE_BINARY_PATH,
+  DAEMON_LAUNCHER_PATH,
+  SCREEN_RECORDING_PREFLIGHT_PATH,
+  TEST_APP_PATH,
+}

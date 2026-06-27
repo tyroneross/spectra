@@ -1,13 +1,19 @@
 declare const BIN_DIR: string;
 declare const BINARY_PATH: string;
 declare const COMPOSITE_BINARY_PATH: string;
+declare const SCREEN_RECORDING_PREFLIGHT_PATH: string;
+declare const DAEMON_LAUNCHER_PATH: string;
 declare const TEST_APP_PATH: string;
 export declare function isStale(): boolean;
 export declare function isCompositeStale(): boolean;
+export declare function isScreenRecordingPreflightStale(): boolean;
 export declare function compile(): void;
 export declare function compileComposite(): void;
+export declare function compileScreenRecordingPreflight(): void;
+export declare function compileDaemonLauncher(): string;
 export declare function ensureBinary(): string;
 export declare function ensureCompositeBinary(): string;
+export declare function ensureScreenRecordingPreflightBinary(): string;
 export declare function compileTestApp(): string;
-export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, TEST_APP_PATH };
+export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, };
 //# sourceMappingURL=compiler.d.ts.map

@@ -151,6 +151,51 @@ describe('daemon core', () => {
     expect(keepAwake.activeRecordings).toBe(0)
   })
 
+  it('returns typed composite permission failures with keep-awake bracketing', async () => {
+    const keepAwake = new FakeKeepAwake()
+    const core = createDaemonCore({
+      keepAwake,
+      recordCompositeWorker: async () => ({
+        ok: false,
+        command: '/tmp/spectra-composite-capture --out /tmp/out.mp4',
+        blackFrameGuard: {
+          sampleCount: 0,
+          meanLuma: null,
+          allBlack: false,
+          skipped: true,
+        },
+        warnings: [],
+        error: 'Screen Recording not granted to Spectra.',
+        errorCode: 'permission_denied',
+        hint: 'Enable Screen Recording for the signed Spectra daemon helper in System Settings > Privacy & Security > Screen Recording, then retry.',
+        details: {
+          nativeCode: 'screen_recording_not_granted',
+          permission: 'screen-recording',
+        },
+        retryable: false,
+      }),
+    })
+
+    const result = await core.recordComposite({
+      appA: 'Codex',
+      appB: 'Chrome',
+      outPath: '/tmp/out.mp4',
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      errorCode: 'permission_denied',
+      error: 'Screen Recording not granted to Spectra.',
+      details: {
+        nativeCode: 'screen_recording_not_granted',
+        permission: 'screen-recording',
+      },
+    })
+    expect(keepAwake.events[0]).toMatch(/^start:composite-/)
+    expect(keepAwake.events[1]).toMatch(/^stop:composite-/)
+    expect(keepAwake.activeRecordings).toBe(0)
+  })
+
   it('does not wire daemon start/stop recording to the legacy full-display path', async () => {
     const core = createDaemonCore()
 

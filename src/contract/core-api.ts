@@ -623,6 +623,9 @@ export interface RecordCompositeResult {
   blackFrameGuard: BlackFrameGuard
   warnings: string[]
   error?: string
+  errorCode?: string
+  hint?: string
+  retryable?: boolean
   artifactId?: string
 }
 

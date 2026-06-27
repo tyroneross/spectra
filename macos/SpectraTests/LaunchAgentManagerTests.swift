@@ -14,6 +14,7 @@ final class LaunchAgentManagerTests: XCTestCase {
 
     private var tempHome: URL!
     private var fakeDaemonScript: URL!
+    private var fakeDaemonLauncher: URL!
     private var fakeNode: URL!
 
     override func setUpWithError() throws {
@@ -26,6 +27,16 @@ final class LaunchAgentManagerTests: XCTestCase {
         try FileManager.default.createDirectory(at: distDir, withIntermediateDirectories: true)
         fakeDaemonScript = distDir.appendingPathComponent("index.js")
         try "// stub".write(to: fakeDaemonScript, atomically: true, encoding: .utf8)
+
+        // Fake signed daemon launcher
+        let binDir = tempHome.appendingPathComponent(".spectra/bin")
+        try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+        fakeDaemonLauncher = binDir.appendingPathComponent("spectra-daemon-launcher")
+        try "#!/bin/sh\necho launcher".write(to: fakeDaemonLauncher, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: fakeDaemonLauncher.path
+        )
 
         // Fake node binary
         fakeNode = tempHome.appendingPathComponent("fake-node")
@@ -40,13 +51,15 @@ final class LaunchAgentManagerTests: XCTestCase {
         try? FileManager.default.removeItem(at: tempHome)
     }
 
-    func test_makePlist_includesNodePathAndDaemonScript() throws {
+    func test_makePlist_prefersSignedDaemonLauncher() throws {
         let mgr = try LaunchAgentManager(
             homeURL: tempHome,
             daemonScriptPath: fakeDaemonScript.path,
+            daemonLauncherPath: fakeDaemonLauncher.path,
             nodePath: fakeNode.path
         )
         let plist = mgr.makePlist()
+        XCTAssertTrue(plist.contains(fakeDaemonLauncher.path), "plist must reference daemon launcher when present")
         XCTAssertTrue(plist.contains(fakeNode.path), "plist must reference node path")
         XCTAssertTrue(plist.contains(fakeDaemonScript.path), "plist must reference daemon script")
         XCTAssertTrue(plist.contains("<key>Label</key>"), "plist must declare Label")
@@ -57,10 +70,22 @@ final class LaunchAgentManagerTests: XCTestCase {
         XCTAssertTrue(normalized.contains("<key>RunAtLoad</key><true/>"), "RunAtLoad must be true")
     }
 
+    func test_makePlist_fallsBackToNodeWhenDaemonLauncherMissing() throws {
+        let mgr = try LaunchAgentManager(
+            homeURL: tempHome,
+            daemonScriptPath: fakeDaemonScript.path,
+            daemonLauncherPath: tempHome.appendingPathComponent("missing-launcher").path,
+            nodePath: fakeNode.path
+        )
+        let args = mgr.makeProgramArguments()
+        XCTAssertEqual(args, [fakeNode.path, fakeDaemonScript.path, "daemon"])
+    }
+
     func test_install_writesPlistToLaunchAgentsDirectory() throws {
         let mgr = try LaunchAgentManager(
             homeURL: tempHome,
             daemonScriptPath: fakeDaemonScript.path,
+            daemonLauncherPath: fakeDaemonLauncher.path,
             nodePath: fakeNode.path
         )
         try mgr.install()
@@ -78,6 +103,7 @@ final class LaunchAgentManagerTests: XCTestCase {
         let mgr = try LaunchAgentManager(
             homeURL: tempHome,
             daemonScriptPath: "/nonexistent/path/index.js",
+            daemonLauncherPath: fakeDaemonLauncher.path,
             nodePath: fakeNode.path
         )
         XCTAssertThrowsError(try mgr.install()) { error in
@@ -91,6 +117,7 @@ final class LaunchAgentManagerTests: XCTestCase {
         let mgr = try LaunchAgentManager(
             homeURL: tempHome,
             daemonScriptPath: fakeDaemonScript.path,
+            daemonLauncherPath: fakeDaemonLauncher.path,
             nodePath: fakeNode.path
         )
         try mgr.install()
@@ -105,6 +132,7 @@ final class LaunchAgentManagerTests: XCTestCase {
         let mgr = try LaunchAgentManager(
             homeURL: tempHome,
             daemonScriptPath: fakeDaemonScript.path,
+            daemonLauncherPath: fakeDaemonLauncher.path,
             nodePath: fakeNode.path
         )
         XCTAssertNoThrow(try mgr.uninstall())

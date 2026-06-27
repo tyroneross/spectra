@@ -52,5 +52,12 @@ if [[ -d "$PLUGIN_ROOT/dist" ]]; then
         rm -rf "$SPECTRA_HOME/dist"
         cp -R "$PLUGIN_ROOT/dist" "$SPECTRA_HOME/dist"
     fi
+    if [[ -f "$PLUGIN_ROOT/package.json" ]]; then
+        cp "$PLUGIN_ROOT/package.json" "$SPECTRA_HOME/package.json"
+    fi
+    if [[ -d "$PLUGIN_ROOT/node_modules" ]]; then
+        rm -rf "$SPECTRA_HOME/node_modules"
+        ln -s "$PLUGIN_ROOT/node_modules" "$SPECTRA_HOME/node_modules"
+    fi
     echo "Mirrored daemon dist/ to $SPECTRA_HOME/dist/"
 fi

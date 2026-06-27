@@ -1,9 +1,9 @@
 // LaunchAgentManager.swift
 //
 // Installs / loads / unloads the Spectra daemon as a per-user launchd
-// LaunchAgent. The agent runs `node ~/.spectra/dist/cli/index.js daemon`
-// with KeepAlive=true so it survives crashes and reboots without the
-// SwiftUI app needing to spawn it manually each time.
+// LaunchAgent. The agent prefers the signed Spectra daemon launcher under
+// `~/.spectra/bin/`, falling back to `node ~/.spectra/dist/cli/index.js daemon`
+// when the launcher has not been built yet.
 //
 // `~/.spectra/dist/cli/index.js` is mirrored from the plugin's dist/ by
 // scripts/postinstall.sh, so the path is stable across plugin updates
@@ -39,12 +39,14 @@ public struct LaunchAgentManager {
 
     private let plistURL: URL
     private let daemonScriptPath: String
+    private let daemonLauncherPath: String
     private let nodePath: String
     private let logDir: URL
 
     public init(
         homeURL: URL = URL(fileURLWithPath: NSHomeDirectory()),
         daemonScriptPath: String? = nil,
+        daemonLauncherPath: String? = nil,
         nodePath: String? = nil
     ) throws {
         self.plistURL = homeURL
@@ -52,6 +54,8 @@ public struct LaunchAgentManager {
             .appendingPathComponent(Self.plistName)
         self.daemonScriptPath = daemonScriptPath ?? homeURL
             .appendingPathComponent(".spectra/dist/cli/index.js").path
+        self.daemonLauncherPath = daemonLauncherPath ?? homeURL
+            .appendingPathComponent(".spectra/bin/spectra-daemon-launcher").path
         self.nodePath = try (nodePath ?? Self.resolveNodePath())
         self.logDir = homeURL.appendingPathComponent(".spectra/logs")
     }
@@ -59,6 +63,9 @@ public struct LaunchAgentManager {
     // ─── Plist content ───────────────────────────────────────
 
     public func makePlist() -> String {
+        let programArguments = makeProgramArguments()
+            .map { "                <string>\($0)</string>" }
+            .joined(separator: "\n")
         let plist = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -68,9 +75,7 @@ public struct LaunchAgentManager {
             <string>\(Self.label)</string>
             <key>ProgramArguments</key>
             <array>
-                <string>\(nodePath)</string>
-                <string>\(daemonScriptPath)</string>
-                <string>daemon</string>
+            \(programArguments)
             </array>
             <key>RunAtLoad</key>
             <true/>
@@ -91,6 +96,19 @@ public struct LaunchAgentManager {
         </plist>
         """
         return plist
+    }
+
+    public func makeProgramArguments() -> [String] {
+        if FileManager.default.isExecutableFile(atPath: daemonLauncherPath) {
+            return [
+                daemonLauncherPath,
+                "--node",
+                nodePath,
+                "--script",
+                daemonScriptPath,
+            ]
+        }
+        return [nodePath, daemonScriptPath, "daemon"]
     }
 
     // ─── Install / uninstall ─────────────────────────────────

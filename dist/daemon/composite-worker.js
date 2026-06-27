@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { stat } from 'node:fs/promises';
 import { detectFfmpeg } from '../media/ffmpeg.js';
-import { ensureCompositeBinary } from '../native/compiler.js';
+import { ensureCompositeBinary, ensureScreenRecordingPreflightBinary, } from '../native/compiler.js';
 export const COMPOSITE_WORKER_DEFAULTS = {
     durationSeconds: 5,
     fps: 60,
@@ -90,10 +90,75 @@ function parseWorkerStdout(stdout) {
         return {};
     }
 }
+export function parseScreenRecordingPreflightOutput(output) {
+    const trimmed = output.trim();
+    if (!trimmed)
+        return undefined;
+    const lines = trimmed.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+        try {
+            const parsed = JSON.parse(lines[index]);
+            const error = parsed.error;
+            if (!error || typeof error !== 'object' || Array.isArray(error))
+                continue;
+            const body = error;
+            const code = typeof body.code === 'string' ? body.code : undefined;
+            const message = typeof body.message === 'string' ? body.message : undefined;
+            if (!code || !message)
+                continue;
+            return {
+                code,
+                message,
+                hint: typeof body.hint === 'string' ? body.hint : undefined,
+                details: body.details,
+                retryable: typeof body.retryable === 'boolean' ? body.retryable : undefined,
+            };
+        }
+        catch {
+            // Keep scanning earlier lines; Swift or macOS may have emitted diagnostics.
+        }
+    }
+    return undefined;
+}
+function runScreenRecordingPreflight() {
+    const binary = ensureScreenRecordingPreflightBinary();
+    const result = spawnSync(binary, [], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+    });
+    if (result.status === 0)
+        return undefined;
+    const combinedOutput = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+    return parseScreenRecordingPreflightOutput(combinedOutput) ?? {
+        code: 'permission_denied',
+        message: 'Screen Recording not granted to Spectra.',
+        hint: 'Enable Screen Recording for the signed Spectra daemon helper in System Settings > Privacy & Security > Screen Recording, then retry.',
+        details: {
+            preflightCommand: binary,
+            exitCode: result.status,
+            stderr: result.stderr ?? '',
+        },
+        retryable: false,
+    };
+}
 export async function recordCompositeWithWorker(params) {
     const args = buildCompositeWorkerArgs(params);
     const binary = ensureCompositeBinary();
     const commandLine = [binary, ...args].join(' ');
+    const preflightFailure = runScreenRecordingPreflight();
+    if (preflightFailure) {
+        return {
+            ok: false,
+            command: commandLine,
+            blackFrameGuard: { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true },
+            warnings: [],
+            error: preflightFailure.message,
+            errorCode: preflightFailure.code,
+            hint: preflightFailure.hint,
+            details: preflightFailure.details,
+            retryable: preflightFailure.retryable,
+        };
+    }
     const { stdout, stderr, code } = await new Promise((resolve, reject) => {
         const child = spawn(binary, args, { stdio: 'pipe' });
         const stdoutChunks = [];
