@@ -7,6 +7,8 @@ import { join, resolve } from 'node:path';
 const BIN_DIR = join(homedir(), '.spectra', 'bin');
 const BINARY_PATH = join(BIN_DIR, 'spectra-native');
 const HASH_PATH = join(BIN_DIR, '.source-hash');
+const COMPOSITE_BINARY_PATH = join(BIN_DIR, 'spectra-composite-capture');
+const COMPOSITE_HASH_PATH = join(BIN_DIR, '.composite-source-hash');
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app');
 // Find project root by looking for native/swift/ directory
 function findSwiftSource() {
@@ -15,6 +17,13 @@ function findSwiftSource() {
     const swiftDir = join(dir, 'native', 'swift');
     if (!existsSync(swiftDir)) {
         throw new Error(`Swift source not found at ${swiftDir}`);
+    }
+    return swiftDir;
+}
+function findCompositeSwiftSource() {
+    const swiftDir = join(findSwiftSource(), 'composite-capture');
+    if (!existsSync(swiftDir)) {
+        throw new Error(`Composite Swift source not found at ${swiftDir}`);
     }
     return swiftDir;
 }
@@ -40,6 +49,17 @@ export function isStale() {
     const files = getSwiftFiles(swiftDir);
     const currentHash = computeSourceHash(files);
     const storedHash = readFileSync(HASH_PATH, 'utf-8').trim();
+    return currentHash !== storedHash;
+}
+export function isCompositeStale() {
+    if (!existsSync(COMPOSITE_BINARY_PATH))
+        return true;
+    if (!existsSync(COMPOSITE_HASH_PATH))
+        return true;
+    const swiftDir = findCompositeSwiftSource();
+    const files = getSwiftFiles(swiftDir);
+    const currentHash = computeSourceHash(files);
+    const storedHash = readFileSync(COMPOSITE_HASH_PATH, 'utf-8').trim();
     return currentHash !== storedHash;
 }
 export function compile() {
@@ -73,11 +93,48 @@ export function compile() {
     const hash = computeSourceHash(files);
     writeFileSync(HASH_PATH, hash);
 }
+export function compileComposite() {
+    const swiftDir = findCompositeSwiftSource();
+    const files = getSwiftFiles(swiftDir);
+    mkdirSync(BIN_DIR, { recursive: true });
+    try {
+        execSync('which swiftc', { stdio: 'pipe' });
+    }
+    catch {
+        throw new Error('swiftc not found. Install Xcode Command Line Tools:\n'
+            + '  xcode-select --install');
+    }
+    const frameworks = [
+        '-framework', 'Foundation',
+        '-framework', 'ScreenCaptureKit',
+        '-framework', 'AVFoundation',
+        '-framework', 'CoreMedia',
+        '-framework', 'CoreVideo',
+        '-framework', 'CoreGraphics',
+        '-framework', 'AppKit',
+    ];
+    const cmd = ['swiftc', '-parse-as-library', ...files, ...frameworks, '-o', COMPOSITE_BINARY_PATH].join(' ');
+    try {
+        execSync(cmd, { stdio: 'pipe' });
+    }
+    catch (err) {
+        const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);
+        throw new Error(`Composite Swift compilation failed:\n${msg}`);
+    }
+    const hash = computeSourceHash(files);
+    writeFileSync(COMPOSITE_HASH_PATH, hash);
+}
 export function ensureBinary() {
     if (isStale()) {
         compile();
     }
     return BINARY_PATH;
+}
+export function ensureCompositeBinary() {
+    if (isCompositeStale()) {
+        compileComposite();
+    }
+    return COMPOSITE_BINARY_PATH;
 }
 export function compileTestApp() {
     const swiftDir = findSwiftSource();
@@ -98,5 +155,5 @@ export function compileTestApp() {
     execSync(cmd, { stdio: 'pipe' });
     return TEST_APP_PATH;
 }
-export { BINARY_PATH, BIN_DIR, TEST_APP_PATH };
+export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, TEST_APP_PATH };
 //# sourceMappingURL=compiler.js.map
