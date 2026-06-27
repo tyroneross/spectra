@@ -151,12 +151,17 @@ struct MenuBarPopover: View {
 
     // MARK: - Primary action row
 
+    // Fitts: button size = intent weight. Start is the headline action, so it
+    // gets the full-width prominent slot. Stop + Open in Finder are secondary,
+    // sharing a row of equal compact buttons. Single-line labels (`lineLimit`)
+    // keep the row from going ragged the way three wrapping buttons did.
     private var primaryActions: some View {
-        HStack(spacing: SpectraSpacing.md) {
+        VStack(spacing: SpectraSpacing.md) {
             Button {
                 Task { await vm.startSession() }
             } label: {
                 Label(SpectraCopy.startButton, systemImage: "play.fill")
+                    .lineLimit(1)
                     .frame(maxWidth: .infinity)
             }
             .spectraProminent()
@@ -168,35 +173,38 @@ struct MenuBarPopover: View {
             )
             .keyboardShortcut("s", modifiers: [.command])
 
-            Button {
-                Task { await vm.stopSession() }
-            } label: {
-                Label(SpectraCopy.stopButton, systemImage: "stop.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .spectraStandard()
-            .disabled(!vm.canStop)
-            .accessibilityLabel(SpectraCopy.stopButton)
-            .accessibilityHint(vm.canStop
-                ? "Stops the active capture session."
-                : "No active session to stop."
-            )
+            HStack(spacing: SpectraSpacing.md) {
+                Button {
+                    Task { await vm.stopSession() }
+                } label: {
+                    Label(SpectraCopy.stopButton, systemImage: "stop.fill")
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                }
+                .spectraStandard()
+                .disabled(!vm.canStop)
+                .accessibilityLabel(SpectraCopy.stopButton)
+                .accessibilityHint(vm.canStop
+                    ? "Stops the active capture session."
+                    : "No active session to stop."
+                )
 
-            Button {
-                vm.revealSession()
-            } label: {
-                Label(SpectraCopy.revealButton, systemImage: "folder")
-                    .frame(maxWidth: .infinity)
+                Button {
+                    vm.revealSession()
+                } label: {
+                    Label(SpectraCopy.revealButton, systemImage: "folder")
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                }
+                .spectraStandard()
+                .disabled(!vm.canSave)
+                .accessibilityLabel(SpectraCopy.revealButton)
+                .accessibilityHint(vm.canSave
+                    ? "Opens the captured session in Finder."
+                    : "Start a session first to enable Open in Finder."
+                )
             }
-            .spectraStandard()
-            .disabled(!vm.canSave)
-            .accessibilityLabel(SpectraCopy.revealButton)
-            .accessibilityHint(vm.canSave
-                ? "Opens the captured session in Finder."
-                : "Start a session first to enable Open in Finder."
-            )
         }
-        .controlSize(.regular)
     }
 
     // MARK: - Walkthrough + Settings row

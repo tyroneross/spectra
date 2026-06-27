@@ -75,6 +75,10 @@ struct RepoPicker: View {
             RoundedRectangle(cornerRadius: SpectraRadius.card)
                 .fill(SpectraSurface.subtle)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: SpectraRadius.card)
+                .strokeBorder(SpectraStroke.hairline, lineWidth: 1)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Selected folder: \(display)")
         .accessibilityValue(path)
@@ -133,7 +137,13 @@ struct RepoPicker: View {
         }
         .background(
             RoundedRectangle(cornerRadius: SpectraRadius.card)
-                .fill(SpectraSurface.subtle.opacity(0.6))
+                .fill(SpectraSurface.subtle)
+        )
+        // Gestalt: a single hairline around the whole Recents group (dividers,
+        // already present, separate the rows within it).
+        .overlay(
+            RoundedRectangle(cornerRadius: SpectraRadius.card)
+                .strokeBorder(SpectraStroke.hairline, lineWidth: 1)
         )
     }
 }
