@@ -70,6 +70,13 @@ struct Options {
     var focus = false
     var validate = true
     var keepParts = false
+    // P2 — smoothed cursor
+    var cursor = true
+    var cursorSmoothMs: Double = 90
+    // P3 — marketing finish
+    var spotlight = "none"   // none | a | b
+    var maxWidth = 1600
+    var crf = 20
 }
 
 @main
@@ -132,9 +139,43 @@ struct SpectraCompositeCapture {
                 fps: options.fps
             )
 
+            // P2 — sample the global cursor for the full recording window.
+            let cursorTracker: CursorTracker? = options.cursor ? CursorTracker() : nil
+            cursorTracker?.start()
+
             async let leftStats = leftRecorder.record(duration: options.duration)
             async let rightStats = rightRecorder.record(duration: options.duration)
             let (left, right) = try await (leftStats, rightStats)
+
+            cursorTracker?.stop()
+
+            // P2 — build the composite geometry and render a smoothed cursor layer.
+            // Both panes scale to a common height preserving aspect (same as the stitch),
+            // so cursor mapping is exact.
+            let paneH = max(2, min(left.height, right.height) - (min(left.height, right.height) % 2))
+            // nearest-even width to match ffmpeg `scale=-2:H` rounding.
+            let leftPaneW = max(2, 2 * Int((Double(left.width) * Double(paneH) / Double(left.height) / 2.0).rounded()))
+            let rightPaneW = max(2, 2 * Int((Double(right.width) * Double(paneH) / Double(right.height) / 2.0).rounded()))
+            var cursorLayerURL: URL? = nil
+            if let tracker = cursorTracker {
+                let layout = PaneLayout(
+                    leftWindowFrame: leftWindow.frame,
+                    rightWindowFrame: rightWindow.frame,
+                    leftPaneW: leftPaneW,
+                    rightPaneW: rightPaneW,
+                    paneH: paneH
+                )
+                let layerURL = tempDir.appendingPathComponent("cursor.mov")
+                let ok = (try? renderCursorLayer(
+                    track: tracker.collected(),
+                    layout: layout,
+                    fps: options.fps,
+                    duration: options.duration,
+                    smoothTime: options.cursorSmoothMs / 1000.0,
+                    output: layerURL
+                )) ?? false
+                if ok { cursorLayerURL = layerURL }
+            }
 
             let labelA = options.labelA ?? labelFor(window: leftWindow, fallbackApp: appA)
             let labelB = options.labelB ?? labelFor(window: rightWindow, fallbackApp: appB)
@@ -149,6 +190,10 @@ struct SpectraCompositeCapture {
                 fps: options.fps,
                 pixFmt: options.pixFmt,
                 focus: options.focus,
+                spotlight: options.spotlight,
+                cursorLayer: cursorLayerURL,
+                maxWidth: options.maxWidth,
+                crf: options.crf,
                 tempDir: tempDir
             )
 
@@ -194,7 +239,13 @@ Options:
   --duration <seconds>        Capture duration. Default: 5.
   --fps <frames>              Capture FPS. Default: 60.
   --pixfmt <format>           Output pixel format: yuv420p or yuv444p. Default: yuv420p.
-  --focus                     Apply subtle edge dim/blur spotlight to each pane.
+  --focus                     Apply subtle edge dim/blur vignette to each pane.
+  --cursor                    Composite a smoothed cursor sprite. Default on.
+  --no-cursor                 Disable the smoothed cursor.
+  --cursor-smooth <ms>        Cursor easing time constant. Default: 90.
+  --spotlight <a|b|none>      Dim+blur the NON-focal pane (a=left, b=right). Default: none.
+  --max-width <px>            Lanczos-downscale final width to <= px. Default: 1600.
+  --crf <1..51>               x264 quality (lower=better). Default: 20.
   --validate                  Run CFR validator after encode. Default.
   --validate-file <path.mp4>  Validate an existing MP4 and exit.
   --no-validate               Skip CFR validator.
@@ -254,6 +305,36 @@ func parseOptions(_ args: [String]) throws -> Options {
             options.pixFmt = raw
         case "--focus":
             options.focus = true
+        case "--cursor":
+            options.cursor = true
+        case "--no-cursor":
+            options.cursor = false
+        case "--cursor-smooth":
+            let raw = try value(after: arg)
+            guard let value = Double(raw), value >= 0 else {
+                throw CLIError(description: "--cursor-smooth must be a non-negative number (ms)")
+            }
+            options.cursorSmoothMs = value
+        case "--spotlight":
+            let raw = try value(after: arg).lowercased()
+            switch raw {
+            case "a", "left": options.spotlight = "a"
+            case "b", "right": options.spotlight = "b"
+            case "none", "off": options.spotlight = "none"
+            default: throw CLIError(description: "--spotlight must be a|b|none")
+            }
+        case "--max-width":
+            let raw = try value(after: arg)
+            guard let value = Int(raw), value >= 320 else {
+                throw CLIError(description: "--max-width must be an integer >= 320")
+            }
+            options.maxWidth = value
+        case "--crf":
+            let raw = try value(after: arg)
+            guard let value = Int(raw), value >= 1, value <= 51 else {
+                throw CLIError(description: "--crf must be 1..51")
+            }
+            options.crf = value
         case "--validate":
             options.validate = true
         case "--no-validate":
@@ -438,7 +519,21 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         writer.startSession(atSourceTime: .zero)
 
         try await start(stream)
-        guard let firstFrame = await waitForFirstFrame(timeoutSeconds: 5) else {
+
+        // Seed frame 0 from a one-shot screenshot so a window that is STATIC at
+        // capture start still records (SCStream only delivers frames on content
+        // change; the sample-and-hold loop needs a buffer to hold).
+        if #available(macOS 14.0, *), latestFrame() == nil {
+            if let seed = await captureSeedPixelBuffer(filter: filter, configuration: configuration, width: size.width, height: size.height) {
+                seedFrameIfEmpty(seed)
+            }
+        }
+
+        var firstFrame = latestFrame()
+        if firstFrame == nil {
+            firstFrame = await waitForFirstFrame(timeoutSeconds: 5)
+        }
+        guard let firstFrame else {
             try await stop(stream)
             throw CLIError(description: "No frames captured for \(window.owningApplication?.applicationName ?? "unknown") window \(window.windowID)")
         }
@@ -518,6 +613,12 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         return frame
     }
 
+    private func seedFrameIfEmpty(_ buffer: CVPixelBuffer) {
+        frameLock.lock()
+        if latestPixelBuffer == nil { latestPixelBuffer = buffer }
+        frameLock.unlock()
+    }
+
     private func sourceFrames() -> Int {
         frameLock.lock()
         let count = sourceFrameCount
@@ -559,6 +660,30 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             throw writer?.error ?? CLIError(description: "Failed to append CFR frame")
         }
     }
+}
+
+/// One-shot screenshot of a window, rendered into a fresh BGRA pixel buffer.
+/// Used to seed frame 0 so static windows still capture.
+@available(macOS 14.0, *)
+func captureSeedPixelBuffer(filter: SCContentFilter, configuration: SCStreamConfiguration, width: Int, height: Int) async -> CVPixelBuffer? {
+    guard let cgImage = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) else {
+        return nil
+    }
+    var pb: CVPixelBuffer?
+    CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
+        [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &pb)
+    guard let buffer = pb else { return nil }
+    CVPixelBufferLockBaseAddress(buffer, [])
+    defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+    guard let ctx = CGContext(data: CVPixelBufferGetBaseAddress(buffer), width: width, height: height,
+                              bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                              space: colorSpace, bitmapInfo: bitmapInfo) else {
+        return nil
+    }
+    ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+    return buffer
 }
 
 func isUsableFrame(_ sampleBuffer: CMSampleBuffer) -> Bool {
@@ -677,6 +802,10 @@ func stitchVideos(
     fps: Int,
     pixFmt: String,
     focus: Bool,
+    spotlight: String,
+    cursorLayer: URL?,
+    maxWidth: Int,
+    crf: Int,
     tempDir: URL
 ) throws -> StitchResult {
     try? FileManager.default.removeItem(at: output)
@@ -685,33 +814,57 @@ func stitchVideos(
     let height = max(2, min(leftHeight, rightHeight) - (min(leftHeight, rightHeight) % 2))
     let hasDrawtext = ffmpegSupportsDrawtext()
 
-    let filter: String
     var arguments = ["-y", "-i", left.path, "-i", right.path]
+    var inputCount = 2
+    var parts: [String] = []
 
-    let leftPane = "leftpane"
-    let rightPane = "rightpane"
-    let leftPrepared = paneSourceFilter(inputIndex: 0, output: leftPane, height: height, fps: fps, focus: focus)
-    let rightPrepared = paneSourceFilter(inputIndex: 1, output: rightPane, height: height, fps: fps, focus: focus)
+    // Pane prep (+ optional codex per-pane edge vignette).
+    parts.append(paneSourceFilter(inputIndex: 0, output: "lp0", height: height, fps: fps, focus: focus))
+    parts.append(paneSourceFilter(inputIndex: 1, output: "rp0", height: height, fps: fps, focus: focus))
 
+    // P3 — spotlight: dim+blur the NON-focal pane to draw the eye to the active one.
+    var leftPane = "lp0", rightPane = "rp0"
+    if spotlight == "a" {
+        parts.append("[rp0]\(dimBlurFilter())[rp1]"); rightPane = "rp1"
+    } else if spotlight == "b" {
+        parts.append("[lp0]\(dimBlurFilter())[lp1]"); leftPane = "lp1"
+    }
+
+    // Labels.
+    let labelMode: String
     if hasDrawtext {
-        filter = "\(leftPrepared);" +
-            "\(rightPrepared);" +
-            "[\(leftPane)]drawtext=\(drawtext(label: leftLabel))[left];" +
-            "[\(rightPane)]drawtext=\(drawtext(label: rightLabel))[right];" +
-            "[left][right]hstack=inputs=2:shortest=1,fps=\(fps)[v]"
+        parts.append("[\(leftPane)]drawtext=\(drawtext(label: leftLabel))[la]")
+        parts.append("[\(rightPane)]drawtext=\(drawtext(label: rightLabel))[ra]")
+        labelMode = "drawtext"
     } else {
         let leftLabelURL = tempDir.appendingPathComponent("left-label.png")
         let rightLabelURL = tempDir.appendingPathComponent("right-label.png")
         try writeLabelImage(leftLabel, to: leftLabelURL)
         try writeLabelImage(rightLabel, to: rightLabelURL)
-
         arguments += ["-i", leftLabelURL.path, "-i", rightLabelURL.path]
-        filter = "\(leftPrepared);" +
-            "\(rightPrepared);" +
-            "[\(leftPane)][2:v]overlay=16:16[left];" +
-            "[\(rightPane)][3:v]overlay=16:16[right];" +
-            "[left][right]hstack=inputs=2:shortest=1,fps=\(fps)[v]"
+        let li = inputCount, ri = inputCount + 1
+        inputCount += 2
+        parts.append("[\(leftPane)][\(li):v]overlay=16:16[la]")
+        parts.append("[\(rightPane)][\(ri):v]overlay=16:16[ra]")
+        labelMode = "overlay-png"
     }
+
+    // Side-by-side.
+    parts.append("[la][ra]hstack=inputs=2:shortest=1,fps=\(fps)[hs]")
+    var lastLabel = "hs"
+
+    // P2 — composite the smoothed cursor layer (transparent ProRes 4444) over the stack.
+    if let cursorLayer {
+        arguments += ["-i", cursorLayer.path]
+        let ci = inputCount; inputCount += 1
+        parts.append("[\(lastLabel)][\(ci):v]overlay=0:0:format=auto[cur]")
+        lastLabel = "cur"
+    }
+
+    // P3 — lanczos downscale to <= maxWidth (preserve even height), final SAR.
+    parts.append("[\(lastLabel)]scale=w='min(\(maxWidth)\\,iw)':h=-2:flags=lanczos,setsar=1[v]")
+
+    let filter = parts.joined(separator: ";")
 
     arguments += [
         "-filter_complex", filter,
@@ -720,7 +873,8 @@ func stitchVideos(
         "-r", "\(fps)",
         "-vsync", "cfr",
         "-c:v", "libx264",
-        "-b:v", "8M",
+        "-preset", "medium",
+        "-crf", "\(crf)",
         "-pix_fmt", pixFmt,
         "-video_track_timescale", "\(max(600, fps * 1000))",
         "-movflags", "+faststart",
@@ -728,7 +882,12 @@ func stitchVideos(
     ]
 
     try runProcess("/usr/bin/env", ["ffmpeg"] + arguments)
-    return StitchResult(filterComplex: filter, labelMode: hasDrawtext ? "drawtext" : "overlay-png")
+    return StitchResult(filterComplex: filter, labelMode: labelMode)
+}
+
+/// P3 spotlight — uniform dim + soft blur + slight desaturation for the non-focal pane.
+func dimBlurFilter() -> String {
+    "gblur=sigma=8,eq=brightness=-0.12:saturation=0.72"
 }
 
 func paneSourceFilter(inputIndex: Int, output: String, height: Int, fps: Int, focus: Bool) -> String {
