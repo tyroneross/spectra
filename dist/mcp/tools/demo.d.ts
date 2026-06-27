@@ -50,68 +50,68 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             captionPngPath: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }, {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }>, "many">;
         speed: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     }, {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     }>;
@@ -120,23 +120,23 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     action: "polish";
     out: string;
     spec: {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     };
@@ -144,23 +144,23 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     action: "polish";
     out: string;
     spec: {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     };
@@ -179,69 +179,21 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     input: string;
     out: string;
     fps?: number | undefined;
-    threshold?: number | undefined;
-    deadSpeed?: number | undefined;
-    minDeadSec?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
+    threshold?: number | undefined;
 }, {
     action: "auto-ramp";
     input: string;
     out: string;
     fps?: number | undefined;
-    threshold?: number | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
-}>, z.ZodObject<{
-    action: z.ZodLiteral<"record-composite">;
-    appA: z.ZodString;
-    titleA: z.ZodOptional<z.ZodString>;
-    labelA: z.ZodOptional<z.ZodString>;
-    appB: z.ZodString;
-    titleB: z.ZodOptional<z.ZodString>;
-    labelB: z.ZodOptional<z.ZodString>;
-    durationSeconds: z.ZodOptional<z.ZodNumber>;
-    fps: z.ZodOptional<z.ZodNumber>;
-    spotlight: z.ZodOptional<z.ZodEnum<["none", "a", "b"]>>;
-    cursor: z.ZodOptional<z.ZodBoolean>;
-    maxWidth: z.ZodOptional<z.ZodNumber>;
-    crf: z.ZodOptional<z.ZodNumber>;
-    outPath: z.ZodString;
-    sessionId: z.ZodOptional<z.ZodString>;
-}, "strip", z.ZodTypeAny, {
-    action: "record-composite";
-    appA: string;
-    appB: string;
-    outPath: string;
-    fps?: number | undefined;
-    sessionId?: string | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
-    titleA?: string | undefined;
-    labelA?: string | undefined;
-    titleB?: string | undefined;
-    labelB?: string | undefined;
-    durationSeconds?: number | undefined;
-    spotlight?: "none" | "a" | "b" | undefined;
-    cursor?: boolean | undefined;
-}, {
-    action: "record-composite";
-    appA: string;
-    appB: string;
-    outPath: string;
-    fps?: number | undefined;
-    sessionId?: string | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
-    titleA?: string | undefined;
-    labelA?: string | undefined;
-    titleB?: string | undefined;
-    labelB?: string | undefined;
-    durationSeconds?: number | undefined;
-    spotlight?: "none" | "a" | "b" | undefined;
-    cursor?: boolean | undefined;
+    threshold?: number | undefined;
 }>]>;
-export declare function handleDemo(params: unknown, ctx?: ToolContext): Promise<object>;
+export declare function handleDemo(params: unknown, _ctx?: ToolContext): Promise<object>;
 //# sourceMappingURL=demo.d.ts.map

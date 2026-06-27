@@ -1,14 +1,19 @@
-// tests/media/composite-recorder.test.ts
+// tests/daemon/composite-worker.test.ts
+//
+// Coverage for the ACTIVE window-isolated composite recorder path
+// (src/daemon/composite-worker.ts). The MCP `spectra_demo action=record-composite`
+// call forwards to the daemon, which dispatches CoreApiImpl.recordComposite ->
+// recordCompositeWithWorker. These pure helpers (param->flag mapping and the
+// black-frame luminance guard) had no direct test before; this file covers them.
 import { describe, it, expect } from 'vitest'
 import {
-  buildCompositeArgs,
-  buildCaffeinatedCommand,
+  buildCompositeWorkerArgs,
   parseLuminance,
-  COMPOSITE_DEFAULTS,
-  type CompositeRecordParams,
-} from '../../src/media/composite-recorder.js'
+  COMPOSITE_WORKER_DEFAULTS,
+} from '../../src/daemon/composite-worker.js'
+import type { RecordCompositeParams } from '../../src/contract/core-api.js'
 
-const base: CompositeRecordParams = {
+const base: RecordCompositeParams = {
   appA: 'Claude',
   appB: 'Terminal',
   outPath: '/tmp/out.mp4',
@@ -20,44 +25,44 @@ function flagValue(args: string[], flag: string): string | undefined {
   return i >= 0 ? args[i + 1] : undefined
 }
 
-describe('buildCompositeArgs — required fields', () => {
+describe('buildCompositeWorkerArgs — required fields', () => {
   it('maps the three required fields to --app-a / --app-b / --out', () => {
-    const args = buildCompositeArgs(base)
+    const args = buildCompositeWorkerArgs(base)
     expect(flagValue(args, '--app-a')).toBe('Claude')
     expect(flagValue(args, '--app-b')).toBe('Terminal')
     expect(flagValue(args, '--out')).toBe('/tmp/out.mp4')
   })
 
   it('throws when appA is missing', () => {
-    expect(() => buildCompositeArgs({ ...base, appA: '' })).toThrow(/appA/)
+    expect(() => buildCompositeWorkerArgs({ ...base, appA: '' })).toThrow(/appA/)
   })
   it('throws when appB is missing', () => {
-    expect(() => buildCompositeArgs({ ...base, appB: '' })).toThrow(/appB/)
+    expect(() => buildCompositeWorkerArgs({ ...base, appB: '' })).toThrow(/appB/)
   })
   it('throws when outPath is missing', () => {
-    expect(() => buildCompositeArgs({ ...base, outPath: '' })).toThrow(/outPath/)
+    expect(() => buildCompositeWorkerArgs({ ...base, outPath: '' })).toThrow(/outPath/)
   })
 })
 
-describe('buildCompositeArgs — defaults', () => {
+describe('buildCompositeWorkerArgs — defaults', () => {
   it('applies fps / duration / spotlight / maxWidth / crf defaults', () => {
-    const args = buildCompositeArgs(base)
-    expect(flagValue(args, '--fps')).toBe(String(COMPOSITE_DEFAULTS.fps))
-    expect(flagValue(args, '--duration')).toBe(String(COMPOSITE_DEFAULTS.durationSeconds))
-    expect(flagValue(args, '--spotlight')).toBe(COMPOSITE_DEFAULTS.spotlight)
-    expect(flagValue(args, '--max-width')).toBe(String(COMPOSITE_DEFAULTS.maxWidth))
-    expect(flagValue(args, '--crf')).toBe(String(COMPOSITE_DEFAULTS.crf))
+    const args = buildCompositeWorkerArgs(base)
+    expect(flagValue(args, '--fps')).toBe(String(COMPOSITE_WORKER_DEFAULTS.fps))
+    expect(flagValue(args, '--duration')).toBe(String(COMPOSITE_WORKER_DEFAULTS.durationSeconds))
+    expect(flagValue(args, '--spotlight')).toBe(COMPOSITE_WORKER_DEFAULTS.spotlight)
+    expect(flagValue(args, '--max-width')).toBe(String(COMPOSITE_WORKER_DEFAULTS.maxWidth))
+    expect(flagValue(args, '--crf')).toBe(String(COMPOSITE_WORKER_DEFAULTS.crf))
   })
 
   it('emits --cursor by default (cursor on)', () => {
-    expect(buildCompositeArgs(base)).toContain('--cursor')
-    expect(buildCompositeArgs(base)).not.toContain('--no-cursor')
+    expect(buildCompositeWorkerArgs(base)).toContain('--cursor')
+    expect(buildCompositeWorkerArgs(base)).not.toContain('--no-cursor')
   })
 })
 
-describe('buildCompositeArgs — explicit values', () => {
+describe('buildCompositeWorkerArgs — explicit values', () => {
   it('threads every optional flag through', () => {
-    const args = buildCompositeArgs({
+    const args = buildCompositeWorkerArgs({
       ...base,
       titleA: 'Session',
       labelA: 'Agent',
@@ -81,35 +86,17 @@ describe('buildCompositeArgs — explicit values', () => {
   })
 
   it('emits --no-cursor when cursor is false', () => {
-    const args = buildCompositeArgs({ ...base, cursor: false })
+    const args = buildCompositeWorkerArgs({ ...base, cursor: false })
     expect(args).toContain('--no-cursor')
     expect(args).not.toContain('--cursor')
   })
 
   it('omits optional title/label flags when not provided', () => {
-    const args = buildCompositeArgs(base)
+    const args = buildCompositeWorkerArgs(base)
     expect(args).not.toContain('--title-a')
     expect(args).not.toContain('--label-a')
     expect(args).not.toContain('--title-b')
     expect(args).not.toContain('--label-b')
-  })
-})
-
-describe('buildCaffeinatedCommand — black-frame display-sleep fix', () => {
-  it('wraps the binary in caffeinate -dis so the display cannot sleep', () => {
-    const { command, args } = buildCaffeinatedCommand('/bin/recorder', ['--out', '/tmp/x.mp4'])
-    expect(command).toBe('caffeinate')
-    expect(args[0]).toBe('-dis')
-    expect(args[1]).toBe('/bin/recorder')
-    expect(args.slice(2)).toEqual(['--out', '/tmp/x.mp4'])
-  })
-
-  it('produces a command line that visibly includes caffeinate', () => {
-    const binaryArgs = buildCompositeArgs(base)
-    const { command, args } = buildCaffeinatedCommand('/bin/spectra-composite-capture', binaryArgs)
-    const line = [command, ...args].join(' ')
-    expect(line.startsWith('caffeinate -dis ')).toBe(true)
-    expect(line).toContain('--app-a Claude')
   })
 })
 
@@ -124,7 +111,7 @@ describe('parseLuminance — black-frame guard', () => {
     expect(g.sampleCount).toBe(3)
     expect(g.allBlack).toBe(true)
     expect(g.skipped).toBe(false)
-    expect(g.meanLuma).toBeLessThan(COMPOSITE_DEFAULTS.blackThreshold)
+    expect(g.meanLuma).toBeLessThan(COMPOSITE_WORKER_DEFAULTS.blackThreshold)
   })
 
   it('passes normal-luminance output', () => {
@@ -136,7 +123,7 @@ describe('parseLuminance — black-frame guard', () => {
     const g = parseLuminance(out)
     expect(g.allBlack).toBe(false)
     expect(g.skipped).toBe(false)
-    expect(g.meanLuma).toBeGreaterThan(COMPOSITE_DEFAULTS.blackThreshold)
+    expect(g.meanLuma).toBeGreaterThan(COMPOSITE_WORKER_DEFAULTS.blackThreshold)
   })
 
   it('marks the guard skipped when no YAVG samples are present', () => {
@@ -149,7 +136,7 @@ describe('parseLuminance — black-frame guard', () => {
 
   it('honors a custom black threshold', () => {
     const out = 'lavfi.signalstats.YAVG=20.0'
-    expect(parseLuminance(out, { blackThreshold: 16 }).allBlack).toBe(false)
-    expect(parseLuminance(out, { blackThreshold: 32 }).allBlack).toBe(true)
+    expect(parseLuminance(out, 16).allBlack).toBe(false)
+    expect(parseLuminance(out, 32).allBlack).toBe(true)
   })
 })
