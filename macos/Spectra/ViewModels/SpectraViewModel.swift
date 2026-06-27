@@ -113,8 +113,8 @@ public final class SpectraViewModel {
             } else {
                 self.daemonStatus = .versionSkew(found: info.apiVersion, expected: DaemonClient.expectedApiVersion)
             }
-        } catch DaemonError.daemonUnreachable(let why) {
-            self.daemonStatus = .unreachable(why)
+        } catch DaemonError.daemonDown(let hint) {
+            self.daemonStatus = .unreachable(hint)
         } catch {
             self.daemonStatus = .unreachable(error.localizedDescription)
         }
