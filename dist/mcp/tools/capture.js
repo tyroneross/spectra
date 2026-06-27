@@ -7,6 +7,7 @@ import { frame } from '../../intelligence/framing.js';
 import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js';
 import { recordings } from '../../media/recordings.js';
 import { getCapturePresetDefinition, resolveRecordingCaptureOptions, resolveScreenshotCaptureOptions, } from '../../media/presets.js';
+import { computeSplitLayout } from '../../media/composite-layout.js';
 /**
  * Resolve the per-session storage directory. Prefers the SessionManager's
  * record (which honors a `repoPath` passed at connect time) so launchd-spawned
@@ -21,6 +22,23 @@ function sessionStorageDir(ctx, sessionId) {
             return dir;
     }
     return join(getStoragePath(), 'sessions', sessionId);
+}
+/**
+ * Resolve the composite recording intent into the start-options the recordings
+ * registry understands. Explicit left+right rects win; explicit display dims
+ * compute a split now; bare `enabled` defers the equal-halves split to stop
+ * time where the real captured frame size is known (Retina-correct).
+ */
+function resolveCompositeStart(composite) {
+    if (!composite?.enabled)
+        return {};
+    if (composite.left && composite.right) {
+        return { compositeLayout: { left: composite.left, right: composite.right } };
+    }
+    if (composite.displayWidth && composite.displayHeight) {
+        return { compositeLayout: computeSplitLayout(composite.displayWidth, composite.displayHeight) };
+    }
+    return { compositeAuto: true };
 }
 /** Parse an aspect ratio string like "16:9" or "4:3" into a numeric ratio (w/h). */
 function parseAspectRatio(value) {
@@ -172,12 +190,15 @@ export async function handleCapture(params, ctx) {
                 : 'ffmpeg avfoundation default input',
             sourceVerified: platform === 'ios' || platform === 'watchos',
         });
+        const { compositeLayout, compositeAuto } = resolveCompositeStart(params.composite);
         try {
             const r = await recordings.start({
                 sessionId: params.sessionId,
                 platform,
                 outputDir,
                 options: videoOptions,
+                compositeLayout,
+                compositeAuto,
             });
             await ctx.sessions.setRecordingStatus(params.sessionId, {
                 state: 'recording',

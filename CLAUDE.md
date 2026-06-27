@@ -4,6 +4,8 @@ Spectra captures screenshots, videos, and app usage sequences from running appli
 
 **Setup:** Add `artifacts/` and `.spectra/` to `.gitignore`
 
+> For non-trivial changes to recording/compositing or the demo pipeline, read `docs/prd-spectra-composite.md` and apply its LLM Navigation Map.
+
 ## When to Use
 
 - **After shipping a feature** — capture visuals for announcement posts

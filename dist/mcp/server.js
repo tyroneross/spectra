@@ -128,10 +128,17 @@ server.tool('spectra_capture', 'Capture screenshot or manage video recording. Su
     codec: z.enum(['h264', 'hevc']).optional().describe('Recording codec'),
     bitrate: z.enum(['4M', '8M']).optional().describe('Recording bitrate'),
     hardware: z.boolean().optional().describe('Use hardware encoding when available'),
+    composite: z.object({
+        enabled: z.boolean().optional(),
+        displayWidth: z.number().optional(),
+        displayHeight: z.number().optional(),
+        left: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+        right: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+    }).optional().describe('Side-by-side composite recording (start_recording): split the full-display capture into left/right panes and hstack them. Omit rects/dims for an auto equal-halves split.'),
 }, 
 // annotations: writes media and recording state; start/stop are not tool-level idempotent.
-{ readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async ({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }) => {
-    return wrapHandler(() => handleCapture({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware }, ctx), 'spectra_capture');
+{ readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async ({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware, composite }) => {
+    return wrapHandler(() => handleCapture({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware, composite }, ctx), 'spectra_capture');
 });
 server.tool('spectra_analyze', 'Score the current screen and identify regions of interest, UI state, and top elements by importance', {
     sessionId: z.string().describe('Active session ID'),

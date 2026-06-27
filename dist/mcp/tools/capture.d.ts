@@ -14,6 +14,23 @@ export interface CaptureParams {
     codec?: 'h264' | 'hevc';
     bitrate?: '4M' | '8M';
     hardware?: boolean;
+    composite?: {
+        enabled?: boolean;
+        displayWidth?: number;
+        displayHeight?: number;
+        left?: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+        right?: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        };
+    };
 }
 export interface CaptureResult {
     path?: string;

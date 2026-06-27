@@ -23,6 +23,13 @@ function fakeRunnerFactory(probeJson?: unknown): { runner: ProcessRunner, calls:
       kill: () => { /* noop */ },
       waitForExit: () => Promise.resolve(0),
       stdout: () => Promise.resolve(cmd === 'ffprobe' && probeJson ? JSON.stringify(probeJson) : ''),
+      stderr: () => Promise.resolve(args.includes('-list_devices')
+        ? [
+          '[AVFoundation indev @ 0x123] AVFoundation video devices:',
+          '[AVFoundation indev @ 0x123] [4] Capture screen 0',
+          '[AVFoundation indev @ 0x123] AVFoundation audio devices:',
+        ].join('\n')
+        : ''),
     }
   }
   return { runner, calls }
@@ -173,10 +180,11 @@ describe('RecordingRegistry', () => {
     })
     await recordings.stop({ sessionId: 's', outputDir: workDir })
 
-    // First call = capture, later calls = encode + probe.
+    // First ffmpeg call discovers avfoundation devices; capture follows.
     expect(calls.length).toBeGreaterThanOrEqual(2)
-    expect(calls[0].args).toContain('-framerate')
-    expect(calls[0].args).toContain('60')
+    const captureCall = calls.find((call) => call.args.includes('-framerate'))
+    expect(captureCall?.args).toContain('60')
+    expect(captureCall?.args[captureCall.args.indexOf('-i') + 1]).toBe('4:none')
     // Encode call uses hardware encoder since hardware=true and quality!=lossless
     const encodeCall = calls.find((call) => call.args.includes('hevc_videotoolbox'))
     expect(encodeCall).toBeDefined()

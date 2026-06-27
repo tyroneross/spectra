@@ -11,6 +11,7 @@ export interface VideoOptions {
   codec: 'h264' | 'hevc'
   bitrate: '4M' | '8M'
   maxDuration?: number    // seconds, safety limit (default: 300)
+  captureInput?: string   // avfoundation video input, e.g. "4:none"
 }
 
 export interface VideoResult {
@@ -26,6 +27,7 @@ export interface VideoResult {
 export interface RecordingHandle {
   stop(): Promise<string>   // returns path to raw recording
   platform: Platform
+  captureInput?: string
 }
 
 export interface VideoProbeResult {
@@ -39,6 +41,18 @@ export interface VideoProbeResult {
 export interface PosterFrameOptions {
   atSeconds?: number
   maxWidth?: number
+}
+
+export interface CompositePane {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface CompositeLayout {
+  left: CompositePane
+  right: CompositePane
 }
 
 // ─── Process Runner ──────────────────────────────────────────
@@ -90,6 +104,8 @@ const DEFAULT_OPTIONS: VideoOptions = {
   maxDuration: 300,
 }
 
+const DEFAULT_AVFOUNDATION_INPUT = '1:none'
+
 export function resolveVideoOptions(options?: Partial<VideoOptions>): VideoOptions {
   const quality = options?.quality ?? DEFAULT_OPTIONS.quality
   const bitrate = options?.bitrate ?? (quality === 'medium' ? '4M' : '8M')
@@ -99,6 +115,46 @@ export function resolveVideoOptions(options?: Partial<VideoOptions>): VideoOptio
     quality,
     bitrate,
   } as VideoOptions
+}
+
+export function buildAvfoundationDeviceListArgs(): string[] {
+  return ['-f', 'avfoundation', '-list_devices', 'true', '-i', '']
+}
+
+export function parseAvfoundationScreenInput(
+  stderr: string,
+  preferredName = 'Capture screen 0',
+): string | undefined {
+  let inVideoDevices = false
+  const screenDevices: string[] = []
+
+  for (const line of stderr.split(/\r?\n/)) {
+    if (line.includes('AVFoundation video devices:')) {
+      inVideoDevices = true
+      continue
+    }
+    if (line.includes('AVFoundation audio devices:')) {
+      inVideoDevices = false
+      continue
+    }
+    if (!inVideoDevices) continue
+
+    const match = line.match(/\]\s+\[(\d+)\]\s+(.+)$/)
+    if (!match) continue
+
+    const [, index, name] = match
+    if (name === preferredName) return `${index}:none`
+    if (/^Capture screen\b/.test(name)) screenDevices.push(`${index}:none`)
+  }
+
+  return screenDevices[0]
+}
+
+export async function discoverAvfoundationScreenInput(): Promise<string | undefined> {
+  const proc = runner('ffmpeg', buildAvfoundationDeviceListArgs())
+  await proc.waitForExit().catch(() => undefined)
+  const stderr = proc.stderr ? await proc.stderr().catch(() => '') : ''
+  return parseAvfoundationScreenInput(stderr)
 }
 
 /**
@@ -121,10 +177,11 @@ export function buildCaptureArgs(
   }
 
   // web / macos → avfoundation screen capture
+  const captureInput = options.captureInput ?? DEFAULT_AVFOUNDATION_INPUT
   return [
     '-f', 'avfoundation',
     '-framerate', String(options.fps),
-    '-i', '1:none',
+    '-i', captureInput,
     '-c:v', 'libx264rgb',
     '-crf', '0',
     '-preset', 'ultrafast',
@@ -141,20 +198,50 @@ export function buildEncodeArgs(
   outputPath: string,
   options: VideoOptions,
 ): string[] {
+  return [
+    '-i', inputPath,
+    ...buildDistributionVideoArgs(options),
+    outputPath,
+  ]
+}
+
+export function buildCompositeEncodeArgs(
+  inputPath: string,
+  outputPath: string,
+  layout: CompositeLayout,
+  options: VideoOptions,
+): string[] {
+  const left = normalizeCompositePane(layout.left, 'left')
+  const right = normalizeCompositePane(layout.right, 'right')
+  const height = Math.min(left.height, right.height)
+  const filter = [
+    `[0:v]crop=${left.width}:${height}:${left.x}:${left.y}[l]`,
+    `[0:v]crop=${right.width}:${height}:${right.x}:${right.y}[r]`,
+    '[l][r]hstack=inputs=2:shortest=1[v]',
+  ].join(';')
+
+  return [
+    '-i', inputPath,
+    '-filter_complex', filter,
+    '-map', '[v]',
+    ...buildDistributionVideoArgs(options),
+    outputPath,
+  ]
+}
+
+function buildDistributionVideoArgs(options: VideoOptions): string[] {
   const useHardware = options.hardware && options.quality !== 'lossless'
 
   if (useHardware) {
     const encoder = options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox'
     const args = [
-      '-i', inputPath,
       '-c:v', encoder,
       '-b:v', options.bitrate,
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
-      outputPath,
     ]
     if (options.codec === 'hevc') {
-      args.splice(args.length - 1, 0, '-tag:v', 'hvc1')
+      args.push('-tag:v', 'hvc1')
     }
     return args
   }
@@ -169,18 +256,36 @@ export function buildEncodeArgs(
   const encoder = options.codec === 'hevc' ? 'libx265' : 'libx264'
 
   const args = [
-    '-i', inputPath,
     '-c:v', encoder,
     '-crf', String(crf),
     '-preset', 'slow',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',
-    outputPath,
   ]
   if (options.codec === 'hevc') {
-    args.splice(args.length - 1, 0, '-tag:v', 'hvc1')
+    args.push('-tag:v', 'hvc1')
   }
   return args
+}
+
+function normalizeCompositePane(pane: CompositePane, label: string): CompositePane {
+  return {
+    x: normalizeInteger(pane.x, `${label}.x`, 0),
+    y: normalizeInteger(pane.y, `${label}.y`, 0),
+    width: normalizeInteger(pane.width, `${label}.width`, 1),
+    height: normalizeInteger(pane.height, `${label}.height`, 1),
+  }
+}
+
+function normalizeInteger(value: number, label: string, min: number): number {
+  if (!Number.isFinite(value)) {
+    throw new Error(`Invalid composite pane ${label}: expected a finite number`)
+  }
+  const rounded = Math.round(value)
+  if (rounded < min) {
+    throw new Error(`Invalid composite pane ${label}: expected ${min === 0 ? 'a non-negative' : 'a positive'} number`)
+  }
+  return rounded
 }
 
 export function buildProbeArgs(inputPath: string): string[] {
@@ -228,7 +333,10 @@ export async function startRecording(
   const ext = isSimctl ? 'mp4' : 'mkv'
   const outputPath = join(outputDir, `raw-${timestamp}.${ext}`)
 
-  const captureArgs = buildCaptureArgs(platform, outputPath, opts)
+  const captureInput = isSimctl
+    ? undefined
+    : opts.captureInput ?? await discoverAvfoundationScreenInput() ?? DEFAULT_AVFOUNDATION_INPUT
+  const captureArgs = buildCaptureArgs(platform, outputPath, { ...opts, captureInput })
   const cmd = isSimctl ? 'xcrun' : 'ffmpeg'
 
   const proc = runner(cmd, captureArgs)
@@ -240,6 +348,7 @@ export async function startRecording(
 
   const handle: RecordingHandle = {
     platform,
+    captureInput,
     stop: async () => {
       clearTimeout(timeoutId)
       proc.kill()
@@ -260,13 +369,16 @@ export async function encodeRecording(
   rawPath: string,
   outputDir: string,
   options?: Partial<VideoOptions>,
+  compositeLayout?: CompositeLayout,
 ): Promise<VideoResult> {
   const opts = resolveVideoOptions(options)
 
   const timestamp = Date.now()
   const outputPath = join(outputDir, `video-${timestamp}.mp4`)
 
-  const encodeArgs = buildEncodeArgs(rawPath, outputPath, opts)
+  const encodeArgs = compositeLayout
+    ? buildCompositeEncodeArgs(rawPath, outputPath, compositeLayout, opts)
+    : buildEncodeArgs(rawPath, outputPath, opts)
   const proc = runner('ffmpeg', encodeArgs)
 
   const exitCode = await proc.waitForExit()

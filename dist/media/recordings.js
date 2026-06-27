@@ -7,7 +7,8 @@
 // © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
 import { randomUUID } from 'node:crypto';
 import { stat } from 'node:fs/promises';
-import { startRecording, encodeRecording, resolveVideoOptions } from './pipeline.js';
+import { startRecording, encodeRecording, probeVideo, resolveVideoOptions } from './pipeline.js';
+import { computeSplitLayout } from './composite-layout.js';
 /**
  * Singleton registry. The daemon process owns one of these; HTTP requests
  * across multiple connections share state via this module.
@@ -31,6 +32,9 @@ class RecordingRegistry {
             // Resolve effective options now so we can return them deterministically
             const effective = resolveVideoOptions(opts.options);
             const handle = await startRecording(opts.platform, opts.outputDir, effective);
+            if (handle.captureInput) {
+                effective.captureInput = handle.captureInput;
+            }
             const record = {
                 id: randomUUID().slice(0, 8),
                 sessionId: opts.sessionId,
@@ -38,6 +42,8 @@ class RecordingRegistry {
                 rawPath: '', // populated on stop
                 startedAt: Date.now(),
                 options: effective,
+                compositeLayout: opts.compositeLayout,
+                compositeAuto: opts.compositeAuto,
                 stopped: false,
             };
             this.records.set(opts.sessionId, record);
@@ -77,9 +83,22 @@ class RecordingRegistry {
         record.stopped = true;
         const stoppedAt = Date.now();
         const durationMs = stoppedAt - record.startedAt;
+        // Resolve the composite layout. Explicit rects win; otherwise auto-split the
+        // RAW recording's real frame (captured pixels) into equal left/right halves.
+        let compositeLayout = record.compositeLayout;
+        if (!compositeLayout && record.compositeAuto) {
+            const rawProbe = await probeVideo(rawPath).catch(() => undefined);
+            if (!rawProbe?.width || !rawProbe?.height) {
+                throw new Error('Composite recording requested but the raw capture dimensions could not be '
+                    + 'probed; cannot compute the left/right split. Re-run with explicit '
+                    + 'composite rects, or check the recording (a black/zero-size frame often '
+                    + 'means Screen Recording permission was denied to the terminal host).');
+            }
+            compositeLayout = computeSplitLayout(rawProbe.width, rawProbe.height);
+        }
         // Encode for distribution. For now we keep stderr buffering inside pipeline.encodeRecording;
         // dropped-frame parsing surfaced as 0 by default until pipeline returns it.
-        const encoded = await encodeRecording(rawPath, opts.outputDir, record.options);
+        const encoded = await encodeRecording(rawPath, opts.outputDir, record.options, compositeLayout);
         const effectiveDurationMs = encoded.duration > 0
             ? Math.round(encoded.duration * 1000)
             : durationMs;

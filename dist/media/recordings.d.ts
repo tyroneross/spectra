@@ -1,4 +1,4 @@
-import type { RecordingHandle, VideoOptions, VideoResult } from './pipeline.js';
+import type { CompositeLayout, RecordingHandle, VideoOptions, VideoResult } from './pipeline.js';
 import type { Platform } from '../core/types.js';
 export interface RecordingRecord {
     id: string;
@@ -7,6 +7,8 @@ export interface RecordingRecord {
     rawPath: string;
     startedAt: number;
     options: VideoOptions;
+    compositeLayout?: CompositeLayout;
+    compositeAuto?: boolean;
     stopped: boolean;
     lastResult?: VideoResult & {
         droppedFrames?: number;
@@ -17,6 +19,15 @@ export interface StartOptions {
     platform: Platform;
     outputDir: string;
     options?: Partial<VideoOptions>;
+    /** Explicit composite pane rects (operator override or pre-computed split). */
+    compositeLayout?: CompositeLayout;
+    /**
+     * Composite the full-display recording into equal left/right halves. The
+     * split is resolved at stop from the RAW recording's real frame dimensions
+     * (Retina-correct — crops are in captured pixels, not logical points).
+     * Ignored when an explicit `compositeLayout` is supplied.
+     */
+    compositeAuto?: boolean;
 }
 export interface StartResult {
     recordingId: string;

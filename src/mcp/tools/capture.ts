@@ -13,7 +13,8 @@ import {
   resolveRecordingCaptureOptions,
   resolveScreenshotCaptureOptions,
 } from '../../media/presets.js'
-import type { VideoOptions } from '../../media/pipeline.js'
+import type { CompositeLayout, VideoOptions } from '../../media/pipeline.js'
+import { computeSplitLayout } from '../../media/composite-layout.js'
 import type { Viewport } from '../../intelligence/types.js'
 import type { CaptureMode, CapturePreset } from '../../core/types.js'
 
@@ -48,6 +49,34 @@ export interface CaptureParams {
   codec?: 'h264' | 'hevc'
   bitrate?: '4M' | '8M'
   hardware?: boolean       // VideoToolbox if true, libx264/libx265 if false
+  // Side-by-side composite recording (start_recording only). Splits the
+  // full-display capture into a left + right pane and hstacks them.
+  composite?: {
+    enabled?: boolean
+    displayWidth?: number
+    displayHeight?: number
+    left?: { x: number; y: number; width: number; height: number }
+    right?: { x: number; y: number; width: number; height: number }
+  }
+}
+
+/**
+ * Resolve the composite recording intent into the start-options the recordings
+ * registry understands. Explicit left+right rects win; explicit display dims
+ * compute a split now; bare `enabled` defers the equal-halves split to stop
+ * time where the real captured frame size is known (Retina-correct).
+ */
+function resolveCompositeStart(
+  composite: CaptureParams['composite'],
+): { compositeLayout?: CompositeLayout; compositeAuto?: boolean } {
+  if (!composite?.enabled) return {}
+  if (composite.left && composite.right) {
+    return { compositeLayout: { left: composite.left, right: composite.right } }
+  }
+  if (composite.displayWidth && composite.displayHeight) {
+    return { compositeLayout: computeSplitLayout(composite.displayWidth, composite.displayHeight) }
+  }
+  return { compositeAuto: true }
 }
 
 export interface CaptureResult {
@@ -242,12 +271,16 @@ export async function handleCapture(params: CaptureParams, ctx: ToolContext): Pr
       sourceVerified: platform === 'ios' || platform === 'watchos',
     })
 
+    const { compositeLayout, compositeAuto } = resolveCompositeStart(params.composite)
+
     try {
       const r = await recordings.start({
         sessionId: params.sessionId,
         platform,
         outputDir,
         options: videoOptions,
+        compositeLayout,
+        compositeAuto,
       })
       await ctx.sessions.setRecordingStatus(params.sessionId, {
         state: 'recording',

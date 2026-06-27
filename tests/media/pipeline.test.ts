@@ -1,10 +1,13 @@
 // tests/media/pipeline.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
+  buildAvfoundationDeviceListArgs,
   buildCaptureArgs,
+  buildCompositeEncodeArgs,
   buildEncodeArgs,
   buildPosterFrameArgs,
   buildProbeArgs,
+  parseAvfoundationScreenInput,
   encodeRecording,
   extractPosterFrame,
   probeVideo,
@@ -54,6 +57,36 @@ function makeMockRunner() {
 // ─── buildCaptureArgs ─────────────────────────────────────────
 
 describe('buildCaptureArgs', () => {
+  it('builds avfoundation device-list discovery args', () => {
+    expect(buildAvfoundationDeviceListArgs()).toEqual([
+      '-f', 'avfoundation',
+      '-list_devices', 'true',
+      '-i', '',
+    ])
+  })
+
+  it('parses Capture screen 0 from avfoundation stderr', () => {
+    const stderr = [
+      '[AVFoundation indev @ 0x123] AVFoundation video devices:',
+      '[AVFoundation indev @ 0x123] [0] MacBook Pro Camera',
+      '[AVFoundation indev @ 0x123] [4] Capture screen 0',
+      '[AVFoundation indev @ 0x123] AVFoundation audio devices:',
+      '[AVFoundation indev @ 0x123] [0] MacBook Pro Microphone',
+    ].join('\n')
+
+    expect(parseAvfoundationScreenInput(stderr)).toBe('4:none')
+  })
+
+  it('falls back to the first Capture screen when the preferred screen is absent', () => {
+    const stderr = [
+      '[AVFoundation indev @ 0x123] AVFoundation video devices:',
+      '[AVFoundation indev @ 0x123] [2] Capture screen 1',
+      '[AVFoundation indev @ 0x123] AVFoundation audio devices:',
+    ].join('\n')
+
+    expect(parseAvfoundationScreenInput(stderr)).toBe('2:none')
+  })
+
   it('web lossless — contains -crf 0, -preset ultrafast, -f avfoundation', () => {
     const args = buildCaptureArgs('web', '/tmp/out.mkv', makeOpts({ quality: 'lossless' }))
     expect(args).toContain('-crf')
@@ -62,6 +95,12 @@ describe('buildCaptureArgs', () => {
     expect(args[args.indexOf('-preset') + 1]).toBe('ultrafast')
     expect(args).toContain('-f')
     expect(args[args.indexOf('-f') + 1]).toBe('avfoundation')
+  })
+
+  it('web capture uses an explicitly supplied avfoundation input', () => {
+    const args = buildCaptureArgs('web', '/tmp/out.mkv', makeOpts({ captureInput: '4:none' }))
+    expect(args).toContain('-i')
+    expect(args[args.indexOf('-i') + 1]).toBe('4:none')
   })
 
   it('iOS — uses xcrun simctl io, not ffmpeg args', () => {
@@ -95,6 +134,40 @@ describe('buildCaptureArgs', () => {
     const args = buildCaptureArgs('macos', '/tmp/out.mkv', makeOpts({ fps: 30 }))
     expect(args).toContain('-framerate')
     expect(args[args.indexOf('-framerate') + 1]).toBe('30')
+  })
+})
+
+// ─── buildCompositeEncodeArgs ──────────────────────────────────
+
+describe('buildCompositeEncodeArgs', () => {
+  it('builds two crop filters followed by hstack shortest=1', () => {
+    const args = buildCompositeEncodeArgs(
+      '/tmp/raw.mkv',
+      '/tmp/composite.mp4',
+      {
+        left: { x: 0, y: 20, width: 800, height: 600 },
+        right: { x: 840, y: 40, width: 900, height: 540 },
+      },
+      makeOpts({ hardware: false, quality: 'high' }),
+    )
+
+    expect(args).toContain('-filter_complex')
+    expect(args[args.indexOf('-filter_complex') + 1]).toBe(
+      '[0:v]crop=800:540:0:20[l];[0:v]crop=900:540:840:40[r];[l][r]hstack=inputs=2:shortest=1[v]'
+    )
+    expect(args).toEqual(expect.arrayContaining(['-map', '[v]', '-c:v', 'libx264']))
+  })
+
+  it('rejects invalid composite pane dimensions', () => {
+    expect(() => buildCompositeEncodeArgs(
+      '/tmp/raw.mkv',
+      '/tmp/composite.mp4',
+      {
+        left: { x: 0, y: 0, width: 0, height: 600 },
+        right: { x: 800, y: 0, width: 800, height: 600 },
+      },
+      makeOpts(),
+    )).toThrow(/left\.width/)
   })
 })
 
@@ -221,7 +294,30 @@ describe('startRecording', () => {
     setProcessRunner(mockRunner)
 
     await startRecording('web', tmpdir())
-    expect(calls[0].cmd).toBe('ffmpeg')
+    const captureCall = calls.find((call) => call.args.includes('-framerate'))
+    expect(captureCall?.cmd).toBe('ffmpeg')
+  })
+
+  it('discovers the avfoundation screen input before starting web recording', async () => {
+    const calls: Array<{ cmd: string; args: string[] }> = []
+    setProcessRunner((cmd, args) => {
+      calls.push({ cmd, args })
+      return {
+        kill: () => {},
+        waitForExit: () => Promise.resolve(0),
+        stderr: () => Promise.resolve([
+          '[AVFoundation indev @ 0x123] AVFoundation video devices:',
+          '[AVFoundation indev @ 0x123] [4] Capture screen 0',
+          '[AVFoundation indev @ 0x123] AVFoundation audio devices:',
+        ].join('\n')),
+      }
+    })
+
+    const handle = await startRecording('web', tmpdir())
+    const captureCall = calls.find((call) => call.args.includes('-framerate'))
+
+    expect(handle.captureInput).toBe('4:none')
+    expect(captureCall?.args[captureCall.args.indexOf('-i') + 1]).toBe('4:none')
   })
 
   it('max duration safety — kills process after maxDuration', async () => {
@@ -339,6 +435,36 @@ describe('video probing and posters', () => {
     expect(result.fps).toBe(60)
     expect(result.width).toBe(1280)
     expect(result.height).toBe(720)
+  })
+
+  it('encodeRecording emits the composite filtergraph when a layout is threaded', async () => {
+    const rawPath = join(workDir, 'raw.mkv')
+    writeFileSync(rawPath, 'raw')
+    let ffmpegArgs: string[] = []
+    setProcessRunner((cmd, args) => {
+      if (cmd === 'ffmpeg') ffmpegArgs = args
+      const outputPath = args[args.length - 1]
+      if (cmd === 'ffmpeg' && outputPath) writeFileSync(outputPath, 'encoded')
+      return {
+        kill: () => {},
+        waitForExit: () => Promise.resolve(cmd === 'ffprobe' ? 1 : 0),
+      }
+    })
+
+    await encodeRecording(
+      rawPath,
+      workDir,
+      { fps: 30, codec: 'h264', hardware: false },
+      { left: { x: 0, y: 0, width: 1280, height: 1440 }, right: { x: 1280, y: 0, width: 1280, height: 1440 } },
+    )
+
+    const filterIndex = ffmpegArgs.indexOf('-filter_complex')
+    expect(filterIndex).toBeGreaterThan(-1)
+    expect(ffmpegArgs[filterIndex + 1]).toBe(
+      '[0:v]crop=1280:1440:0:0[l];[0:v]crop=1280:1440:1280:0[r];[l][r]hstack=inputs=2:shortest=1[v]'
+    )
+    expect(ffmpegArgs).toContain('-map')
+    expect(ffmpegArgs[ffmpegArgs.indexOf('-map') + 1]).toBe('[v]')
   })
 
   it('encodeRecording falls back to requested values when probing fails', async () => {

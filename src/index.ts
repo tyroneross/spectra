@@ -80,15 +80,26 @@ export type {
 export { prepareForCapture, restoreAfterCapture } from './media/clean.js'
 export type { CleanOptions, CleanState } from './media/clean.js'
 export {
+  buildAvfoundationDeviceListArgs,
   buildCaptureArgs,
+  buildCompositeEncodeArgs,
   buildEncodeArgs,
   buildPosterFrameArgs,
   buildProbeArgs,
+  discoverAvfoundationScreenInput,
   encodeRecording,
   extractPosterFrame,
+  parseAvfoundationScreenInput,
   probeVideo,
 } from './media/pipeline.js'
-export type { PosterFrameOptions, VideoOptions, VideoProbeResult, VideoResult } from './media/pipeline.js'
+export type {
+  CompositeLayout,
+  CompositePane,
+  PosterFrameOptions,
+  VideoOptions,
+  VideoProbeResult,
+  VideoResult,
+} from './media/pipeline.js'
 export {
   CAPTURE_PRESETS,
   getCapturePresetDefinition,
