@@ -5,6 +5,7 @@ import {
   bucketPerMinute,
   deriveActiveRanges,
   buildSpotlightFilter,
+  deriveRampSegments,
 } from '../../src/media/spotlight.js'
 
 // ─── parsePtsLines ────────────────────────────────────────────
@@ -183,5 +184,53 @@ describe('buildSpotlightFilter', () => {
     })
     expect(filter).toContain('force_original_aspect_ratio=decrease')
     expect(filter).toContain('setsar=1')
+  })
+})
+
+// ─── deriveRampSegments (P3a auto dead-air ramp) ──────────────
+
+describe('deriveRampSegments', () => {
+  it('keeps active spans at 1x and speeds long dead-air gaps', () => {
+    // active 10–20s in a 40s clip → gaps [0,10) and (20,40] are dead air.
+    const segs = deriveRampSegments([{ startSec: 10, endSec: 20 }], 40, { padSec: 0 })
+    expect(segs.map(s => s.speed)).toEqual([1.8, 1, 1.8])
+    const total = segs.reduce((a, s) => a + s.durationSec, 0)
+    expect(total).toBeCloseTo(40, 5)
+    expect(segs[1]).toMatchObject({ startSec: 10, durationSec: 10, speed: 1 })
+  })
+
+  it('does NOT ramp gaps shorter than minDeadSec', () => {
+    // 1s gap before the active range, below the 1.5s floor → stays 1x.
+    const segs = deriveRampSegments([{ startSec: 1, endSec: 5 }], 6, { padSec: 0, minDeadSec: 1.5 })
+    // [0,1) short gap (1x) coalesces with [1,5) active (1x); (5,6] short gap (1x) coalesces too.
+    expect(segs).toHaveLength(1)
+    expect(segs[0].speed).toBe(1)
+    expect(segs[0].durationSec).toBeCloseTo(6, 5)
+  })
+
+  it('pads and merges overlapping active ranges', () => {
+    const segs = deriveRampSegments(
+      [{ startSec: 5, endSec: 8 }, { startSec: 8.2, endSec: 12 }],
+      20,
+      { padSec: 0.4 },
+    )
+    const active = segs.filter(s => s.speed === 1)
+    expect(active).toHaveLength(1) // merged into one active span
+    expect(active[0].startSec).toBeCloseTo(4.6, 5)
+    expect(active[0].durationSec).toBeCloseTo(7.8, 5) // 4.6 → 12.4
+  })
+
+  it('returns empty for non-positive duration', () => {
+    expect(deriveRampSegments([{ startSec: 0, endSec: 5 }], 0)).toEqual([])
+  })
+
+  it('covers the whole timeline gap-free', () => {
+    const segs = deriveRampSegments([{ startSec: 3, endSec: 4 }, { startSec: 30, endSec: 35 }], 60, { padSec: 0.2 })
+    let cursor = 0
+    for (const s of segs) {
+      expect(s.startSec).toBeCloseTo(cursor, 5)
+      cursor += s.durationSec
+    }
+    expect(cursor).toBeCloseTo(60, 5)
   })
 })

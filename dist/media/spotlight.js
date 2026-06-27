@@ -4,7 +4,7 @@ import { spawnSync, spawn } from 'node:child_process';
 import { writeFile, rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { requireFfmpeg } from './ffmpeg.js';
+import { requireFfmpeg, detectFfmpeg } from './ffmpeg.js';
 // ─── Internal helpers ─────────────────────────────────────────
 async function spawnFfmpeg(ffmpegPath, args) {
     return new Promise((resolve, reject) => {
@@ -118,6 +118,114 @@ export async function scanActivity(input, opts) {
         perMinute: bucketPerMinute(ptsTimes),
         activeRanges: deriveActiveRanges(ptsTimes),
     };
+}
+/**
+ * Derive an ordered, gap-free segment list over [0, totalDuration): active spans
+ * play at `activeSpeed` (1x), dead-air gaps longer than `minDeadSec` are sped to
+ * `deadSpeed`. Active ranges are padded so motion isn't clipped, then merged.
+ * Pure function — no ffmpeg.
+ */
+export function deriveRampSegments(activeRanges, totalDuration, opts) {
+    const deadSpeed = opts?.deadSpeed ?? 1.8;
+    const activeSpeed = opts?.activeSpeed ?? 1;
+    const minDeadSec = opts?.minDeadSec ?? 1.5;
+    const pad = opts?.padSec ?? 0.4;
+    if (totalDuration <= 0)
+        return [];
+    const merged = [];
+    for (const r of activeRanges
+        .map(r => ({ s: Math.max(0, r.startSec - pad), e: Math.min(totalDuration, r.endSec + pad) }))
+        .filter(r => r.e > r.s)
+        .sort((a, b) => a.s - b.s)) {
+        const last = merged[merged.length - 1];
+        if (last && r.s <= last.e)
+            last.e = Math.max(last.e, r.e);
+        else
+            merged.push({ ...r });
+    }
+    const raw = [];
+    let cursor = 0;
+    const pushGap = (start, end) => {
+        const gap = end - start;
+        if (gap <= 1e-6)
+            return;
+        raw.push({ startSec: start, durationSec: gap, speed: gap >= minDeadSec ? deadSpeed : activeSpeed });
+    };
+    for (const m of merged) {
+        pushGap(cursor, m.s);
+        raw.push({ startSec: m.s, durationSec: m.e - m.s, speed: activeSpeed });
+        cursor = m.e;
+    }
+    pushGap(cursor, totalDuration);
+    // Coalesce adjacent same-speed segments.
+    const out = [];
+    for (const seg of raw) {
+        const last = out[out.length - 1];
+        if (last && last.speed === seg.speed && Math.abs(last.startSec + last.durationSec - seg.startSec) < 1e-6) {
+            last.durationSec += seg.durationSec;
+        }
+        else {
+            out.push({ ...seg });
+        }
+    }
+    return out.filter(s => s.durationSec > 1e-3);
+}
+async function probeDuration(input) {
+    const ffmpeg = detectFfmpeg();
+    // ffprobe ships alongside ffmpeg; derive its path.
+    const ffprobe = ffmpeg ? ffmpeg.replace(/ffmpeg$/, 'ffprobe') : 'ffprobe';
+    return new Promise((resolve, reject) => {
+        const proc = spawn(ffprobe, [
+            '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', input,
+        ], { stdio: 'pipe' });
+        const chunks = [];
+        proc.stdout?.on('data', (c) => chunks.push(Buffer.from(c)));
+        proc.on('close', () => {
+            const val = parseFloat(Buffer.concat(chunks).toString().trim());
+            Number.isFinite(val) ? resolve(val) : reject(new Error('ffprobe could not read duration'));
+        });
+        proc.on('error', reject);
+    });
+}
+/**
+ * Auto speed-ramp: scan the recording for activity, speed dead-air spans, keep
+ * motion at real cadence, and re-stitch. Lanczos-downscales to maxWidth, tuned
+ * crf, +faststart, audio stripped. The single user-facing P3a entrypoint.
+ */
+export async function autoRampDemo(input, out, opts) {
+    const ffmpeg = requireFfmpeg();
+    const maxWidth = opts?.maxWidth ?? 1600;
+    const crf = opts?.crf ?? 20;
+    const fps = opts?.fps ?? 60;
+    const inputDuration = await probeDuration(input);
+    const { activeRanges } = await scanActivity(input, { threshold: opts?.threshold });
+    const segments = deriveRampSegments(activeRanges, inputDuration, opts);
+    const tmpDir = join(tmpdir(), `spectra-ramp-${uniqueTmpId()}`);
+    await mkdir(tmpDir, { recursive: true });
+    const segPaths = [];
+    try {
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            const segOut = join(tmpDir, `seg-${String(i).padStart(4, '0')}.mp4`);
+            const vf = `setpts=PTS/${seg.speed},` +
+                `scale=w='min(${maxWidth}\\,iw)':h=-2:flags=lanczos,setsar=1,fps=${fps}`;
+            await spawnFfmpeg(ffmpeg, [
+                '-ss', String(seg.startSec), '-t', String(seg.durationSec), '-i', input,
+                '-vf', vf, '-an',
+                '-r', String(fps), '-vsync', 'cfr',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', String(crf),
+                '-pix_fmt', 'yuv420p', '-video_track_timescale', String(Math.max(600, fps * 1000)),
+                '-movflags', '+faststart', '-y', segOut,
+            ]);
+            segPaths.push(segOut);
+        }
+        await mergeSegments(segPaths, out);
+    }
+    finally {
+        await rm(tmpDir, { recursive: true, force: true }).catch(() => { });
+    }
+    const outputDuration = await probeDuration(out);
+    return { out, segments, inputDuration, outputDuration };
 }
 /**
  * Build an ffmpeg filtergraph string that applies a spotlight focus effect.

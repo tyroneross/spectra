@@ -74,10 +74,6 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         }>, "many">;
         speed: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
-        canvas: {
-            w: number;
-            h: number;
-        };
         segments: {
             input: string;
             focal: {
@@ -91,13 +87,13 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
+        canvas: {
+            w: number;
+            h: number;
+        };
         fps?: number | undefined;
         speed?: number | undefined;
     }, {
-        canvas: {
-            w: number;
-            h: number;
-        };
         segments: {
             input: string;
             focal: {
@@ -111,6 +107,10 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
+        canvas: {
+            w: number;
+            h: number;
+        };
         fps?: number | undefined;
         speed?: number | undefined;
     }>;
@@ -119,10 +119,6 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     action: "polish";
     out: string;
     spec: {
-        canvas: {
-            w: number;
-            h: number;
-        };
         segments: {
             input: string;
             focal: {
@@ -136,6 +132,10 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
+        canvas: {
+            w: number;
+            h: number;
+        };
         fps?: number | undefined;
         speed?: number | undefined;
     };
@@ -143,10 +143,6 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     action: "polish";
     out: string;
     spec: {
-        canvas: {
-            w: number;
-            h: number;
-        };
         segments: {
             input: string;
             focal: {
@@ -160,9 +156,43 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
+        canvas: {
+            w: number;
+            h: number;
+        };
         fps?: number | undefined;
         speed?: number | undefined;
     };
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"auto-ramp">;
+    input: z.ZodString;
+    out: z.ZodString;
+    deadSpeed: z.ZodOptional<z.ZodNumber>;
+    minDeadSec: z.ZodOptional<z.ZodNumber>;
+    threshold: z.ZodOptional<z.ZodNumber>;
+    maxWidth: z.ZodOptional<z.ZodNumber>;
+    crf: z.ZodOptional<z.ZodNumber>;
+    fps: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    action: "auto-ramp";
+    input: string;
+    out: string;
+    fps?: number | undefined;
+    threshold?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
+}, {
+    action: "auto-ramp";
+    input: string;
+    out: string;
+    fps?: number | undefined;
+    threshold?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
 }>]>;
 export declare function handleDemo(params: unknown): Promise<object>;
 //# sourceMappingURL=demo.d.ts.map

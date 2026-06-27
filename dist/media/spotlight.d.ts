@@ -36,6 +36,46 @@ export declare function scanActivity(input: string, opts?: {
         endSec: number;
     }[];
 }>;
+export interface RampSegment {
+    startSec: number;
+    durationSec: number;
+    speed: number;
+}
+/**
+ * Derive an ordered, gap-free segment list over [0, totalDuration): active spans
+ * play at `activeSpeed` (1x), dead-air gaps longer than `minDeadSec` are sped to
+ * `deadSpeed`. Active ranges are padded so motion isn't clipped, then merged.
+ * Pure function — no ffmpeg.
+ */
+export declare function deriveRampSegments(activeRanges: {
+    startSec: number;
+    endSec: number;
+}[], totalDuration: number, opts?: {
+    deadSpeed?: number;
+    activeSpeed?: number;
+    minDeadSec?: number;
+    padSec?: number;
+}): RampSegment[];
+export interface AutoRampResult {
+    out: string;
+    segments: RampSegment[];
+    inputDuration: number;
+    outputDuration: number;
+}
+/**
+ * Auto speed-ramp: scan the recording for activity, speed dead-air spans, keep
+ * motion at real cadence, and re-stitch. Lanczos-downscales to maxWidth, tuned
+ * crf, +faststart, audio stripped. The single user-facing P3a entrypoint.
+ */
+export declare function autoRampDemo(input: string, out: string, opts?: {
+    deadSpeed?: number;
+    minDeadSec?: number;
+    padSec?: number;
+    threshold?: number;
+    maxWidth?: number;
+    crf?: number;
+    fps?: number;
+}): Promise<AutoRampResult>;
 export interface FocalRect {
     x: number;
     y: number;

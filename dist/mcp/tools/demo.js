@@ -1,7 +1,7 @@
 // src/mcp/tools/demo.ts
 // MCP tool handler for spectra_demo — polished agent demo video production.
 import { z } from 'zod';
-import { scanActivity, polishDemo } from '../../media/spotlight.js';
+import { scanActivity, polishDemo, autoRampDemo } from '../../media/spotlight.js';
 // ─── Zod schema ───────────────────────────────────────────────
 const FocalRectSchema = z.object({
     x: z.number(),
@@ -38,12 +38,33 @@ export const DemoSchema = z.discriminatedUnion('action', [
         spec: PolishSpecSchema,
         out: z.string().describe('Output mp4 path'),
     }),
+    z.object({
+        action: z.literal('auto-ramp'),
+        input: z.string().describe('Source recording to speed-ramp'),
+        out: z.string().describe('Output mp4 path'),
+        deadSpeed: z.number().optional().describe('Speed multiplier for dead-air spans (default 1.8)'),
+        minDeadSec: z.number().optional().describe('Min gap length to ramp, seconds (default 1.5)'),
+        threshold: z.number().optional().describe('Scene-change sensitivity (default 0.04)'),
+        maxWidth: z.number().optional().describe('Lanczos-downscale max width (default 1600)'),
+        crf: z.number().optional().describe('x264 quality (default 20)'),
+        fps: z.number().optional().describe('Output fps (default 60)'),
+    }),
 ]);
 // ─── Handler ──────────────────────────────────────────────────
 export async function handleDemo(params) {
     const parsed = DemoSchema.parse(params);
     if (parsed.action === 'scan') {
         return scanActivity(parsed.input, { threshold: parsed.threshold });
+    }
+    if (parsed.action === 'auto-ramp') {
+        return autoRampDemo(parsed.input, parsed.out, {
+            deadSpeed: parsed.deadSpeed,
+            minDeadSec: parsed.minDeadSec,
+            threshold: parsed.threshold,
+            maxWidth: parsed.maxWidth,
+            crf: parsed.crf,
+            fps: parsed.fps,
+        });
     }
     // action === 'polish'
     return polishDemo(parsed.spec, parsed.out);
