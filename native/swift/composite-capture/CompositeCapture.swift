@@ -67,6 +67,7 @@ struct Options {
     var duration: Double = 5
     var fps: Int = 60
     var pixFmt = "yuv420p"
+    var focus = false
     var validate = true
     var keepParts = false
 }
@@ -147,6 +148,7 @@ struct SpectraCompositeCapture {
                 rightHeight: right.height,
                 fps: options.fps,
                 pixFmt: options.pixFmt,
+                focus: options.focus,
                 tempDir: tempDir
             )
 
@@ -192,6 +194,7 @@ Options:
   --duration <seconds>        Capture duration. Default: 5.
   --fps <frames>              Capture FPS. Default: 60.
   --pixfmt <format>           Output pixel format: yuv420p or yuv444p. Default: yuv420p.
+  --focus                     Apply subtle edge dim/blur spotlight to each pane.
   --validate                  Run CFR validator after encode. Default.
   --validate-file <path.mp4>  Validate an existing MP4 and exit.
   --no-validate               Skip CFR validator.
@@ -249,6 +252,8 @@ func parseOptions(_ args: [String]) throws -> Options {
                 throw CLIError(description: "--pixfmt must be yuv420p or yuv444p")
             }
             options.pixFmt = raw
+        case "--focus":
+            options.focus = true
         case "--validate":
             options.validate = true
         case "--no-validate":
@@ -671,6 +676,7 @@ func stitchVideos(
     rightHeight: Int,
     fps: Int,
     pixFmt: String,
+    focus: Bool,
     tempDir: URL
 ) throws -> StitchResult {
     try? FileManager.default.removeItem(at: output)
@@ -682,9 +688,16 @@ func stitchVideos(
     let filter: String
     var arguments = ["-y", "-i", left.path, "-i", right.path]
 
+    let leftPane = "leftpane"
+    let rightPane = "rightpane"
+    let leftPrepared = paneSourceFilter(inputIndex: 0, output: leftPane, height: height, fps: fps, focus: focus)
+    let rightPrepared = paneSourceFilter(inputIndex: 1, output: rightPane, height: height, fps: fps, focus: focus)
+
     if hasDrawtext {
-        filter = "[0:v]fps=\(fps),scale=-2:\(height),setsar=1,drawtext=\(drawtext(label: leftLabel))[left];" +
-            "[1:v]fps=\(fps),scale=-2:\(height),setsar=1,drawtext=\(drawtext(label: rightLabel))[right];" +
+        filter = "\(leftPrepared);" +
+            "\(rightPrepared);" +
+            "[\(leftPane)]drawtext=\(drawtext(label: leftLabel))[left];" +
+            "[\(rightPane)]drawtext=\(drawtext(label: rightLabel))[right];" +
             "[left][right]hstack=inputs=2:shortest=1,fps=\(fps)[v]"
     } else {
         let leftLabelURL = tempDir.appendingPathComponent("left-label.png")
@@ -693,10 +706,10 @@ func stitchVideos(
         try writeLabelImage(rightLabel, to: rightLabelURL)
 
         arguments += ["-i", leftLabelURL.path, "-i", rightLabelURL.path]
-        filter = "[0:v]fps=\(fps),scale=-2:\(height),setsar=1[leftbase];" +
-            "[1:v]fps=\(fps),scale=-2:\(height),setsar=1[rightbase];" +
-            "[leftbase][2:v]overlay=16:16[left];" +
-            "[rightbase][3:v]overlay=16:16[right];" +
+        filter = "\(leftPrepared);" +
+            "\(rightPrepared);" +
+            "[\(leftPane)][2:v]overlay=16:16[left];" +
+            "[\(rightPane)][3:v]overlay=16:16[right];" +
             "[left][right]hstack=inputs=2:shortest=1,fps=\(fps)[v]"
     }
 
@@ -716,6 +729,28 @@ func stitchVideos(
 
     try runProcess("/usr/bin/env", ["ffmpeg"] + arguments)
     return StitchResult(filterComplex: filter, labelMode: hasDrawtext ? "drawtext" : "overlay-png")
+}
+
+func paneSourceFilter(inputIndex: Int, output: String, height: Int, fps: Int, focus: Bool) -> String {
+    let base = "\(output)base"
+    let scaled = "[\(inputIndex):v]fps=\(fps),scale=-2:\(height),setsar=1"
+    guard focus else {
+        return "\(scaled)[\(output)]"
+    }
+
+    return "\(scaled),format=rgba[\(base)];\(focusFilter(input: base, output: output))"
+}
+
+func focusFilter(input: String, output: String) -> String {
+    let sharp = "\(input)sharp"
+    let fx = "\(input)fx"
+    let edge = "\(input)edge"
+    let alpha = "255*0.45*max(max((0.16-min(X/W,1-X/W))/0.16,0),max((0.16-min(Y/H,1-Y/H))/0.16,0))"
+
+    return "[\(input)]split=2[\(sharp)][\(fx)];" +
+        "[\(fx)]gblur=sigma=5,eq=brightness=-0.06:saturation=0.90,format=rgba," +
+        "geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='\(alpha)'[\(edge)];" +
+        "[\(sharp)][\(edge)]overlay=format=auto[\(output)]"
 }
 
 func ffmpegSupportsDrawtext() -> Bool {
