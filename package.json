@@ -32,6 +32,7 @@
   "scripts": {
     "build": "tsc",
     "build:native": "swiftc native/swift/Types.swift native/swift/main.swift native/swift/AppTarget.swift native/swift/AXBridge.swift native/swift/SimBridge.swift native/swift/MediaCapture.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -o $HOME/.spectra/bin/spectra-native",
+    "build:composite": "mkdir -p $HOME/.spectra/bin && swiftc -parse-as-library native/swift/composite-capture/*.swift -framework Foundation -framework ScreenCaptureKit -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework CoreGraphics -framework AppKit -o $HOME/.spectra/bin/spectra-composite-capture",
     "build:test-app": "swiftc native/swift/TestApp/TestApp.swift -framework SwiftUI -framework AppKit -o $HOME/.spectra/bin/spectra-test-app",
     "daemon": "node dist/cli/index.js daemon",
     "test": "vitest run",
