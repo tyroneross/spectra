@@ -389,9 +389,9 @@ server.tool(
 
 server.tool(
   'spectra_demo',
-  'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, or action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence. Audio is always stripped.',
+  'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence, or action=record-composite to drive the WINDOW-ISOLATED composite recorder (two app windows side-by-side via ScreenCaptureKit, caffeinate-wrapped so the display never sleeps, with a post-capture black-frame guard). Audio is always stripped.',
   {
-    action: z.enum(['scan', 'polish', 'auto-ramp']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x'),
+    action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP'),
     // scan + auto-ramp fields
     input: z.string().optional().describe('scan/auto-ramp: path to the source video file'),
     threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
@@ -416,11 +416,23 @@ server.tool(
       speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
     }).optional().describe('polish: segment specification'),
     out: z.string().optional().describe('polish/auto-ramp: output mp4 path'),
+    // record-composite fields (window-isolated two-pane recorder)
+    appA: z.string().optional().describe('record-composite: app name / bundle substring for the LEFT pane'),
+    titleA: z.string().optional().describe('record-composite: optional window-title substring for the left pane'),
+    labelA: z.string().optional().describe('record-composite: optional label for the left pane'),
+    appB: z.string().optional().describe('record-composite: app name / bundle substring for the RIGHT pane'),
+    titleB: z.string().optional().describe('record-composite: optional window-title substring for the right pane'),
+    labelB: z.string().optional().describe('record-composite: optional label for the right pane'),
+    durationSeconds: z.number().optional().describe('record-composite: capture duration in seconds (default 5)'),
+    spotlight: z.enum(['none', 'a', 'b']).optional().describe('record-composite: dim+blur the non-focal pane — none | a (left) | b (right). Default none'),
+    cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
+    outPath: z.string().optional().describe('record-composite: composite MP4 output path'),
+    sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
   },
   { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   async (params) => {
     return wrapHandler(
-      () => handleDemo(params),
+      () => handleDemo(params, ctx),
       'spectra_demo',
     )
   },
