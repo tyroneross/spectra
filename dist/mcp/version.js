@@ -8,8 +8,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-// API version. Bump when wire format changes in a way clients must react to.
-export const API_VERSION = 1;
+import { API_VERSION } from '../contract/wire.js';
+// API version is owned by the daemon wire contract.
+export { API_VERSION };
 let cachedDaemonVersion = null;
 function readDaemonVersion() {
     if (cachedDaemonVersion)

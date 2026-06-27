@@ -1,4 +1,5 @@
-export declare const API_VERSION = 1;
+import { API_VERSION } from '../contract/wire.js';
+export { API_VERSION };
 export declare function getVersionInfo(): {
     apiVersion: number;
     daemonVersion: string;

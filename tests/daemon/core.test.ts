@@ -4,7 +4,7 @@ import { createDaemonCore } from '../../src/daemon/core.js'
 import { eventEnvelope, formatSseFrame, sseFrame, successEnvelope } from '../../src/daemon/envelope.js'
 
 describe('daemon core', () => {
-  it('reports versioned daemon health without claiming permission grants', async () => {
+  it('reports versioned daemon health with structured permission states', async () => {
     const core = createDaemonCore({
       startedAt: 123,
       daemonVersion: '0.3.2',
@@ -24,11 +24,36 @@ describe('daemon core', () => {
       aquaSession: true,
       windowServer: { connected: true },
     })
-    expect(health.permissions?.map((permission) => permission.state)).toEqual([
-      'unknown',
-      'unknown',
-      'unknown',
-      'unknown',
+    expect(health.permissions).toHaveLength(4)
+    expect(health.permissions).toEqual([
+      expect.objectContaining({
+        permission: 'accessibility',
+        state: expect.stringMatching(/^(granted|denied|not-determined|restricted|unsupported|unknown)$/),
+        requiredFor: expect.any(Array),
+        canPrompt: expect.any(Boolean),
+        lastCheckedAt: expect.any(Number),
+      }),
+      expect.objectContaining({
+        permission: 'screen-recording',
+        state: expect.stringMatching(/^(granted|denied|not-determined|restricted|unsupported|unknown)$/),
+        requiredFor: expect.any(Array),
+        canPrompt: expect.any(Boolean),
+        lastCheckedAt: expect.any(Number),
+      }),
+      expect.objectContaining({
+        permission: 'automation',
+        state: expect.stringMatching(/^(granted|denied|not-determined|restricted|unsupported|unknown)$/),
+        requiredFor: expect.any(Array),
+        canPrompt: expect.any(Boolean),
+        lastCheckedAt: expect.any(Number),
+      }),
+      expect.objectContaining({
+        permission: 'developer-tools',
+        state: expect.stringMatching(/^(granted|denied|not-determined|restricted|unsupported|unknown)$/),
+        requiredFor: expect.any(Array),
+        canPrompt: expect.any(Boolean),
+        lastCheckedAt: expect.any(Number),
+      }),
     ])
   })
 
