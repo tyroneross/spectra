@@ -389,12 +389,18 @@ server.tool(
 
 server.tool(
   'spectra_demo',
-  'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, then action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them into one mp4. Audio is always stripped.',
+  'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, or action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence. Audio is always stripped.',
   {
-    action: z.enum(['scan', 'polish']).describe('scan: find active stretches in a recording | polish: render spotlight segments and merge'),
-    // scan fields
-    input: z.string().optional().describe('scan: path to the source video file'),
-    threshold: z.number().optional().describe('scan: scene-change sensitivity (default: 0.04)'),
+    action: z.enum(['scan', 'polish', 'auto-ramp']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x'),
+    // scan + auto-ramp fields
+    input: z.string().optional().describe('scan/auto-ramp: path to the source video file'),
+    threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
+    // auto-ramp fields
+    deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
+    minDeadSec: z.number().optional().describe('auto-ramp: min gap length to ramp, seconds (default 1.5)'),
+    maxWidth: z.number().optional().describe('auto-ramp: lanczos-downscale max width (default 1600)'),
+    crf: z.number().optional().describe('auto-ramp: x264 quality (default 20)'),
+    fps: z.number().optional().describe('auto-ramp: output fps (default 60)'),
     // polish fields
     spec: z.object({
       canvas: z.object({ w: z.number(), h: z.number() }).describe('Output canvas dimensions (pixels)'),
@@ -409,7 +415,7 @@ server.tool(
       })).describe('Ordered segments to render and merge'),
       speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
     }).optional().describe('polish: segment specification'),
-    out: z.string().optional().describe('polish: output mp4 path'),
+    out: z.string().optional().describe('polish/auto-ramp: output mp4 path'),
   },
   { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   async (params) => {
