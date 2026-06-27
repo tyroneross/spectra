@@ -268,9 +268,6 @@ export function createSpectraServer(client) {
     }));
     return server;
 }
-// ─── Default singletons for the legacy HTTP-mount path (deleted in P3) ──
-let defaultClient = null;
-let defaultServer = null;
 /** Build a stdio client whose auto-bootstrap polls a separate probe client on
  * the same socket (avoids a self-referential bootstrap). */
 function buildStdioClient() {
@@ -280,24 +277,6 @@ function buildStdioClient() {
         callerName: 'spectra-stdio',
         bootstrap: spawnDaemonBootstrap(probe),
     });
-}
-function getDefaultClient() {
-    if (!defaultClient)
-        defaultClient = buildStdioClient();
-    return defaultClient;
-}
-function getDefaultServer() {
-    if (!defaultServer)
-        defaultServer = createSpectraServer(getDefaultClient());
-    return defaultServer;
-}
-/** Get the default McpServer instance (for HTTP transport mounting). */
-export function getMcpServer() {
-    return getDefaultServer();
-}
-/** Connect the default McpServer to the given transport. */
-export async function connectTransport(transport) {
-    await getDefaultServer().connect(transport);
 }
 /** Default stdio entry — the path Claude Code spawns (coreless daemon proxy). */
 export async function startStdio() {

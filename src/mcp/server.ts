@@ -16,7 +16,6 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { z } from 'zod'
 import { getVersionInfo } from './version.js'
 import { registerResources } from './resources.js'
@@ -397,11 +396,6 @@ export function createSpectraServer(client: DaemonClient): McpServer {
   return server
 }
 
-// ─── Default singletons for the legacy HTTP-mount path (deleted in P3) ──
-
-let defaultClient: DaemonClient | null = null
-let defaultServer: McpServer | null = null
-
 /** Build a stdio client whose auto-bootstrap polls a separate probe client on
  * the same socket (avoids a self-referential bootstrap). */
 function buildStdioClient(): DaemonClient {
@@ -411,26 +405,6 @@ function buildStdioClient(): DaemonClient {
     callerName: 'spectra-stdio',
     bootstrap: spawnDaemonBootstrap(probe),
   })
-}
-
-function getDefaultClient(): DaemonClient {
-  if (!defaultClient) defaultClient = buildStdioClient()
-  return defaultClient
-}
-
-function getDefaultServer(): McpServer {
-  if (!defaultServer) defaultServer = createSpectraServer(getDefaultClient())
-  return defaultServer
-}
-
-/** Get the default McpServer instance (for HTTP transport mounting). */
-export function getMcpServer(): McpServer {
-  return getDefaultServer()
-}
-
-/** Connect the default McpServer to the given transport. */
-export async function connectTransport(transport: Transport): Promise<void> {
-  await getDefaultServer().connect(transport)
 }
 
 /** Default stdio entry — the path Claude Code spawns (coreless daemon proxy). */
