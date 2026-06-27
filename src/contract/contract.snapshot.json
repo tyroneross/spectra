@@ -1,0 +1,133 @@
+{
+  "apiVersion": 2,
+  "operations": [
+    "act",
+    "analyze",
+    "autoRampDemo",
+    "closeAllSessions",
+    "closeSession",
+    "createSession",
+    "demo",
+    "discover",
+    "getPermissions",
+    "getRun",
+    "getSession",
+    "health",
+    "library",
+    "listSessions",
+    "listWindows",
+    "llmStep",
+    "observe",
+    "recordComposite",
+    "recordLlmUsage",
+    "recordTerminal",
+    "replayTerminal",
+    "requestPermissions",
+    "screenshot",
+    "snapshot",
+    "startRecording",
+    "step",
+    "stopRecording",
+    "walkthrough"
+  ],
+  "capabilities": [
+    "daemon:read",
+    "permissions:read",
+    "permissions:request",
+    "windows:read",
+    "sessions:read",
+    "sessions:write",
+    "ui:read",
+    "ui:act",
+    "analysis:read",
+    "discover:write",
+    "media:capture",
+    "media:record",
+    "terminal:read",
+    "terminal:record",
+    "library:read",
+    "library:write",
+    "demo:write"
+  ],
+  "errorCodes": [
+    "bad_request",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unsupported_api_version",
+    "permission_denied",
+    "capability_denied",
+    "capture_failed",
+    "recording_failed",
+    "daemon_unhealthy",
+    "internal_error"
+  ],
+  "clientSurfaces": [
+    "stdio-mcp",
+    "cli",
+    "menubar",
+    "slash-command",
+    "http-mcp",
+    "test",
+    "unknown"
+  ],
+  "eventTypes": [
+    "daemon.ready",
+    "daemon.health",
+    "permission.changed",
+    "windows.changed",
+    "session.created",
+    "session.closed",
+    "snapshot.observed",
+    "decision.recorded",
+    "action.completed",
+    "artifact.added",
+    "recording.status",
+    "library.changed",
+    "error"
+  ],
+  "routes": {
+    "socketPath": "~/.spectra/daemon.sock",
+    "socketMode": "0600",
+    "events": "/api/v1/events",
+    "mcp": "/mcp"
+  },
+  "envelopes": {
+    "request": [
+      "apiVersion",
+      "requestId",
+      "operation",
+      "caller",
+      "params"
+    ],
+    "success": [
+      "apiVersion",
+      "requestId",
+      "ok",
+      "result",
+      "timestamp",
+      "caller",
+      "deliveryPath"
+    ],
+    "error": [
+      "apiVersion",
+      "requestId",
+      "ok",
+      "error",
+      "timestamp",
+      "caller",
+      "deliveryPath"
+    ],
+    "event": [
+      "apiVersion",
+      "eventId",
+      "type",
+      "emittedAt",
+      "sessionId",
+      "caller",
+      "deliveryPath",
+      "data"
+    ]
+  }
+}
