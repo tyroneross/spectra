@@ -406,7 +406,7 @@ func selectWindow(_ windows: [SCWindow], app: String, title: String?) throws -> 
         throw CLIError(description: "No ScreenCaptureKit window found for app '\(app)'\(titlePart)")
     }
 
-    return matches.sorted { lhs, rhs in
+    let orderedMatches = matches.sorted { lhs, rhs in
         let lhsTitled = !(lhs.title ?? "").isEmpty
         let rhsTitled = !(rhs.title ?? "").isEmpty
         if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen && !rhs.isOnScreen }
@@ -415,7 +415,13 @@ func selectWindow(_ windows: [SCWindow], app: String, title: String?) throws -> 
         let lhsArea = lhs.frame.width * lhs.frame.height
         let rhsArea = rhs.frame.width * rhs.frame.height
         return lhsArea > rhsArea
-    }.first!
+    }
+
+    let selected = orderedMatches.first!
+    guard selected.isOnScreen else {
+        throw CLIError(description: "window \(selected.windowID) is off-screen/minimized — no frames")
+    }
+    return selected
 }
 
 func isCaptureCandidate(_ window: SCWindow) -> Bool {
@@ -512,6 +518,12 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
+        let preStartSeed = await captureSeedPixelBuffer(
+            filter: filter,
+            configuration: configuration,
+            width: size.width,
+            height: size.height
+        )
 
         guard writer.startWriting() else {
             throw writer.error ?? CLIError(description: "AVAssetWriter failed to start")
@@ -519,12 +531,20 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         writer.startSession(atSourceTime: .zero)
 
         try await start(stream)
+        if let preStartSeed {
+            seedFrameIfEmpty(preStartSeed)
+        }
 
         // Seed frame 0 from a one-shot screenshot so a window that is STATIC at
         // capture start still records (SCStream only delivers frames on content
         // change; the sample-and-hold loop needs a buffer to hold).
-        if #available(macOS 14.0, *), latestFrame() == nil {
-            if let seed = await captureSeedPixelBuffer(filter: filter, configuration: configuration, width: size.width, height: size.height) {
+        if latestFrame() == nil {
+            if let seed = await captureSeedPixelBuffer(
+                filter: filter,
+                configuration: configuration,
+                width: size.width,
+                height: size.height
+            ) {
                 seedFrameIfEmpty(seed)
             }
         }
@@ -534,8 +554,8 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             firstFrame = await waitForFirstFrame(timeoutSeconds: 5)
         }
         guard let firstFrame else {
-            try await stop(stream)
-            throw CLIError(description: "No frames captured for \(window.owningApplication?.applicationName ?? "unknown") window \(window.windowID)")
+            try? await stop(stream)
+            throw noFramesCapturedError(for: window)
         }
 
         let targetFrames = max(1, Int((duration * Double(fps)).rounded()))
@@ -566,7 +586,7 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         }
 
         guard frameCount > 0 else {
-            throw CLIError(description: "No frames captured for \(window.owningApplication?.applicationName ?? "unknown") window \(window.windowID)")
+            throw noFramesCapturedError(for: window)
         }
 
         input.markAsFinished()
@@ -664,11 +684,27 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
 /// One-shot screenshot of a window, rendered into a fresh BGRA pixel buffer.
 /// Used to seed frame 0 so static windows still capture.
-@available(macOS 14.0, *)
 func captureSeedPixelBuffer(filter: SCContentFilter, configuration: SCStreamConfiguration, width: Int, height: Int) async -> CVPixelBuffer? {
-    guard let cgImage = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) else {
-        return nil
+    if #available(macOS 14.0, *) {
+        return await captureSCKSeedPixelBuffer(filter: filter, configuration: configuration, width: width, height: height)
     }
+    return nil
+}
+
+@available(macOS 14.0, *)
+func captureSCKSeedPixelBuffer(filter: SCContentFilter, configuration: SCStreamConfiguration, width: Int, height: Int) async -> CVPixelBuffer? {
+    await withCheckedContinuation { continuation in
+        SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) { image, _ in
+            guard let image else {
+                continuation.resume(returning: nil)
+                return
+            }
+            continuation.resume(returning: pixelBuffer(from: image, width: width, height: height))
+        }
+    }
+}
+
+func pixelBuffer(from cgImage: CGImage, width: Int, height: Int) -> CVPixelBuffer? {
     var pb: CVPixelBuffer?
     CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
         [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &pb)
@@ -684,6 +720,14 @@ func captureSeedPixelBuffer(filter: SCContentFilter, configuration: SCStreamConf
     }
     ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
     return buffer
+}
+
+func noFramesCapturedError(for window: SCWindow) -> CLIError {
+    if !window.isOnScreen {
+        return CLIError(description: "window \(window.windowID) is off-screen/minimized — no frames")
+    }
+    let app = window.owningApplication?.applicationName ?? "unknown"
+    return CLIError(description: "No frames captured for \(app) window \(window.windowID); verify the window is visible/on-screen and Screen Recording permission is granted")
 }
 
 func isUsableFrame(_ sampleBuffer: CMSampleBuffer) -> Bool {
