@@ -74,7 +74,18 @@ enum ScreenshotHarness {
         renderer.scale = 2.0
         renderer.isOpaque = true
 
-        guard let image = renderer.nsImage,
+        // SwiftUI semantic colors (Color.primary...) honor `colorScheme`, but
+        // NSColor-bridged dynamic colors (Color(nsColor: .separatorColor))
+        // resolve against the *drawing* NSAppearance — which ImageRenderer does
+        // not push. Without this, hairlines in the non-host scheme would draw
+        // with the host appearance's separator. Push the matching appearance so
+        // both schemes render faithfully.
+        let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        var image: NSImage?
+        let extract = { image = renderer.nsImage }
+        if let appearance { appearance.performAsCurrentDrawingAppearance(extract) } else { extract() }
+
+        guard let image,
               let tiff = image.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff),
               let png = rep.representation(using: .png, properties: [:]) else {

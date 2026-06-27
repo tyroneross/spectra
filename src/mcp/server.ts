@@ -16,6 +16,7 @@ import { handleWalkthrough } from './tools/walkthrough.js'
 import { handleLlmStep } from './tools/llm-step.js'
 import { handleRecord, handleReplay } from './tools/record.js'
 import { handleLibrary } from './tools/library.js'
+import { handleDemo } from './tools/demo.js'
 import { registerResources } from './resources.js'
 
 const ctx = createContext()
@@ -382,6 +383,39 @@ server.tool(
     return wrapHandler(
       () => handleLibrary(params as Parameters<typeof handleLibrary>[0]),
       'spectra_library',
+    )
+  },
+)
+
+server.tool(
+  'spectra_demo',
+  'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, then action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them into one mp4. Audio is always stripped.',
+  {
+    action: z.enum(['scan', 'polish']).describe('scan: find active stretches in a recording | polish: render spotlight segments and merge'),
+    // scan fields
+    input: z.string().optional().describe('scan: path to the source video file'),
+    threshold: z.number().optional().describe('scan: scene-change sensitivity (default: 0.04)'),
+    // polish fields
+    spec: z.object({
+      canvas: z.object({ w: z.number(), h: z.number() }).describe('Output canvas dimensions (pixels)'),
+      fps: z.number().optional().describe('Target frame rate (informational)'),
+      segments: z.array(z.object({
+        input: z.string().describe('Path to the source recording for this segment'),
+        startSec: z.number().describe('Start offset in seconds'),
+        durationSec: z.number().describe('Segment duration in seconds'),
+        focal: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).describe('Focal region in source pixels'),
+        caption: z.string().optional().describe('Lower-third caption text'),
+        captionPngPath: z.string().optional().describe('PNG overlay fallback when drawtext is unavailable'),
+      })).describe('Ordered segments to render and merge'),
+      speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
+    }).optional().describe('polish: segment specification'),
+    out: z.string().optional().describe('polish: output mp4 path'),
+  },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  async (params) => {
+    return wrapHandler(
+      () => handleDemo(params),
+      'spectra_demo',
     )
   },
 )
