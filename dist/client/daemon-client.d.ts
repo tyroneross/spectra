@@ -1,5 +1,7 @@
 import type { ApiErrorCode, ClientSurface, CoreApiOperation } from '../contract/wire.js';
 export declare const DEFAULT_SOCKET_PATH = "~/.spectra/daemon.sock";
+export declare const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+export declare const RECORD_COMPOSITE_TIMEOUT_BUFFER_MS = 120000;
 /** Actionable daemon failure. `hint` is always a next step the caller can take;
  * `actionable` is always true so adapters can format it for the user. */
 export declare class DaemonError extends Error {
@@ -56,4 +58,5 @@ export declare class DaemonClient {
     private failOpenRetry;
     private fromErrorBody;
 }
+export declare function timeoutForOperation(operation: CoreApiOperation, params: unknown, baseTimeoutMs?: number): number;
 //# sourceMappingURL=daemon-client.d.ts.map

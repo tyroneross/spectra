@@ -15,6 +15,7 @@ import { handleSession } from '../mcp/tools/session.js';
 import { handleSnapshot } from '../mcp/tools/snapshot.js';
 import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
+import { ensureCompositeBinary } from '../native/compiler.js';
 import { recordCompositeWithWorker } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
@@ -23,6 +24,7 @@ const execFileAsync = promisify(execFile);
 const SINGLE_WINDOW_RECORDING_HINT = 'Use recordComposite(params) for daemon-owned window-isolated ScreenCaptureKit capture. '
     + 'startRecording/stopRecording are intentionally not wired to the legacy full-display '
     + 'AVFoundation path; they need a separate frozen single-window streaming contract.';
+let screenCaptureKitWindowList;
 export function createCoreApi(options = {}) {
     return new CoreApiImplementation(options);
 }
@@ -67,8 +69,12 @@ class CoreApiImplementation {
             windows: windows.filter((window) => {
                 if (params.onScreenOnly !== false && !window.onScreen)
                     return false;
-                if (app && !window.appName.toLowerCase().includes(app))
-                    return false;
+                if (app) {
+                    const appName = window.appName.toLowerCase();
+                    const bundle = window.bundleIdentifier?.toLowerCase() ?? '';
+                    if (!appName.includes(app) && !bundle.includes(app))
+                        return false;
+                }
                 if (title && !window.title.toLowerCase().includes(title))
                     return false;
                 return true;
@@ -293,6 +299,73 @@ async function openPermissionSettings(permissions) {
 async function listMacWindows() {
     if (process.platform !== 'darwin')
         return [];
+    const sckWindows = await listScreenCaptureKitWindowsSerial().catch(() => []);
+    if (sckWindows.length > 0)
+        return sckWindows;
+    return listAccessibilityWindows().catch(() => []);
+}
+async function listScreenCaptureKitWindowsSerial() {
+    if (screenCaptureKitWindowList)
+        return screenCaptureKitWindowList;
+    const pending = listScreenCaptureKitWindows();
+    screenCaptureKitWindowList = pending;
+    try {
+        return await pending;
+    }
+    finally {
+        if (screenCaptureKitWindowList === pending)
+            screenCaptureKitWindowList = undefined;
+    }
+}
+async function listScreenCaptureKitWindows() {
+    const binary = ensureCompositeBinary();
+    const { stdout } = await execFileAsync(binary, ['--list-windows'], {
+        timeout: 10_000,
+        maxBuffer: 4 * 1024 * 1024,
+    });
+    return parseScreenCaptureKitWindows(stdout);
+}
+function parseScreenCaptureKitWindows(stdout) {
+    const parsed = JSON.parse(stdout);
+    if (!Array.isArray(parsed.windows))
+        return [];
+    return parsed.windows.flatMap((entry) => {
+        if (!entry || typeof entry !== 'object')
+            return [];
+        const record = entry;
+        const windowId = numberValue(record.windowId);
+        const processId = numberValue(record.processId);
+        const x = numberValue(record.x);
+        const y = numberValue(record.y);
+        const width = numberValue(record.width);
+        const height = numberValue(record.height);
+        const layer = numberValue(record.layer);
+        if (windowId === undefined
+            || processId === undefined
+            || x === undefined
+            || y === undefined
+            || width === undefined
+            || height === undefined
+            || layer === undefined) {
+            return [];
+        }
+        return [{
+                windowId,
+                appName: stringValue(record.appName),
+                bundleIdentifier: optionalStringValue(record.bundleIdentifier),
+                processId,
+                title: stringValue(record.title),
+                x,
+                y,
+                width,
+                height,
+                onScreen: booleanValue(record.onScreen, true),
+                active: optionalBooleanValue(record.active),
+                layer,
+            }];
+    });
+}
+async function listAccessibilityWindows() {
     const script = `
 set output to ""
 tell application "System Events"
@@ -336,5 +409,27 @@ return output
             layer: 0,
         };
     });
+}
+function numberValue(value) {
+    if (typeof value === 'number' && Number.isFinite(value))
+        return value;
+    if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed))
+            return parsed;
+    }
+    return undefined;
+}
+function stringValue(value) {
+    return typeof value === 'string' ? value : '';
+}
+function optionalStringValue(value) {
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+function booleanValue(value, fallback) {
+    return typeof value === 'boolean' ? value : fallback;
+}
+function optionalBooleanValue(value) {
+    return typeof value === 'boolean' ? value : null;
 }
 //# sourceMappingURL=core-impl.js.map

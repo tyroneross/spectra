@@ -16,7 +16,7 @@
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { startStdio } from '../mcp/server.js';
 import { getVersionInfo } from '../mcp/version.js';
@@ -98,6 +98,7 @@ async function forwardOperation(operation, paramsJson) {
             return 1;
         }
     }
+    params = normalizeForwardedParams(operation, params);
     const probe = new DaemonClient({ surface: 'cli', callerName: 'spectra-cli' });
     const client = new DaemonClient({
         surface: 'cli',
@@ -117,6 +118,26 @@ async function forwardOperation(operation, paramsJson) {
         process.stderr.write(`spectra ${operation}: ${err.message}\n`);
         return 1;
     }
+}
+function normalizeForwardedParams(operation, params) {
+    if (operation === 'recordComposite')
+        return resolveOutPath(params);
+    if (operation === 'demo'
+        && params
+        && typeof params === 'object'
+        && !Array.isArray(params)
+        && params.action === 'record-composite') {
+        return resolveOutPath(params);
+    }
+    return params;
+}
+function resolveOutPath(params) {
+    if (!params || typeof params !== 'object' || Array.isArray(params))
+        return params;
+    const outPath = params.outPath;
+    if (typeof outPath !== 'string' || outPath.length === 0 || isAbsolute(outPath))
+        return params;
+    return { ...params, outPath: resolve(process.cwd(), outPath) };
 }
 async function main() {
     const args = parseArgs(process.argv);

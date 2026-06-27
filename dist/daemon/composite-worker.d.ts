@@ -6,7 +6,7 @@ export declare const COMPOSITE_WORKER_DEFAULTS: {
     readonly cursor: true;
     readonly maxWidth: 1600;
     readonly crf: 20;
-    readonly blackThreshold: 16;
+    readonly blackThreshold: 40;
 };
 export interface ScreenRecordingPreflightFailure {
     code: string;
@@ -16,7 +16,7 @@ export interface ScreenRecordingPreflightFailure {
     retryable?: boolean;
 }
 export declare function buildCompositeWorkerArgs(params: RecordCompositeParams): string[];
-export declare function parseLuminance(output: string, blackThreshold?: 16): BlackFrameGuard;
+export declare function parseLuminance(output: string, blackThreshold?: 40): BlackFrameGuard;
 export declare function parseScreenRecordingPreflightOutput(output: string): ScreenRecordingPreflightFailure | undefined;
 export declare function recordCompositeWithWorker(params: RecordCompositeParams): Promise<RecordCompositeResult>;
 //# sourceMappingURL=composite-worker.d.ts.map

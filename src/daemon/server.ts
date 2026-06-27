@@ -520,7 +520,10 @@ function sendError(
 function configureHttpServer(server: Server): void {
   server.headersTimeout = 5_000
   server.requestTimeout = 30_000
-  server.timeout = 30_000
+  // Long-running operations such as recordComposite do all work after the small
+  // JSON request body is read. Do not close the Unix socket just because the
+  // handler is encoding video and has not produced a response yet.
+  server.timeout = 0
 }
 
 async function listenUnix(server: Server, socketPath: string): Promise<void> {

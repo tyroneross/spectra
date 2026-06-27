@@ -5,6 +5,7 @@ import CoreMedia
 import CoreVideo
 import CoreGraphics
 import AppKit
+import Darwin
 
 struct CLIError: Error, CustomStringConvertible {
     let description: String
@@ -31,6 +32,9 @@ struct CaptureStats: Encodable {
     let sourceFrames: Int
     let width: Int
     let height: Int
+    let status: String
+    let hardStop: Bool
+    let streamError: String?
 }
 
 struct ValidationResult: Encodable {
@@ -100,7 +104,16 @@ struct SpectraCompositeCapture {
                 return
             }
 
-            let content = try await SCShareableContent.current
+            let processWatchdog = ProcessWatchdog(
+                timeoutSeconds: processWatchdogSeconds(for: options),
+                label: options.listWindows ? "list-windows" : "capture"
+            )
+            processWatchdog.start()
+            defer { processWatchdog.cancel() }
+
+            let content = try await currentShareableContent(
+                timeoutSeconds: options.listWindows ? 15 : min(15, options.duration + 5)
+            )
             let windows = content.windows.map(windowRecord).sorted {
                 if $0.appName != $1.appName { return $0.appName < $1.appName }
                 return $0.title < $1.title
@@ -138,14 +151,23 @@ struct SpectraCompositeCapture {
                 outputURL: rightURL,
                 fps: options.fps
             )
+            let hardStop = CaptureHardStop(duration: options.duration, buffer: 5)
+            hardStop.start {
+                Task { @MainActor in
+                    fputs("spectra-composite-capture: capture hard deadline fired after \(hardStop.limitSeconds)s; forcing ScreenCaptureKit streams to stop\n", stderr)
+                    leftRecorder.forceStop(reason: "hard_deadline")
+                    rightRecorder.forceStop(reason: "hard_deadline")
+                }
+            }
 
             // P2 — sample the global cursor for the full recording window.
             let cursorTracker: CursorTracker? = options.cursor ? CursorTracker() : nil
             cursorTracker?.start()
 
-            async let leftStats = leftRecorder.record(duration: options.duration)
-            async let rightStats = rightRecorder.record(duration: options.duration)
+            async let leftStats = leftRecorder.record(duration: options.duration, hardStop: hardStop)
+            async let rightStats = rightRecorder.record(duration: options.duration, hardStop: hardStop)
             let (left, right) = try await (leftStats, rightStats)
+            hardStop.cancel()
 
             cursorTracker?.stop()
 
@@ -194,7 +216,8 @@ struct SpectraCompositeCapture {
                 cursorLayer: cursorLayerURL,
                 maxWidth: options.maxWidth,
                 crf: options.crf,
-                tempDir: tempDir
+                tempDir: tempDir,
+                duration: options.duration
             )
 
             let validation = options.validate
@@ -438,6 +461,156 @@ func labelFor(window: SCWindow, fallbackApp: String) -> String {
     return fallbackApp
 }
 
+func processWatchdogSeconds(for options: Options) -> Double {
+    if options.listWindows { return 20 }
+    return options.duration + 5 + encodeTimeoutSeconds(duration: options.duration) + 20
+}
+
+final class ProcessWatchdog: @unchecked Sendable {
+    private let timeoutSeconds: Double
+    private let label: String
+    private let lock = NSLock()
+    private var timer: DispatchSourceTimer?
+
+    init(timeoutSeconds: Double, label: String) {
+        self.timeoutSeconds = timeoutSeconds
+        self.label = label
+    }
+
+    func start() {
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInitiated))
+        timer.schedule(deadline: .now() + timeoutSeconds)
+        timer.setEventHandler { [timeoutSeconds, label] in
+            fputs("spectra-composite-capture: hard process watchdog fired for \(label) after \(timeoutSeconds)s; exiting\n", stderr)
+            fflush(stderr)
+            exit(124)
+        }
+        lock.lock()
+        self.timer = timer
+        lock.unlock()
+        timer.resume()
+    }
+
+    func cancel() {
+        lock.lock()
+        let existing = timer
+        timer = nil
+        lock.unlock()
+        existing?.cancel()
+    }
+}
+
+func currentShareableContent(timeoutSeconds: Double) async throws -> SCShareableContent {
+    try await withCheckedThrowingContinuation { continuation in
+        let state = ShareableContentState(continuation: continuation)
+        Task {
+            do {
+                state.resume(.success(try await SCShareableContent.current))
+            } catch {
+                state.resume(.failure(error))
+            }
+        }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeoutSeconds) {
+            state.resume(.failure(CLIError(description: "Timed out reading ScreenCaptureKit shareable content")))
+        }
+    }
+}
+
+final class ShareableContentState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+    private let continuation: CheckedContinuation<SCShareableContent, Error>
+
+    init(continuation: CheckedContinuation<SCShareableContent, Error>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ result: Result<SCShareableContent, Error>) {
+        lock.lock()
+        if didResume {
+            lock.unlock()
+            return
+        }
+        didResume = true
+        lock.unlock()
+
+        switch result {
+        case .success(let value):
+            continuation.resume(returning: value)
+        case .failure(let error):
+            continuation.resume(throwing: error)
+        }
+    }
+}
+
+final class CaptureHardStop: @unchecked Sendable {
+    let limitSeconds: Double
+    let startedAtNanos: UInt64
+
+    private let lock = NSLock()
+    private var timer: DispatchSourceTimer?
+    private var fired = false
+
+    init(duration: Double, buffer: Double) {
+        self.limitSeconds = max(0.1, duration + buffer)
+        self.startedAtNanos = DispatchTime.now().uptimeNanoseconds
+    }
+
+    var deadlineNanos: UInt64 {
+        startedAtNanos + UInt64((limitSeconds * 1_000_000_000.0).rounded())
+    }
+
+    var isFired: Bool {
+        lock.lock()
+        let value = fired || DispatchTime.now().uptimeNanoseconds >= deadlineNanos
+        if value { fired = true }
+        lock.unlock()
+        return value
+    }
+
+    var remainingNanos: UInt64 {
+        let now = DispatchTime.now().uptimeNanoseconds
+        if now >= deadlineNanos { return 0 }
+        return deadlineNanos - now
+    }
+
+    var remainingSeconds: Double {
+        Double(remainingNanos) / 1_000_000_000.0
+    }
+
+    func start(_ onFire: @escaping @Sendable () -> Void) {
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInitiated))
+        timer.schedule(deadline: .now() + limitSeconds)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.markFired() else { return }
+            onFire()
+        }
+        lock.lock()
+        self.timer = timer
+        lock.unlock()
+        timer.resume()
+    }
+
+    func cancel() {
+        lock.lock()
+        let existing = timer
+        timer = nil
+        lock.unlock()
+        existing?.cancel()
+    }
+
+    private func markFired() -> Bool {
+        lock.lock()
+        if fired {
+            lock.unlock()
+            return false
+        }
+        fired = true
+        lock.unlock()
+        return true
+    }
+}
+
 final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     private let window: SCWindow
     private let displays: [SCDisplay]
@@ -446,6 +619,7 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     private let size: (width: Int, height: Int)
     private let sampleQueue = DispatchQueue(label: "spectra.composite.capture.sample")
     private let frameLock = NSLock()
+    private let stateLock = NSLock()
 
     private var writer: AVAssetWriter?
     private var input: AVAssetWriterInput?
@@ -454,6 +628,8 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     private var sourceFrameCount = 0
     private var latestPixelBuffer: CVPixelBuffer?
     private var streamError: Error?
+    private var activeStream: SCStream?
+    private var forcedStopReason: String?
 
     init(window: SCWindow, displays: [SCDisplay], outputURL: URL, fps: Int) {
         self.window = window
@@ -464,7 +640,7 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     }
 
     @MainActor
-    func record(duration: Double) async throws -> CaptureStats {
+    func record(duration: Double, hardStop: CaptureHardStop) async throws -> CaptureStats {
         try? FileManager.default.removeItem(at: outputURL)
 
         let timeScale = CMTimeScale(max(600, fps * 1000))
@@ -517,12 +693,18 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
+        setActiveStream(stream)
+        defer { setActiveStream(nil) }
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
         let preStartSeed = await captureSeedPixelBuffer(
+            windowID: window.windowID,
+            windowFrame: window.frame,
+            displayScale: displayScale(for: window, displays: displays),
             filter: filter,
             configuration: configuration,
             width: size.width,
-            height: size.height
+            height: size.height,
+            timeoutSeconds: min(5, max(0.1, hardStop.remainingSeconds))
         )
 
         guard writer.startWriting() else {
@@ -530,7 +712,7 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         }
         writer.startSession(atSourceTime: .zero)
 
-        try await start(stream)
+        try await start(stream, timeoutSeconds: min(5, max(0.1, hardStop.remainingSeconds)))
         if let preStartSeed {
             seedFrameIfEmpty(preStartSeed)
         }
@@ -540,10 +722,14 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         // change; the sample-and-hold loop needs a buffer to hold).
         if latestFrame() == nil {
             if let seed = await captureSeedPixelBuffer(
+                windowID: window.windowID,
+                windowFrame: window.frame,
+                displayScale: displayScale(for: window, displays: displays),
                 filter: filter,
                 configuration: configuration,
                 width: size.width,
-                height: size.height
+                height: size.height,
+                timeoutSeconds: min(5, max(0.1, hardStop.remainingSeconds))
             ) {
                 seedFrameIfEmpty(seed)
             }
@@ -551,37 +737,51 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
         var firstFrame = latestFrame()
         if firstFrame == nil {
-            firstFrame = await waitForFirstFrame(timeoutSeconds: 5)
+            firstFrame = await waitForFirstFrame(timeoutSeconds: min(5, max(0.1, hardStop.remainingSeconds)))
         }
         guard let firstFrame else {
-            try? await stop(stream)
+            try? await stop(stream, timeoutSeconds: min(2, max(0.1, hardStop.remainingSeconds)))
             throw noFramesCapturedError(for: window)
         }
 
         let targetFrames = max(1, Int((duration * Double(fps)).rounded()))
         let frameIntervalNanos = UInt64((1_000_000_000.0 / Double(fps)).rounded())
-        let startedAt = DispatchTime.now().uptimeNanoseconds
+        let startedAt = hardStop.startedAtNanos
+        var hitHardStop = false
 
         for frameIndex in 0..<targetFrames {
+            if Task.isCancelled {
+                forceStop(reason: "cancelled")
+                throw CLIError(description: "recording cancelled for \(outputURL.path)")
+            }
+            if hardStop.isFired {
+                hitHardStop = true
+                forceStop(reason: "hard_deadline")
+                break
+            }
             let buffer = latestFrame() ?? firstFrame
             let presentationTime = CMTime(
                 value: CMTimeValue(frameIndex) * ticksPerFrame,
                 timescale: timeScale
             )
-            try await appendFrame(buffer, at: presentationTime, timeoutNanos: frameIntervalNanos)
+            try await appendFrame(
+                buffer,
+                at: presentationTime,
+                timeoutNanos: max(1_000_000, min(max(frameIntervalNanos, 250_000_000), hardStop.remainingNanos))
+            )
 
             let nextDeadline = startedAt + UInt64(frameIndex + 1) * frameIntervalNanos
             let now = DispatchTime.now().uptimeNanoseconds
             if nextDeadline > now {
-                try await Task.sleep(nanoseconds: nextDeadline - now)
+                try await Task.sleep(nanoseconds: min(nextDeadline - now, hardStop.remainingNanos))
             }
         }
 
-        try await stop(stream)
+        try? await stop(stream, timeoutSeconds: min(2, max(0.1, hardStop.remainingSeconds)))
 
         sampleQueue.sync {}
 
-        if let streamError {
+        if let streamError, frameCount == 0 {
             throw streamError
         }
 
@@ -590,10 +790,24 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         }
 
         input.markAsFinished()
-        await finish(writer)
+        let didFinish = await finish(writer, timeoutSeconds: 10)
+        guard didFinish else {
+            writer.cancelWriting()
+            throw CLIError(description: "Timed out finalizing AVAssetWriter for \(outputURL.path)")
+        }
 
         if writer.status != .completed {
             throw writer.error ?? CLIError(description: "AVAssetWriter failed for \(outputURL.path)")
+        }
+
+        let stopReason = forcedStop()
+        let status: String
+        if hitHardStop || stopReason == "hard_deadline" {
+            status = "hard_deadline"
+        } else if streamError != nil {
+            status = "stream_stopped"
+        } else {
+            status = "completed"
         }
 
         return CaptureStats(
@@ -601,7 +815,10 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             frames: frameCount,
             sourceFrames: sourceFrames(),
             width: size.width,
-            height: size.height
+            height: size.height,
+            status: status,
+            hardStop: status == "hard_deadline",
+            streamError: streamError.map { String(describing: $0) }
         )
     }
 
@@ -624,6 +841,15 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         streamError = error
+    }
+
+    func forceStop(reason: String) {
+        let stream: SCStream?
+        stateLock.lock()
+        if forcedStopReason == nil { forcedStopReason = reason }
+        stream = activeStream
+        stateLock.unlock()
+        stream?.stopCapture { _ in }
     }
 
     private func latestFrame() -> CVPixelBuffer? {
@@ -680,27 +906,94 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             throw writer?.error ?? CLIError(description: "Failed to append CFR frame")
         }
     }
+
+    private func setActiveStream(_ stream: SCStream?) {
+        stateLock.lock()
+        activeStream = stream
+        stateLock.unlock()
+    }
+
+    private func forcedStop() -> String? {
+        stateLock.lock()
+        let value = forcedStopReason
+        stateLock.unlock()
+        return value
+    }
 }
 
 /// One-shot screenshot of a window, rendered into a fresh BGRA pixel buffer.
 /// Used to seed frame 0 so static windows still capture.
-func captureSeedPixelBuffer(filter: SCContentFilter, configuration: SCStreamConfiguration, width: Int, height: Int) async -> CVPixelBuffer? {
+func captureSeedPixelBuffer(
+    windowID: UInt32,
+    windowFrame: CGRect,
+    displayScale: Double,
+    filter: SCContentFilter,
+    configuration: SCStreamConfiguration,
+    width: Int,
+    height: Int,
+    timeoutSeconds: Double
+) async -> CVPixelBuffer? {
     if #available(macOS 14.0, *) {
-        return await captureSCKSeedPixelBuffer(filter: filter, configuration: configuration, width: width, height: height)
+        if let seed = await captureSCKSeedPixelBuffer(
+            filter: filter,
+            configuration: configuration,
+            width: width,
+            height: height,
+            timeoutSeconds: timeoutSeconds
+        ) {
+            return seed
+        }
     }
-    return nil
+    return captureScreencaptureSeedPixelBuffer(
+        windowID: windowID,
+        windowFrame: windowFrame,
+        displayScale: displayScale,
+        width: width,
+        height: height
+    )
 }
 
 @available(macOS 14.0, *)
-func captureSCKSeedPixelBuffer(filter: SCContentFilter, configuration: SCStreamConfiguration, width: Int, height: Int) async -> CVPixelBuffer? {
+func captureSCKSeedPixelBuffer(
+    filter: SCContentFilter,
+    configuration: SCStreamConfiguration,
+    width: Int,
+    height: Int,
+    timeoutSeconds: Double
+) async -> CVPixelBuffer? {
     await withCheckedContinuation { continuation in
+        let state = SeedCaptureState(continuation: continuation)
         SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) { image, _ in
             guard let image else {
-                continuation.resume(returning: nil)
+                state.resume(nil)
                 return
             }
-            continuation.resume(returning: pixelBuffer(from: image, width: width, height: height))
+            state.resume(pixelBuffer(from: image, width: width, height: height))
         }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeoutSeconds) {
+            state.resume(nil)
+        }
+    }
+}
+
+final class SeedCaptureState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+    private let continuation: CheckedContinuation<CVPixelBuffer?, Never>
+
+    init(continuation: CheckedContinuation<CVPixelBuffer?, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ value: CVPixelBuffer?) {
+        lock.lock()
+        if didResume {
+            lock.unlock()
+            return
+        }
+        didResume = true
+        lock.unlock()
+        continuation.resume(returning: value)
     }
 }
 
@@ -722,6 +1015,41 @@ func pixelBuffer(from cgImage: CGImage, width: Int, height: Int) -> CVPixelBuffe
     return buffer
 }
 
+func captureScreencaptureSeedPixelBuffer(
+    windowID: UInt32,
+    windowFrame: CGRect,
+    displayScale: Double,
+    width: Int,
+    height: Int
+) -> CVPixelBuffer? {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent("spectra-seed-\(UUID().uuidString)", isDirectory: true)
+    let pngURL = tempDir.appendingPathComponent("seed.png")
+    do {
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        try runProcess("/usr/sbin/screencapture", ["-x", pngURL.path], timeoutSeconds: 5)
+        guard let image = NSImage(contentsOf: pngURL) else { return nil }
+        var rect = NSRect(origin: .zero, size: image.size)
+        guard let cgImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else {
+            return nil
+        }
+        let cropRect = CGRect(
+            x: max(0, floor(windowFrame.origin.x * displayScale)),
+            y: max(0, floor(windowFrame.origin.y * displayScale)),
+            width: max(1, ceil(windowFrame.width * displayScale)),
+            height: max(1, ceil(windowFrame.height * displayScale))
+        ).intersection(CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
+        guard !cropRect.isNull,
+              let cropped = cgImage.cropping(to: cropRect) else {
+            return nil
+        }
+        return pixelBuffer(from: cropped, width: width, height: height)
+    } catch {
+        return nil
+    }
+}
+
 func noFramesCapturedError(for window: SCWindow) -> CLIError {
     if !window.isOnScreen {
         return CLIError(description: "window \(window.windowID) is off-screen/minimized — no frames")
@@ -741,8 +1069,8 @@ func isUsableFrame(_ sampleBuffer: CMSampleBuffer) -> Bool {
 }
 
 @MainActor
-func start(_ stream: SCStream) async throws {
-    try await waitForStreamCallback(timeoutSeconds: 5, timeoutError: CLIError(description: "Timed out starting ScreenCaptureKit stream")) { done in
+func start(_ stream: SCStream, timeoutSeconds: Double = 5) async throws {
+    try await waitForStreamCallback(timeoutSeconds: timeoutSeconds, timeoutError: CLIError(description: "Timed out starting ScreenCaptureKit stream")) { done in
         stream.startCapture { error in
             done(error)
         }
@@ -750,8 +1078,8 @@ func start(_ stream: SCStream) async throws {
 }
 
 @MainActor
-func stop(_ stream: SCStream) async throws {
-    try await waitForStreamCallback(timeoutSeconds: 2, timeoutError: nil) { done in
+func stop(_ stream: SCStream, timeoutSeconds: Double = 2) async throws {
+    try await waitForStreamCallback(timeoutSeconds: timeoutSeconds, timeoutError: nil) { done in
         stream.stopCapture { error in
             done(error)
         }
@@ -801,11 +1129,36 @@ final class StreamCallbackState: @unchecked Sendable {
     }
 }
 
-func finish(_ writer: AVAssetWriter) async {
+func finish(_ writer: AVAssetWriter, timeoutSeconds: Double) async -> Bool {
     await withCheckedContinuation { continuation in
+        let state = FinishWriterState(continuation: continuation)
         writer.finishWriting {
-            continuation.resume()
+            state.resume(true)
         }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeoutSeconds) {
+            state.resume(false)
+        }
+    }
+}
+
+final class FinishWriterState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+    private let continuation: CheckedContinuation<Bool, Never>
+
+    init(continuation: CheckedContinuation<Bool, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume(_ value: Bool) {
+        lock.lock()
+        if didResume {
+            lock.unlock()
+            return
+        }
+        didResume = true
+        lock.unlock()
+        continuation.resume(returning: value)
     }
 }
 
@@ -850,7 +1203,8 @@ func stitchVideos(
     cursorLayer: URL?,
     maxWidth: Int,
     crf: Int,
-    tempDir: URL
+    tempDir: URL,
+    duration: Double
 ) throws -> StitchResult {
     try? FileManager.default.removeItem(at: output)
     try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -925,7 +1279,7 @@ func stitchVideos(
         output.path
     ]
 
-    try runProcess("/usr/bin/env", ["ffmpeg"] + arguments)
+    try runProcess("/usr/bin/env", ["ffmpeg"] + arguments, timeoutSeconds: encodeTimeoutSeconds(duration: duration))
     return StitchResult(filterComplex: filter, labelMode: labelMode)
 }
 
@@ -1028,7 +1382,11 @@ func writeLabelImage(_ text: String, to url: URL) throws {
     try png.write(to: url)
 }
 
-func runProcess(_ executable: String, _ arguments: [String]) throws {
+func encodeTimeoutSeconds(duration: Double) -> Double {
+    max(60, duration * 6 + 30)
+}
+
+func runProcess(_ executable: String, _ arguments: [String], timeoutSeconds: Double? = nil) throws {
     let process = Process()
     let stderr = Pipe()
     process.executableURL = URL(fileURLWithPath: executable)
@@ -1037,7 +1395,7 @@ func runProcess(_ executable: String, _ arguments: [String]) throws {
     process.standardError = stderr
 
     try process.run()
-    process.waitUntilExit()
+    try waitForProcess(process, timeoutSeconds: timeoutSeconds)
 
     if process.terminationStatus != 0 {
         let data = stderr.fileHandleForReading.readDataToEndOfFile()
@@ -1046,7 +1404,7 @@ func runProcess(_ executable: String, _ arguments: [String]) throws {
     }
 }
 
-func runProcessCapture(_ executable: String, _ arguments: [String]) throws -> String {
+func runProcessCapture(_ executable: String, _ arguments: [String], timeoutSeconds: Double? = nil) throws -> String {
     let process = Process()
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent("spectra-process-\(UUID().uuidString)", isDirectory: true)
@@ -1071,7 +1429,7 @@ func runProcessCapture(_ executable: String, _ arguments: [String]) throws -> St
     process.standardError = stderr
 
     try process.run()
-    process.waitUntilExit()
+    try waitForProcess(process, timeoutSeconds: timeoutSeconds)
 
     try? stdout.close()
     try? stderr.close()
@@ -1088,6 +1446,59 @@ func runProcessCapture(_ executable: String, _ arguments: [String]) throws -> St
     return out + err
 }
 
+func waitForProcess(_ process: Process, timeoutSeconds: Double?) throws {
+    guard let timeoutSeconds else {
+        process.waitUntilExit()
+        return
+    }
+
+    if !process.isRunning { return }
+    let state = ProcessWaitState()
+    process.terminationHandler = { _ in state.leave() }
+    if !process.isRunning { state.leave() }
+
+    let result = state.wait(timeout: .now() + timeoutSeconds)
+    if result == .success {
+        process.terminationHandler = nil
+        return
+    }
+
+    let pid = process.processIdentifier
+    process.terminate()
+    let terminated = state.wait(timeout: .now() + 2)
+    if terminated == .timedOut {
+        kill(pid, SIGKILL)
+        _ = state.wait(timeout: .now() + 2)
+    }
+    process.terminationHandler = nil
+    throw CLIError(description: "Command timed out after \(timeoutSeconds)s: \(process.executableURL?.path ?? "") \(process.arguments?.joined(separator: " ") ?? "")")
+}
+
+final class ProcessWaitState: @unchecked Sendable {
+    private let group = DispatchGroup()
+    private let lock = NSLock()
+    private var didLeave = false
+
+    init() {
+        group.enter()
+    }
+
+    func leave() {
+        lock.lock()
+        if didLeave {
+            lock.unlock()
+            return
+        }
+        didLeave = true
+        lock.unlock()
+        group.leave()
+    }
+
+    func wait(timeout: DispatchTime) -> DispatchTimeoutResult {
+        group.wait(timeout: timeout)
+    }
+}
+
 func validateVideo(_ url: URL, targetFps: Int) throws -> ValidationResult {
     let probe = try runProcessCapture("/usr/bin/env", [
         "ffprobe",
@@ -1096,7 +1507,7 @@ func validateVideo(_ url: URL, targetFps: Int) throws -> ValidationResult {
         "-show_entries", "frame=pts_time,best_effort_timestamp_time,pkt_pts_time,pkt_duration_time,duration_time:stream=duration,nb_frames:format=duration",
         "-of", "json",
         url.path
-    ])
+    ], timeoutSeconds: 30)
 
     guard let data = probe.data(using: .utf8),
           let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -1185,7 +1596,7 @@ func estimateDuplicateRatio(_ url: URL, totalFrames: Int) -> Double {
             "-an",
             "-f", "null",
             "-"
-        ])
+        ], timeoutSeconds: 30)
         let kept = lastFrameCount(in: output)
         guard kept > 0 else { return 0 }
         return max(0, min(1, 1.0 - (Double(kept) / Double(totalFrames))))

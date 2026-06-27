@@ -75,6 +75,7 @@ import { handleSession } from '../mcp/tools/session.js'
 import { handleSnapshot } from '../mcp/tools/snapshot.js'
 import { handleStep } from '../mcp/tools/step.js'
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js'
+import { ensureCompositeBinary } from '../native/compiler.js'
 import { recordCompositeWithWorker } from './composite-worker.js'
 import { DaemonApiError } from './errors.js'
 import { health as daemonHealth, type HealthProbeOptions } from './health.js'
@@ -89,6 +90,7 @@ const SINGLE_WINDOW_RECORDING_HINT =
   + 'AVFoundation path; they need a separate frozen single-window streaming contract.'
 
 type CompositeWorker = typeof recordCompositeWithWorker
+let screenCaptureKitWindowList: Promise<WindowRecord[]> | undefined
 
 export interface CoreApiImplementationOptions {
   context?: ToolContext
@@ -148,7 +150,11 @@ class CoreApiImplementation implements CoreApi {
     return {
       windows: windows.filter((window) => {
         if (params.onScreenOnly !== false && !window.onScreen) return false
-        if (app && !window.appName.toLowerCase().includes(app)) return false
+        if (app) {
+          const appName = window.appName.toLowerCase()
+          const bundle = window.bundleIdentifier?.toLowerCase() ?? ''
+          if (!appName.includes(app) && !bundle.includes(app)) return false
+        }
         if (title && !window.title.toLowerCase().includes(title)) return false
         return true
       }),
@@ -416,6 +422,73 @@ async function openPermissionSettings(permissions: PermissionKind[]): Promise<vo
 
 async function listMacWindows(): Promise<WindowRecord[]> {
   if (process.platform !== 'darwin') return []
+  const sckWindows = await listScreenCaptureKitWindowsSerial().catch(() => [])
+  if (sckWindows.length > 0) return sckWindows
+  return listAccessibilityWindows().catch(() => [])
+}
+
+async function listScreenCaptureKitWindowsSerial(): Promise<WindowRecord[]> {
+  if (screenCaptureKitWindowList) return screenCaptureKitWindowList
+  const pending = listScreenCaptureKitWindows()
+  screenCaptureKitWindowList = pending
+  try {
+    return await pending
+  } finally {
+    if (screenCaptureKitWindowList === pending) screenCaptureKitWindowList = undefined
+  }
+}
+
+async function listScreenCaptureKitWindows(): Promise<WindowRecord[]> {
+  const binary = ensureCompositeBinary()
+  const { stdout } = await execFileAsync(binary, ['--list-windows'], {
+    timeout: 10_000,
+    maxBuffer: 4 * 1024 * 1024,
+  })
+  return parseScreenCaptureKitWindows(stdout)
+}
+
+function parseScreenCaptureKitWindows(stdout: string): WindowRecord[] {
+  const parsed = JSON.parse(stdout) as { windows?: unknown }
+  if (!Array.isArray(parsed.windows)) return []
+  return parsed.windows.flatMap((entry): WindowRecord[] => {
+    if (!entry || typeof entry !== 'object') return []
+    const record = entry as Record<string, unknown>
+    const windowId = numberValue(record.windowId)
+    const processId = numberValue(record.processId)
+    const x = numberValue(record.x)
+    const y = numberValue(record.y)
+    const width = numberValue(record.width)
+    const height = numberValue(record.height)
+    const layer = numberValue(record.layer)
+    if (
+      windowId === undefined
+      || processId === undefined
+      || x === undefined
+      || y === undefined
+      || width === undefined
+      || height === undefined
+      || layer === undefined
+    ) {
+      return []
+    }
+    return [{
+      windowId,
+      appName: stringValue(record.appName),
+      bundleIdentifier: optionalStringValue(record.bundleIdentifier),
+      processId,
+      title: stringValue(record.title),
+      x,
+      y,
+      width,
+      height,
+      onScreen: booleanValue(record.onScreen, true),
+      active: optionalBooleanValue(record.active),
+      layer,
+    }]
+  })
+}
+
+async function listAccessibilityWindows(): Promise<WindowRecord[]> {
   const script = `
 set output to ""
 tell application "System Events"
@@ -459,4 +532,29 @@ return output
       layer: 0,
     }
   })
+}
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function optionalStringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+function booleanValue(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function optionalBooleanValue(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null
 }

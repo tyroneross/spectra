@@ -19,7 +19,7 @@ export const COMPOSITE_WORKER_DEFAULTS = {
   cursor: true,
   maxWidth: 1600,
   crf: 20,
-  blackThreshold: 16,
+  blackThreshold: 40,
 } as const
 
 export interface ScreenRecordingPreflightFailure {

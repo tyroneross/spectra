@@ -19,6 +19,8 @@ import { API_VERSION } from '../contract/wire.js';
 import { operationParamSchemas } from '../contract/schemas.js';
 import { expandHome, socketRequest, SocketConnectionError, } from './transport.js';
 export const DEFAULT_SOCKET_PATH = '~/.spectra/daemon.sock';
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+export const RECORD_COMPOSITE_TIMEOUT_BUFFER_MS = 120_000;
 /** Actionable daemon failure. `hint` is always a next step the caller can take;
  * `actionable` is always true so adapters can format it for the user. */
 export class DaemonError extends Error {
@@ -54,7 +56,7 @@ export class DaemonClient {
         this.socketPath = expandHome(opts.socketPath ?? DEFAULT_SOCKET_PATH);
         this.surface = opts.surface ?? 'unknown';
         this.callerName = opts.callerName;
-        this.timeoutMs = opts.timeoutMs ?? 30_000;
+        this.timeoutMs = opts.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
         this.probeTimeoutMs = opts.probeTimeoutMs ?? 1_000;
         this.bootstrap = opts.bootstrap;
         this.validateParams = opts.validateParams ?? true;
@@ -82,12 +84,13 @@ export class DaemonClient {
      */
     async call(operation, params) {
         const validated = this.prepareParams(operation, params);
+        const timeoutMs = timeoutForOperation(operation, validated, this.timeoutMs);
         try {
-            return await this.callOnce(operation, validated, this.timeoutMs);
+            return await this.callOnce(operation, validated, timeoutMs);
         }
         catch (err) {
             if (err instanceof SocketConnectionError) {
-                return await this.failOpenRetry(operation, validated);
+                return await this.failOpenRetry(operation, validated, timeoutMs);
             }
             throw err;
         }
@@ -130,16 +133,16 @@ export class DaemonClient {
         // Non-envelope response — surface an actionable wrapper, never the raw body.
         throw new DaemonError(res.status >= 500 ? 'internal_error' : 'bad_request', `Daemon returned a non-contract response (HTTP ${res.status}) for ${operation}`, 'The daemon may be running an incompatible build. Restart the Spectra app or rebuild the daemon.');
     }
-    async failOpenRetry(operation, params) {
+    async failOpenRetry(operation, params, timeoutMs) {
         // Daemon appears down. Try a fast probe first (covers a transient blip).
         if (await this.isUp()) {
-            return await this.callOnce(operation, params, this.timeoutMs);
+            return await this.callOnce(operation, params, timeoutMs);
         }
         // Still down → attempt the injected bootstrap once.
         if (this.bootstrap) {
             const ok = await this.bootstrap().catch(() => false);
             if (ok && (await this.isUp())) {
-                return await this.callOnce(operation, params, this.timeoutMs);
+                return await this.callOnce(operation, params, timeoutMs);
             }
         }
         throw new DaemonError('daemon_down', `Spectra daemon is not reachable for ${operation}.`, DAEMON_DOWN_HINT, true);
@@ -186,5 +189,17 @@ function stripUndefined(value) {
             out[k] = v;
     }
     return out;
+}
+export function timeoutForOperation(operation, params, baseTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
+    if (operation !== 'recordComposite')
+        return baseTimeoutMs;
+    const durationSeconds = recordCompositeDurationSeconds(params);
+    return Math.max(baseTimeoutMs, Math.ceil(durationSeconds * 1000) + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS);
+}
+function recordCompositeDurationSeconds(params) {
+    const duration = params?.durationSeconds;
+    return typeof duration === 'number' && Number.isFinite(duration) && duration > 0
+        ? duration
+        : 5;
 }
 //# sourceMappingURL=daemon-client.js.map

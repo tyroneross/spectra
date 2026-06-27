@@ -9,7 +9,7 @@ export const COMPOSITE_WORKER_DEFAULTS = {
     cursor: true,
     maxWidth: 1600,
     crf: 20,
-    blackThreshold: 16,
+    blackThreshold: 40,
 };
 export function buildCompositeWorkerArgs(params) {
     if (!params.appA)

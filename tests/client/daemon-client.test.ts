@@ -9,7 +9,12 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { DaemonClient, DaemonError } from '../../src/client/daemon-client.js'
+import {
+  DaemonClient,
+  DaemonError,
+  RECORD_COMPOSITE_TIMEOUT_BUFFER_MS,
+  timeoutForOperation,
+} from '../../src/client/daemon-client.js'
 import { startMockDaemon, type MockDaemon } from '../helpers/mock-daemon.js'
 import type { HealthResult } from '../../src/contract/core-api.js'
 
@@ -52,6 +57,16 @@ describe('DaemonClient — contract round-trip', () => {
     await daemon.close()
     daemon = undefined
     expect(await client.isUp()).toBe(false)
+  })
+
+  it('scales recordComposite timeout by requested duration plus encode buffer', () => {
+    expect(timeoutForOperation('health', {}, 30_000)).toBe(30_000)
+    expect(timeoutForOperation('recordComposite', {
+      appA: 'Chrome',
+      appB: 'Ghostty',
+      outPath: '/tmp/out.mp4',
+      durationSeconds: 15,
+    }, 30_000)).toBe(15_000 + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS)
   })
 })
 

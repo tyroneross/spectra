@@ -545,8 +545,6 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -554,14 +552,14 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     durationSeconds?: number | undefined;
     spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
 }, {
     appA: string;
     appB: string;
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -569,6 +567,8 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     durationSeconds?: number | undefined;
     spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
 }>;
 export declare const analyzeParamsSchema: z.ZodObject<{
     sessionId: z.ZodString;
@@ -611,16 +611,16 @@ export declare const discoverParamsSchema: z.ZodObject<{
     sessionId: string;
     maxDepth?: number | undefined;
     maxScreens?: number | undefined;
-    outputDir?: string | undefined;
     clean?: boolean | undefined;
     captureStates?: boolean | undefined;
+    outputDir?: string | undefined;
 }, {
     sessionId: string;
     maxDepth?: number | undefined;
     maxScreens?: number | undefined;
-    outputDir?: string | undefined;
     clean?: boolean | undefined;
     captureStates?: boolean | undefined;
+    outputDir?: string | undefined;
 }>;
 export declare const terminalRecordParamsSchema: z.ZodObject<{
     command: z.ZodString;
@@ -692,11 +692,11 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     } | undefined;
     feature?: string | undefined;
     component?: string | undefined;
-    selector?: string | undefined;
     title?: string | undefined;
+    selector?: string | undefined;
+    deviceName?: string | undefined;
     tags?: string[] | undefined;
     starred?: boolean | undefined;
-    deviceName?: string | undefined;
     gitBranch?: string | undefined;
     gitCommit?: string | undefined;
 }, {
@@ -713,11 +713,11 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     } | undefined;
     feature?: string | undefined;
     component?: string | undefined;
-    selector?: string | undefined;
     title?: string | undefined;
+    selector?: string | undefined;
+    deviceName?: string | undefined;
     tags?: string[] | undefined;
     starred?: boolean | undefined;
-    deviceName?: string | undefined;
     gitBranch?: string | undefined;
     gitCommit?: string | undefined;
 }>, z.ZodObject<{
@@ -888,22 +888,22 @@ export declare const autoRampDemoParamsSchema: z.ZodObject<{
     input: string;
     out: string;
     fps?: number | undefined;
-    threshold?: number | undefined;
-    deadSpeed?: number | undefined;
-    minDeadSec?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
     padSec?: number | undefined;
+    threshold?: number | undefined;
 }, {
     input: string;
     out: string;
     fps?: number | undefined;
-    threshold?: number | undefined;
-    deadSpeed?: number | undefined;
-    minDeadSec?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
     padSec?: number | undefined;
+    threshold?: number | undefined;
 }>;
 export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<{
     action: z.ZodLiteral<"scan">;
@@ -955,68 +955,68 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
             captionPngPath: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }, {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }>, "many">;
         speed: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     }, {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     }>;
@@ -1025,23 +1025,23 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     action: "polish";
     out: string;
     spec: {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     };
@@ -1049,23 +1049,23 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     action: "polish";
     out: string;
     spec: {
+        canvas: {
+            w: number;
+            h: number;
+        };
         segments: {
             input: string;
+            startSec: number;
+            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
-            startSec: number;
-            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
-        canvas: {
-            w: number;
-            h: number;
-        };
         fps?: number | undefined;
         speed?: number | undefined;
     };
@@ -1085,23 +1085,23 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     input: string;
     out: string;
     fps?: number | undefined;
-    threshold?: number | undefined;
-    deadSpeed?: number | undefined;
-    minDeadSec?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
     padSec?: number | undefined;
+    threshold?: number | undefined;
 }, {
     action: "auto-ramp";
     input: string;
     out: string;
     fps?: number | undefined;
-    threshold?: number | undefined;
-    deadSpeed?: number | undefined;
-    minDeadSec?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    deadSpeed?: number | undefined;
+    minDeadSec?: number | undefined;
     padSec?: number | undefined;
+    threshold?: number | undefined;
 }>, z.ZodObject<{
     appA: z.ZodString;
     titleA: z.ZodOptional<z.ZodString>;
@@ -1125,8 +1125,6 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -1134,6 +1132,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     durationSeconds?: number | undefined;
     spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
 }, {
     action: "record-composite";
     appA: string;
@@ -1141,8 +1141,6 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
-    maxWidth?: number | undefined;
-    crf?: number | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -1150,6 +1148,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     durationSeconds?: number | undefined;
     spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
+    maxWidth?: number | undefined;
+    crf?: number | undefined;
 }>]>;
 export declare const operationParamSchemas: {
     health: z.ZodObject<{
@@ -1579,8 +1579,6 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
-        maxWidth?: number | undefined;
-        crf?: number | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -1588,14 +1586,14 @@ export declare const operationParamSchemas: {
         durationSeconds?: number | undefined;
         spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
+        maxWidth?: number | undefined;
+        crf?: number | undefined;
     }, {
         appA: string;
         appB: string;
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
-        maxWidth?: number | undefined;
-        crf?: number | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -1603,6 +1601,8 @@ export declare const operationParamSchemas: {
         durationSeconds?: number | undefined;
         spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
+        maxWidth?: number | undefined;
+        crf?: number | undefined;
     }>;
     analyze: z.ZodObject<{
         sessionId: z.ZodString;
@@ -1645,16 +1645,16 @@ export declare const operationParamSchemas: {
         sessionId: string;
         maxDepth?: number | undefined;
         maxScreens?: number | undefined;
-        outputDir?: string | undefined;
         clean?: boolean | undefined;
         captureStates?: boolean | undefined;
+        outputDir?: string | undefined;
     }, {
         sessionId: string;
         maxDepth?: number | undefined;
         maxScreens?: number | undefined;
-        outputDir?: string | undefined;
         clean?: boolean | undefined;
         captureStates?: boolean | undefined;
+        outputDir?: string | undefined;
     }>;
     recordTerminal: z.ZodObject<{
         command: z.ZodString;
@@ -1726,11 +1726,11 @@ export declare const operationParamSchemas: {
         } | undefined;
         feature?: string | undefined;
         component?: string | undefined;
-        selector?: string | undefined;
         title?: string | undefined;
+        selector?: string | undefined;
+        deviceName?: string | undefined;
         tags?: string[] | undefined;
         starred?: boolean | undefined;
-        deviceName?: string | undefined;
         gitBranch?: string | undefined;
         gitCommit?: string | undefined;
     }, {
@@ -1747,11 +1747,11 @@ export declare const operationParamSchemas: {
         } | undefined;
         feature?: string | undefined;
         component?: string | undefined;
-        selector?: string | undefined;
         title?: string | undefined;
+        selector?: string | undefined;
+        deviceName?: string | undefined;
         tags?: string[] | undefined;
         starred?: boolean | undefined;
-        deviceName?: string | undefined;
         gitBranch?: string | undefined;
         gitCommit?: string | undefined;
     }>, z.ZodObject<{
@@ -1958,68 +1958,68 @@ export declare const operationParamSchemas: {
                 captionPngPath: z.ZodOptional<z.ZodString>;
             }, "strip", z.ZodTypeAny, {
                 input: string;
+                startSec: number;
+                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
-                startSec: number;
-                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }, {
                 input: string;
+                startSec: number;
+                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
-                startSec: number;
-                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }>, "many">;
             speed: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
+            canvas: {
+                w: number;
+                h: number;
+            };
             segments: {
                 input: string;
+                startSec: number;
+                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
-                startSec: number;
-                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
-            canvas: {
-                w: number;
-                h: number;
-            };
             fps?: number | undefined;
             speed?: number | undefined;
         }, {
+            canvas: {
+                w: number;
+                h: number;
+            };
             segments: {
                 input: string;
+                startSec: number;
+                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
-                startSec: number;
-                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
-            canvas: {
-                w: number;
-                h: number;
-            };
             fps?: number | undefined;
             speed?: number | undefined;
         }>;
@@ -2028,23 +2028,23 @@ export declare const operationParamSchemas: {
         action: "polish";
         out: string;
         spec: {
+            canvas: {
+                w: number;
+                h: number;
+            };
             segments: {
                 input: string;
+                startSec: number;
+                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
-                startSec: number;
-                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
-            canvas: {
-                w: number;
-                h: number;
-            };
             fps?: number | undefined;
             speed?: number | undefined;
         };
@@ -2052,23 +2052,23 @@ export declare const operationParamSchemas: {
         action: "polish";
         out: string;
         spec: {
+            canvas: {
+                w: number;
+                h: number;
+            };
             segments: {
                 input: string;
+                startSec: number;
+                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
-                startSec: number;
-                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
-            canvas: {
-                w: number;
-                h: number;
-            };
             fps?: number | undefined;
             speed?: number | undefined;
         };
@@ -2088,23 +2088,23 @@ export declare const operationParamSchemas: {
         input: string;
         out: string;
         fps?: number | undefined;
-        threshold?: number | undefined;
-        deadSpeed?: number | undefined;
-        minDeadSec?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        deadSpeed?: number | undefined;
+        minDeadSec?: number | undefined;
         padSec?: number | undefined;
+        threshold?: number | undefined;
     }, {
         action: "auto-ramp";
         input: string;
         out: string;
         fps?: number | undefined;
-        threshold?: number | undefined;
-        deadSpeed?: number | undefined;
-        minDeadSec?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        deadSpeed?: number | undefined;
+        minDeadSec?: number | undefined;
         padSec?: number | undefined;
+        threshold?: number | undefined;
     }>, z.ZodObject<{
         appA: z.ZodString;
         titleA: z.ZodOptional<z.ZodString>;
@@ -2128,8 +2128,6 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
-        maxWidth?: number | undefined;
-        crf?: number | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -2137,6 +2135,8 @@ export declare const operationParamSchemas: {
         durationSeconds?: number | undefined;
         spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
+        maxWidth?: number | undefined;
+        crf?: number | undefined;
     }, {
         action: "record-composite";
         appA: string;
@@ -2144,8 +2144,6 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
-        maxWidth?: number | undefined;
-        crf?: number | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -2153,6 +2151,8 @@ export declare const operationParamSchemas: {
         durationSeconds?: number | undefined;
         spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
+        maxWidth?: number | undefined;
+        crf?: number | undefined;
     }>]>;
     autoRampDemo: z.ZodObject<{
         input: z.ZodString;
@@ -2168,22 +2168,22 @@ export declare const operationParamSchemas: {
         input: string;
         out: string;
         fps?: number | undefined;
-        threshold?: number | undefined;
-        deadSpeed?: number | undefined;
-        minDeadSec?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        deadSpeed?: number | undefined;
+        minDeadSec?: number | undefined;
         padSec?: number | undefined;
+        threshold?: number | undefined;
     }, {
         input: string;
         out: string;
         fps?: number | undefined;
-        threshold?: number | undefined;
-        deadSpeed?: number | undefined;
-        minDeadSec?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        deadSpeed?: number | undefined;
+        minDeadSec?: number | undefined;
         padSec?: number | undefined;
+        threshold?: number | undefined;
     }>;
 };
 export declare const apiOperations: CoreApiOperation[];
@@ -2213,14 +2213,14 @@ export declare const apiErrorBodySchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     message: string;
     code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-    details?: unknown;
     hint?: string | undefined;
+    details?: unknown;
     retryable?: boolean | undefined;
 }, {
     message: string;
     code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-    details?: unknown;
     hint?: string | undefined;
+    details?: unknown;
     retryable?: boolean | undefined;
 }>;
 export declare const verifiedCallerSchema: z.ZodObject<{
@@ -2321,9 +2321,9 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
     deliveryPath: z.ZodOptional<z.ZodEnum<["stdio-mcp", "cli", "menubar", "slash-command", "http-mcp", "test", "unknown"]>>;
 }, "strip", z.ZodTypeAny, {
     timestamp: number;
-    ok: true;
     apiVersion: 2;
     requestId: string;
+    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2337,9 +2337,9 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
     deliveryPath?: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test" | undefined;
 }, {
     timestamp: number;
-    ok: true;
     apiVersion: 2;
     requestId: string;
+    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2365,14 +2365,14 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     }, {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     }>;
     timestamp: z.ZodNumber;
@@ -2407,12 +2407,12 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
     error: {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     };
-    ok: false;
     apiVersion: 2;
+    ok: false;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2429,12 +2429,12 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
     error: {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     };
-    ok: false;
     apiVersion: 2;
+    ok: false;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2481,9 +2481,9 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     deliveryPath: z.ZodOptional<z.ZodEnum<["stdio-mcp", "cli", "menubar", "slash-command", "http-mcp", "test", "unknown"]>>;
 }, "strip", z.ZodTypeAny, {
     timestamp: number;
-    ok: true;
     apiVersion: 2;
     requestId: string;
+    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2497,9 +2497,9 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     deliveryPath?: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test" | undefined;
 }, {
     timestamp: number;
-    ok: true;
     apiVersion: 2;
     requestId: string;
+    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2524,14 +2524,14 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     }, "strip", z.ZodTypeAny, {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     }, {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     }>;
     timestamp: z.ZodNumber;
@@ -2566,12 +2566,12 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     error: {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     };
-    ok: false;
     apiVersion: 2;
+    ok: false;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2588,12 +2588,12 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     error: {
         message: string;
         code: "bad_request" | "unauthorized" | "forbidden" | "not_found" | "conflict" | "unsupported_api_version" | "permission_denied" | "capability_denied" | "capture_failed" | "recording_failed" | "daemon_unhealthy" | "internal_error";
-        details?: unknown;
         hint?: string | undefined;
+        details?: unknown;
         retryable?: boolean | undefined;
     };
-    ok: false;
     apiVersion: 2;
+    ok: false;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";

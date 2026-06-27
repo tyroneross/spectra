@@ -17,7 +17,7 @@
 
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { startStdio } from '../mcp/server.js'
 import { getVersionInfo } from '../mcp/version.js'
@@ -106,6 +106,7 @@ async function forwardOperation(operation: CoreApiOperation, paramsJson?: string
       return 1
     }
   }
+  params = normalizeForwardedParams(operation, params)
   const probe = new DaemonClient({ surface: 'cli', callerName: 'spectra-cli' })
   const client = new DaemonClient({
     surface: 'cli',
@@ -124,6 +125,27 @@ async function forwardOperation(operation: CoreApiOperation, paramsJson?: string
     process.stderr.write(`spectra ${operation}: ${(err as Error).message}\n`)
     return 1
   }
+}
+
+function normalizeForwardedParams(operation: CoreApiOperation, params: unknown): unknown {
+  if (operation === 'recordComposite') return resolveOutPath(params)
+  if (
+    operation === 'demo'
+    && params
+    && typeof params === 'object'
+    && !Array.isArray(params)
+    && (params as { action?: unknown }).action === 'record-composite'
+  ) {
+    return resolveOutPath(params)
+  }
+  return params
+}
+
+function resolveOutPath(params: unknown): unknown {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return params
+  const outPath = (params as { outPath?: unknown }).outPath
+  if (typeof outPath !== 'string' || outPath.length === 0 || isAbsolute(outPath)) return params
+  return { ...(params as Record<string, unknown>), outPath: resolve(process.cwd(), outPath) }
 }
 
 async function main(): Promise<void> {
