@@ -1,7 +1,18 @@
 // src/media/pipeline.ts
+//
+// ffmpeg/ffprobe helpers for the LIVE media surface: video probing and poster-
+// frame extraction (consumed by media/production.ts → createProductionBundle).
+//
+// The full-display AVFoundation recording path — startRecording /
+// encodeRecording / buildCaptureArgs / avfoundation device discovery / the
+// composite encode filtergraph — was removed in the daemon-consolidation
+// cutover (P3). Window-isolated ScreenCaptureKit via the daemon composite
+// worker (src/daemon/composite-worker.ts) is now the only recording path; the
+// daemon 501s the legacy full-display start/stopRecording operations.
+//
+// SPDX-License-Identifier: Apache-2.0
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { spawn } from 'node:child_process';
-import { stat } from 'node:fs/promises';
-import { join } from 'node:path';
 function defaultRunner(cmd, args) {
     const proc = spawn(cmd, args, { stdio: 'pipe' });
     const stdoutChunks = [];
@@ -25,167 +36,7 @@ export function setProcessRunner(r) {
 export function resetProcessRunner() {
     runner = defaultRunner;
 }
-// ─── Argument Builders ───────────────────────────────────────
-const DEFAULT_OPTIONS = {
-    fps: 30,
-    quality: 'high',
-    hardware: true,
-    codec: 'h264',
-    bitrate: '8M',
-    maxDuration: 300,
-};
-const DEFAULT_AVFOUNDATION_INPUT = '1:none';
-export function resolveVideoOptions(options) {
-    const quality = options?.quality ?? DEFAULT_OPTIONS.quality;
-    const bitrate = options?.bitrate ?? (quality === 'medium' ? '4M' : '8M');
-    return {
-        ...DEFAULT_OPTIONS,
-        ...options,
-        quality,
-        bitrate,
-    };
-}
-export function buildAvfoundationDeviceListArgs() {
-    return ['-f', 'avfoundation', '-list_devices', 'true', '-i', ''];
-}
-export function parseAvfoundationScreenInput(stderr, preferredName = 'Capture screen 0') {
-    let inVideoDevices = false;
-    const screenDevices = [];
-    for (const line of stderr.split(/\r?\n/)) {
-        if (line.includes('AVFoundation video devices:')) {
-            inVideoDevices = true;
-            continue;
-        }
-        if (line.includes('AVFoundation audio devices:')) {
-            inVideoDevices = false;
-            continue;
-        }
-        if (!inVideoDevices)
-            continue;
-        const match = line.match(/\]\s+\[(\d+)\]\s+(.+)$/);
-        if (!match)
-            continue;
-        const [, index, name] = match;
-        if (name === preferredName)
-            return `${index}:none`;
-        if (/^Capture screen\b/.test(name))
-            screenDevices.push(`${index}:none`);
-    }
-    return screenDevices[0];
-}
-export async function discoverAvfoundationScreenInput() {
-    const proc = runner('ffmpeg', buildAvfoundationDeviceListArgs());
-    await proc.waitForExit().catch(() => undefined);
-    const stderr = proc.stderr ? await proc.stderr().catch(() => '') : '';
-    return parseAvfoundationScreenInput(stderr);
-}
-/**
- * Build FFmpeg (or xcrun simctl) arguments for the capture phase.
- * Returns args without the leading command name.
- */
-export function buildCaptureArgs(platform, outputPath, options) {
-    if (platform === 'ios' || platform === 'watchos') {
-        // simctl path — not ffmpeg
-        return [
-            'simctl', 'io', 'booted', 'recordVideo',
-            '--codec', options.codec,
-            '--force',
-            outputPath,
-        ];
-    }
-    // web / macos → avfoundation screen capture
-    const captureInput = options.captureInput ?? DEFAULT_AVFOUNDATION_INPUT;
-    return [
-        '-f', 'avfoundation',
-        '-framerate', String(options.fps),
-        '-i', captureInput,
-        '-c:v', 'libx264rgb',
-        '-crf', '0',
-        '-preset', 'ultrafast',
-        outputPath,
-    ];
-}
-/**
- * Build FFmpeg arguments for the encode/distribution phase.
- * Returns args without the leading 'ffmpeg'.
- */
-export function buildEncodeArgs(inputPath, outputPath, options) {
-    return [
-        '-i', inputPath,
-        ...buildDistributionVideoArgs(options),
-        outputPath,
-    ];
-}
-export function buildCompositeEncodeArgs(inputPath, outputPath, layout, options) {
-    const left = normalizeCompositePane(layout.left, 'left');
-    const right = normalizeCompositePane(layout.right, 'right');
-    const height = Math.min(left.height, right.height);
-    const filter = [
-        `[0:v]crop=${left.width}:${height}:${left.x}:${left.y}[l]`,
-        `[0:v]crop=${right.width}:${height}:${right.x}:${right.y}[r]`,
-        '[l][r]hstack=inputs=2:shortest=1[v]',
-    ].join(';');
-    return [
-        '-i', inputPath,
-        '-filter_complex', filter,
-        '-map', '[v]',
-        ...buildDistributionVideoArgs(options),
-        outputPath,
-    ];
-}
-function buildDistributionVideoArgs(options) {
-    const useHardware = options.hardware && options.quality !== 'lossless';
-    if (useHardware) {
-        const encoder = options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox';
-        const args = [
-            '-c:v', encoder,
-            '-b:v', options.bitrate,
-            '-pix_fmt', 'yuv420p',
-            '-movflags', '+faststart',
-        ];
-        if (options.codec === 'hevc') {
-            args.push('-tag:v', 'hvc1');
-        }
-        return args;
-    }
-    // Software encoding with libx264/libx265
-    const crfMap = {
-        lossless: 0,
-        high: options.codec === 'hevc' ? 22 : 18,
-        medium: options.codec === 'hevc' ? 28 : 24,
-    };
-    const crf = crfMap[options.quality];
-    const encoder = options.codec === 'hevc' ? 'libx265' : 'libx264';
-    const args = [
-        '-c:v', encoder,
-        '-crf', String(crf),
-        '-preset', 'slow',
-        '-pix_fmt', 'yuv420p',
-        '-movflags', '+faststart',
-    ];
-    if (options.codec === 'hevc') {
-        args.push('-tag:v', 'hvc1');
-    }
-    return args;
-}
-function normalizeCompositePane(pane, label) {
-    return {
-        x: normalizeInteger(pane.x, `${label}.x`, 0),
-        y: normalizeInteger(pane.y, `${label}.y`, 0),
-        width: normalizeInteger(pane.width, `${label}.width`, 1),
-        height: normalizeInteger(pane.height, `${label}.height`, 1),
-    };
-}
-function normalizeInteger(value, label, min) {
-    if (!Number.isFinite(value)) {
-        throw new Error(`Invalid composite pane ${label}: expected a finite number`);
-    }
-    const rounded = Math.round(value);
-    if (rounded < min) {
-        throw new Error(`Invalid composite pane ${label}: expected ${min === 0 ? 'a non-negative' : 'a positive'} number`);
-    }
-    return rounded;
-}
+// ─── Argument Builders (probe + poster) ──────────────────────
 export function buildProbeArgs(inputPath) {
     return [
         '-v', 'error',
@@ -208,67 +59,7 @@ export function buildPosterFrameArgs(inputPath, outputPath, options = {}) {
         outputPath,
     ];
 }
-// ─── Recording ───────────────────────────────────────────────
-/**
- * Start a recording session. Returns a RecordingHandle with stop().
- */
-export async function startRecording(platform, outputDir, options) {
-    const opts = resolveVideoOptions(options);
-    const timestamp = Date.now();
-    const isSimctl = platform === 'ios' || platform === 'watchos';
-    const ext = isSimctl ? 'mp4' : 'mkv';
-    const outputPath = join(outputDir, `raw-${timestamp}.${ext}`);
-    const captureInput = isSimctl
-        ? undefined
-        : opts.captureInput ?? await discoverAvfoundationScreenInput() ?? DEFAULT_AVFOUNDATION_INPUT;
-    const captureArgs = buildCaptureArgs(platform, outputPath, { ...opts, captureInput });
-    const cmd = isSimctl ? 'xcrun' : 'ffmpeg';
-    const proc = runner(cmd, captureArgs);
-    const maxDuration = opts.maxDuration ?? DEFAULT_OPTIONS.maxDuration;
-    const timeoutId = setTimeout(() => {
-        proc.kill();
-    }, maxDuration * 1000);
-    const handle = {
-        platform,
-        captureInput,
-        stop: async () => {
-            clearTimeout(timeoutId);
-            proc.kill();
-            await proc.waitForExit().catch(() => { });
-            return outputPath;
-        },
-    };
-    return handle;
-}
-// ─── Encoding ────────────────────────────────────────────────
-/**
- * Encode a raw recording for distribution. Returns VideoResult.
- */
-export async function encodeRecording(rawPath, outputDir, options, compositeLayout) {
-    const opts = resolveVideoOptions(options);
-    const timestamp = Date.now();
-    const outputPath = join(outputDir, `video-${timestamp}.mp4`);
-    const encodeArgs = compositeLayout
-        ? buildCompositeEncodeArgs(rawPath, outputPath, compositeLayout, opts)
-        : buildEncodeArgs(rawPath, outputPath, opts);
-    const proc = runner('ffmpeg', encodeArgs);
-    const exitCode = await proc.waitForExit();
-    if (exitCode !== 0) {
-        throw new Error(`ffmpeg encode failed with exit code ${exitCode}`);
-    }
-    const fileStat = await stat(outputPath);
-    const probe = await probeVideo(outputPath).catch(() => undefined);
-    const codec = probe?.codec ?? resolveCodecName(opts);
-    return {
-        path: outputPath,
-        duration: probe?.durationMs ? probe.durationMs / 1000 : 0,
-        size: fileStat.size,
-        codec,
-        fps: probe?.fps ?? opts.fps,
-        width: probe?.width,
-        height: probe?.height,
-    };
-}
+// ─── Probe + Poster ──────────────────────────────────────────
 export async function probeVideo(inputPath) {
     const proc = runner('ffprobe', buildProbeArgs(inputPath));
     const exitCode = await proc.waitForExit();
@@ -296,12 +87,6 @@ export async function extractPosterFrame(inputPath, outputPath, options) {
         const detail = proc.stderr ? await proc.stderr().catch(() => '') : '';
         throw new Error(`ffmpeg poster extraction failed with exit code ${exitCode}${detail ? `: ${detail}` : ''}`);
     }
-}
-function resolveCodecName(options) {
-    if (options.hardware && options.quality !== 'lossless') {
-        return options.codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox';
-    }
-    return options.codec === 'hevc' ? 'libx265' : 'libx264';
 }
 function numberFromString(value) {
     if (!value)

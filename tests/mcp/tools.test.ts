@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handleConnect } from '../../src/mcp/tools/connect.js'
 import { handleSnapshot } from '../../src/mcp/tools/snapshot.js'
 import { handleAct } from '../../src/mcp/tools/act.js'
@@ -9,8 +9,6 @@ import type { ToolContext } from '../../src/mcp/context.js'
 import type { SessionManager } from '../../src/core/session.js'
 import type { CdpDriver } from '../../src/cdp/driver.js'
 import type { Snapshot } from '../../src/core/types.js'
-import { recordings } from '../../src/media/recordings.js'
-import { resetProcessRunner, setProcessRunner, type ProcessRunner } from '../../src/media/pipeline.js'
 
 vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
@@ -66,19 +64,6 @@ function mockContext(): ToolContext {
     drivers: new Map(),
   }
 }
-
-afterEach(() => {
-  recordings._reset()
-  resetProcessRunner()
-})
-
-const fakeRecordingRunner: ProcessRunner = (cmd) => ({
-  kill: () => {},
-  waitForExit: () => Promise.resolve(0),
-  stdout: () => Promise.resolve(cmd === 'ffprobe'
-    ? JSON.stringify({ streams: [{ codec_name: 'h264', width: 1280, height: 720, avg_frame_rate: '30/1' }], format: { duration: '1.5' } })
-    : ''),
-})
 
 describe('handleConnect', () => {
   it('creates a web session for URL targets', async () => {
@@ -251,31 +236,6 @@ describe('handleCapture', () => {
     }))
   })
 
-  it('does not duplicate video artifacts when stop_recording is retried', async () => {
-    setProcessRunner(fakeRecordingRunner)
-    const ctx = mockContext()
-    const driver = mockDriver()
-    const run = {
-      artifacts: [] as Array<{ type: string; path: string; metadata?: Record<string, unknown> }>,
-      recording: { state: 'idle' },
-    }
-    ctx.drivers.set('abc123', driver)
-    vi.mocked(ctx.sessions.getRun).mockReturnValue(run as never)
-    vi.mocked(ctx.sessions.addArtifact).mockImplementation(async (_sessionId, options) => {
-      const artifact = { id: `artifact-${run.artifacts.length + 1}`, createdAt: Date.now(), ...options }
-      run.artifacts.push(artifact)
-      return artifact as never
-    })
-
-    await handleCapture({ sessionId: 'abc123', type: 'start_recording' }, ctx)
-    const firstStop = await handleCapture({ sessionId: 'abc123', type: 'stop_recording' }, ctx)
-    const secondStop = await handleCapture({ sessionId: 'abc123', type: 'stop_recording' }, ctx)
-
-    expect(firstStop.alreadyStopped).toBe(false)
-    expect(secondStop.alreadyStopped).toBe(true)
-    expect(run.artifacts).toHaveLength(1)
-    expect(ctx.sessions.addArtifact).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe('handleSession', () => {
