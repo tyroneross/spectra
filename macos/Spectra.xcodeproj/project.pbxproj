@@ -17,6 +17,7 @@
 		4CE53F9BEC001C341035E0BA /* KeychainStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4219A852BDE452C2F4E7A616 /* KeychainStoreTests.swift */; };
 		5B14FF4B3576BB0764E9342E /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38180C6E07F8B0E6A3E33F0B /* PromptBuilder.swift */; };
 		61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */; };
+		6595C1499E318DAD1032EF59 /* ScreenshotHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC73EDE1BBDFEB725B3F8D6 /* ScreenshotHarness.swift */; };
 		74542E58408799E856FCCC51 /* SpectraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */; };
 		774DB66B0A21BA73B3EE7366 /* LoadableState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361F4A0D10BC2358793DA6CD /* LoadableState.swift */; };
 		7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */; };
@@ -53,6 +54,7 @@
 		3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityPanel.swift; sourceTree = "<group>"; };
 		38180C6E07F8B0E6A3E33F0B /* PromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilder.swift; sourceTree = "<group>"; };
 		4219A852BDE452C2F4E7A616 /* KeychainStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreTests.swift; sourceTree = "<group>"; };
+		5AC73EDE1BBDFEB725B3F8D6 /* ScreenshotHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHarness.swift; sourceTree = "<group>"; };
 		5C8E2BC2D1A3C879E43E0C46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		639EFA773C7D41CE767F0667 /* AnthropicClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicClient.swift; sourceTree = "<group>"; };
 		643DAAA8F4A15075134FFB02 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -129,6 +131,7 @@
 				361F4A0D10BC2358793DA6CD /* LoadableState.swift */,
 				278800AE363109BC3AEBABD2 /* MenuBarPopover.swift */,
 				C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */,
+				5AC73EDE1BBDFEB725B3F8D6 /* ScreenshotHarness.swift */,
 				BF50545CA15B064929AD7D66 /* SettingsView.swift */,
 			);
 			path = Views;
@@ -289,6 +292,7 @@
 				5B14FF4B3576BB0764E9342E /* PromptBuilder.swift in Sources */,
 				B0CA003FD67A04DABCB9DA22 /* Recents.swift in Sources */,
 				61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */,
+				6595C1499E318DAD1032EF59 /* ScreenshotHarness.swift in Sources */,
 				96F17C4DA24A7A2AEC244700 /* SettingsView.swift in Sources */,
 				1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */,
 				74542E58408799E856FCCC51 /* SpectraViewModel.swift in Sources */,

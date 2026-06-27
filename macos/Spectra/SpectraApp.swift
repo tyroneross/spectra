@@ -8,9 +8,24 @@
 
 import SwiftUI
 
+#if DEBUG
+/// DEBUG-only delegate that fires the off-screen screenshot harness once the
+/// run loop is up (so ImageRenderer has a live main actor + layout context).
+/// No-op unless `SPECTRA_SCREENSHOT` is set, so normal launches are unaffected.
+final class ScreenshotAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        ScreenshotHarness.runIfRequested()
+    }
+}
+#endif
+
 @main
 struct SpectraApp: App {
     @State private var viewModel = SpectraViewModel()
+
+    #if DEBUG
+    @NSApplicationDelegateAdaptor(ScreenshotAppDelegate.self) private var screenshotDelegate
+    #endif
 
     var body: some Scene {
         MenuBarExtra {

@@ -285,4 +285,48 @@ public final class SpectraViewModel {
             lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
         }
     }
+
+    #if DEBUG
+    // ─── Preview / screenshot fixtures ───────────────────────
+    // Same-file factory so it can reach `private(set)` stored properties
+    // (daemonStatus, walkthroughRunning) the public setters hide. Used only by
+    // ScreenshotHarness to render deterministic UI states off-screen. Never
+    // referenced in a Release build.
+
+    /// Fully-populated "happy path": ready service, repo chosen, key present,
+    /// an active recording, recents + sessions, last walkthrough outcome.
+    static func previewPopulated() -> SpectraViewModel {
+        let vm = SpectraViewModel()
+        vm.daemonStatus = .ready(apiVersion: 1, daemonVersion: "0.3.0")
+        vm.selectedRepoPath = "/Users/you/dev/aurora-web"
+        vm.selectedRepoDisplayName = "aurora-web"
+        vm.apiKeyPresent = true
+        vm.activeSessionId = "sess-active"
+        vm.isRecording = true
+        vm.instructionText = ""
+        vm.recents = [
+            RecentRepo(path: "/Users/you/dev/aurora-web", displayName: "aurora-web"),
+            RecentRepo(path: "/Users/you/dev/spectra", displayName: "spectra"),
+            RecentRepo(path: "/Users/you/work/marketing-site", displayName: "marketing-site"),
+        ]
+        vm.sessions = [
+            SessionListItem(id: "sess-active", name: "aurora-web · onboarding", platform: "macos", steps: 8, createdAt: "2026-06-27T05:00:00Z"),
+            SessionListItem(id: "sess-2", name: "marketing-site · pricing flow", platform: "web", steps: 14, createdAt: "2026-06-26T22:10:00Z"),
+            SessionListItem(id: "sess-3", name: "spectra · settings walkthrough", platform: "macos", steps: 5, createdAt: "2026-06-26T18:42:00Z"),
+        ]
+        vm.lastWalkthroughOutcomeText = "Walkthrough completed — 6 steps over 3 turns. Used 4,120 input + 880 output tokens."
+        return vm
+    }
+
+    /// First-run / empty: service offline, no repo, no key.
+    static func previewFirstRun() -> SpectraViewModel {
+        let vm = SpectraViewModel()
+        vm.daemonStatus = .unreachable("not installed")
+        vm.apiKeyPresent = false
+        vm.showAccessibilityPanel = true
+        vm.recents = []
+        vm.sessions = []
+        return vm
+    }
+    #endif
 }
