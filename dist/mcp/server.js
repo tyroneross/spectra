@@ -1,353 +1,310 @@
+// src/mcp/server.ts
+//
+// CORELESS stdio MCP proxy. This server holds NO core and imports NO core
+// modules (no createContext, no tool handlers, no drivers). Every tool call is
+// mapped to a frozen-contract operation and forwarded to the GUI-session daemon
+// over the unix socket via DaemonClient. On daemon-down the client health-
+// probes, auto-bootstraps, and returns an ACTIONABLE error — never a raw
+// CGS_REQUIRE_INIT or bare socket error.
+//
+// The tool registrations (names, descriptions, input schemas, annotations) are
+// the public MCP surface and are preserved exactly; only the handler bodies
+// changed from in-process calls to daemon forwards.
+//
+// SPDX-License-Identifier: Apache-2.0
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { createContext } from './context.js';
 import { getVersionInfo } from './version.js';
-import { handleConnect } from './tools/connect.js';
-import { handleSnapshot } from './tools/snapshot.js';
-import { handleAct } from './tools/act.js';
-import { handleStep } from './tools/step.js';
-import { handleCapture } from './tools/capture.js';
-import { handleSession } from './tools/session.js';
-import { handleAnalyze } from './tools/analyze.js';
-import { handleDiscover } from './tools/discover.js';
-import { handleWalkthrough } from './tools/walkthrough.js';
-import { handleLlmStep } from './tools/llm-step.js';
-import { handleRecord, handleReplay } from './tools/record.js';
-import { handleLibrary } from './tools/library.js';
-import { handleDemo } from './tools/demo.js';
 import { registerResources } from './resources.js';
-const ctx = createContext();
-const server = new McpServer({
-    name: 'spectra',
-    version: getVersionInfo().daemonVersion,
-});
-registerResources(server, ctx);
-// ─── Error handling helpers ───────────────────────────────────
-function getErrorHint(tool, message) {
-    if (message.includes('not found')) {
-        return 'Run spectra_session action="list" to see active sessions, or spectra_connect to start a new one.';
-    }
-    if (message.includes('Element') && message.includes('not found')) {
-        return 'Run spectra_snapshot to refresh the element inventory.';
-    }
-    if (message.includes('connect')) {
-        return 'Check that the target URL is accessible and Chrome is available.';
-    }
-    return 'Check spectra_session action="list" for session status.';
-}
-function wrapHandler(handler, toolName) {
-    return handler()
-        .then(result => ({
-        content: [{ type: 'text', text: JSON.stringify({ ...Object(result), timestamp: Date.now() }, null, 2) }],
-    }))
-        .catch((err) => ({
-        content: [{ type: 'text', text: JSON.stringify({
-                    error: err.message,
-                    tool: toolName,
-                    hint: getErrorHint(toolName, err.message),
-                    timestamp: Date.now(),
-                }, null, 2) }],
-        isError: true,
-    }));
-}
-// ─── Tool registrations ───────────────────────────────────────
-server.tool('spectra_connect', 'Start a new UI automation session. Target: URL (web), app name (macOS), sim:device (iOS/watchOS). If repoPath is set, the launcher first boots a dev server / macOS app from that directory and uses its resolved URL/app-name as the effective target.', {
-    target: z.string().describe('URL, app name, or sim:device identifier. Ignored if repoPath is set and the launcher resolves a target.'),
-    name: z.string().optional().describe('Human-readable session name'),
-    record: z.boolean().optional().describe('Start video recording'),
-    repoPath: z.string().optional().describe('Absolute path to a repo to launch first (Next.js / Vite / static HTML / macOS Xcode project).'),
-}, 
-// annotations: readOnlyHint=false, destructiveHint=false, idempotentHint=true
-{ readOnlyHint: false, destructiveHint: false, idempotentHint: true }, async ({ target, name, record, repoPath }) => {
-    return wrapHandler(() => handleConnect({ target, name, record, repoPath }, ctx), 'spectra_connect');
-});
-server.tool('spectra_snapshot', 'Get current AX tree snapshot of the active session.', {
-    sessionId: z.string().describe('Session ID'),
-    screenshot: z.boolean().optional().describe('Include screenshot'),
-}, 
-// annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
-{ readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async ({ sessionId, screenshot }) => {
-    return wrapHandler(async () => {
-        const result = await handleSnapshot({ sessionId, screenshot }, ctx);
-        return { snapshot: result.snapshot, elementCount: result.elementCount };
-    }, 'spectra_snapshot');
-});
-server.tool('spectra_act', 'Perform an action on an element (click, type, clear, scroll, hover, focus).', {
-    sessionId: z.string(),
-    elementId: z.string().describe('Element ID from snapshot (e.g., "e4")'),
-    action: z.enum(['click', 'type', 'clear', 'select', 'scroll', 'hover', 'focus']),
-    value: z.string().optional().describe('Text to type or scroll amount'),
-}, 
-// annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
-{ readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, elementId, action, value }) => {
-    return wrapHandler(() => handleAct({ sessionId, elementId, action, value }, ctx), 'spectra_act');
-});
-server.tool('spectra_step', 'Natural language step: describe what to do, Spectra finds the element and optionally executes.', {
-    sessionId: z.string(),
-    intent: z.string().describe('What to do, e.g., "click the Log In button"'),
-}, 
-// annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
-{ readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, intent }) => {
-    // step returns mixed content (text + optional image) so we keep its special
-    // content assembly intact and only standardize the error path
-    try {
-        const result = await handleStep({ sessionId, intent }, ctx);
-        const { screenshot, ...textResult } = result;
-        const content = [
-            { type: 'text', text: JSON.stringify({ ...textResult, timestamp: Date.now() }, null, 2) },
-        ];
-        if (screenshot) {
-            content.push({ type: 'image', data: screenshot, mimeType: 'image/png' });
-        }
-        return { content };
-    }
-    catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+import { forwardTool, ToolMappingError } from './forward.js';
+import { DaemonClient } from '../client/daemon-client.js';
+import { DaemonError } from '../client/daemon-client.js';
+import { spawnDaemonBootstrap } from '../client/bootstrap.js';
+/** Format any forwarding error as an actionable MCP error payload. */
+function formatError(err, toolName) {
+    if (err instanceof DaemonError) {
         return {
-            content: [{ type: 'text', text: JSON.stringify({
-                        error: message,
-                        tool: 'spectra_step',
-                        hint: getErrorHint('spectra_step', message),
-                        timestamp: Date.now(),
-                    }, null, 2) }],
+            content: [{ type: 'text', text: JSON.stringify({ error: err.message, code: err.code, hint: err.hint, retryable: err.retryable, tool: toolName, timestamp: Date.now() }, null, 2) }],
             isError: true,
         };
     }
-});
-server.tool('spectra_capture', 'Capture screenshot or manage video recording. Supports intelligent framing modes: full, element, region, auto.', {
-    sessionId: z.string(),
-    type: z.enum(['screenshot', 'start_recording', 'stop_recording']),
-    preset: z.enum(['docs', 'demo', 'social', 'app-store']).optional().describe('Production capture preset'),
-    mode: z.enum(['full', 'element', 'region', 'auto']).optional().describe('Capture mode (default: full)'),
-    elementId: z.string().optional().describe('Element ID for mode=element'),
-    region: z.string().optional().describe('Region label for mode=region (e.g., "Navigation", "Form")'),
-    aspectRatio: z.string().optional().describe('Output aspect ratio e.g. "16:9", "4:3", "1:1"'),
-    clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
-    quality: z.enum(['lossless', 'high', 'medium']).optional().describe('Output quality'),
-    fps: z.union([z.literal(30), z.literal(60)]).optional().describe('Recording frame rate'),
-    codec: z.enum(['h264', 'hevc']).optional().describe('Recording codec'),
-    bitrate: z.enum(['4M', '8M']).optional().describe('Recording bitrate'),
-    hardware: z.boolean().optional().describe('Use hardware encoding when available'),
-    composite: z.object({
-        enabled: z.boolean().optional(),
-        displayWidth: z.number().optional(),
-        displayHeight: z.number().optional(),
-        left: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
-        right: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
-    }).optional().describe('Side-by-side composite recording (start_recording): split the full-display capture into left/right panes and hstack them. Omit rects/dims for an auto equal-halves split.'),
-}, 
-// annotations: writes media and recording state; start/stop are not tool-level idempotent.
-{ readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async ({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware, composite }) => {
-    return wrapHandler(() => handleCapture({ sessionId, type, preset, mode, elementId, region, aspectRatio, clean, quality, fps, codec, bitrate, hardware, composite }, ctx), 'spectra_capture');
-});
-server.tool('spectra_analyze', 'Score the current screen and identify regions of interest, UI state, and top elements by importance', {
-    sessionId: z.string().describe('Active session ID'),
-    viewport: z.object({
-        width: z.number(),
-        height: z.number(),
-        devicePixelRatio: z.number().optional(),
-    }).optional().describe('Viewport dimensions for scoring (defaults: 1280x800@1x)'),
-}, 
-// annotations: readOnlyHint=true, destructiveHint=false, idempotentHint=true
-{ readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async ({ sessionId, viewport }) => {
-    return wrapHandler(() => handleAnalyze({ sessionId, viewport }, ctx), 'spectra_analyze');
-});
-server.tool('spectra_discover', 'Auto-navigate and capture an entire app — discovers screens via BFS crawl, scores elements, detects UI states, and produces framed screenshots', {
-    sessionId: z.string().describe('Active session ID'),
-    maxDepth: z.number().optional().describe('Max navigation depth (default: 3)'),
-    maxScreens: z.number().optional().describe('Max screens to discover (default: 50)'),
-    captureStates: z.boolean().optional().describe('Capture loading/error/empty states (default: false)'),
-    clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
-    outputDir: z.string().optional().describe('Custom output directory'),
-}, 
-// annotations: readOnlyHint=false, destructiveHint=false, idempotentHint=false
-{ readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async ({ sessionId, maxDepth, maxScreens, captureStates, clean, outputDir }) => {
-    return wrapHandler(() => handleDiscover({ sessionId, maxDepth, maxScreens, captureStates, clean, outputDir }, ctx), 'spectra_discover');
-});
-server.tool('spectra_walkthrough', 'Execute a multi-step UI flow with optional screenshot capture at each step. Reduces tool calls from 2N to 1 for N-step walkthroughs.', {
-    sessionId: z.string().describe('Active session ID'),
-    steps: z.array(z.object({
-        intent: z.string().describe('What to do, e.g., "click the Login button"'),
-        capture: z.boolean().optional().describe('Take screenshot after this step (default: true)'),
-        waitMs: z.number().optional().describe('Wait ms after action before capture (default: 500)'),
-    })).describe('Steps to execute in order'),
-    clean: z.boolean().optional().describe('Apply visual cleanup for screenshots (default: true)'),
-}, 
-// annotations: readOnlyHint=false, destructiveHint=true, idempotentHint=false
-{ readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, steps, clean }) => {
-    return wrapHandler(() => handleWalkthrough({ sessionId, steps, clean }, ctx), 'spectra_walkthrough');
-});
-server.tool('spectra_llm_step', 'Execute a fully-formed action plan from a client-side LLM planner (the Spectra menu-bar app holds the API key; the daemon never sees it). Each action is { type, elementId, value?, intent?, waitAfterMs? }. Short-circuits on first failure unless continueOnError=true.', {
-    sessionId: z.string().describe('Active session ID'),
-    actions: z.array(z.object({
-        type: z.enum(['click', 'type', 'clear', 'select', 'scroll', 'hover', 'focus']),
-        elementId: z.string(),
-        value: z.string().optional(),
-        intent: z.string().optional(),
-        waitAfterMs: z.number().optional(),
-    })).describe('Action plan to execute in order'),
-    continueOnError: z.boolean().optional().describe('Continue past a failing step (default: false)'),
-}, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ sessionId, actions, continueOnError }) => {
-    return wrapHandler(() => handleLlmStep({ sessionId, actions, continueOnError }, ctx), 'spectra_llm_step');
-});
-server.tool('spectra_session', 'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session.', {
-    action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage']),
-    sessionId: z.string().optional(),
-    usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
-}, 
-// annotations: worst-case for mixed read/write — destructiveHint=true (close/close_all are destructive)
-{ readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async ({ action, sessionId, usage }) => {
-    return wrapHandler(() => handleSession({ action, sessionId, usage }, ctx), 'spectra_session');
-});
-server.tool('spectra_record', 'Record a terminal command session (stdout/stderr with timestamps) in asciicast format', {
-    command: z.string().describe('Command to record'),
-    timeout: z.number().optional().describe('Max duration in ms (default 300000)'),
-    watch_files: z.array(z.string()).optional().describe('File paths to watch for changes during recording'),
-    outputDir: z.string().optional().describe('Directory to write .cast file (default: .spectra/recordings/)'),
-}, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async ({ command, timeout, watch_files, outputDir }) => {
-    return wrapHandler(() => handleRecord({ command, timeout, watch_files, outputDir }), 'spectra_record');
-});
-server.tool('spectra_replay', 'Read, search, or summarize a terminal recording (.cast file)', {
-    file: z.string().describe('Path to .cast file'),
-    search: z.string().optional().describe('Search pattern (regex or string)'),
-    commands_only: z.boolean().optional().describe('Extract only input commands'),
-}, { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async ({ file, search, commands_only }) => {
-    return wrapHandler(() => handleReplay({ file, search, commands_only }), 'spectra_replay');
-});
-server.tool('spectra_library', 'Manage the spectra capture library (tag, find, gallery, export, status, delete, add, migrate-from-showcase). Action-dispatched like spectra_session.', {
-    action: z
-        .enum(['add', 'find', 'gallery', 'get', 'tag', 'delete', 'status', 'export', 'migrate-from-showcase'])
-        .describe('Library operation to perform'),
-    // add
-    sourcePath: z.string().optional().describe('add: path to a media file to import'),
-    type: z.enum(['screenshot', 'video', 'walkthrough']).optional(),
-    platform: z.enum(['web', 'macos', 'ios', 'watchos', 'unknown']).optional(),
-    url: z.string().optional(),
-    viewport: z.string().optional(),
-    selector: z.string().optional(),
-    deviceName: z.string().optional(),
-    title: z.string().optional(),
-    feature: z.string().optional().describe('Canonical feature slug (kebab-case) used for grouping'),
-    component: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-    starred: z.boolean().optional(),
-    walkthrough: z
-        .object({ step_count: z.number(), steps: z.array(z.string()) })
-        .optional(),
-    durationMs: z.number().optional(),
-    gitBranch: z.string().optional(),
-    gitCommit: z.string().optional(),
-    // find / export
-    tagsAny: z.array(z.string()).optional(),
-    tagsAll: z.array(z.string()).optional(),
-    since: z.string().optional().describe('ISO date — only include captures on or after'),
-    until: z.string().optional(),
-    text: z.string().optional().describe('Free-text search over title / tags / feature / component'),
-    limit: z.number().optional(),
-    // gallery
-    groupBy: z.enum(['feature', 'date', 'component', 'platform', 'type']).optional(),
-    // get / tag / delete
-    id: z.string().optional(),
-    // export
-    outDir: z.string().optional(),
-    flatten: z.boolean().optional(),
-    manifest: z.boolean().optional(),
-    // migrate
-    showcasePath: z.string().optional().describe('Path to a legacy .showcase/ directory'),
-}, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (params) => {
-    return wrapHandler(() => handleLibrary(params), 'spectra_library');
-});
-server.tool('spectra_demo', 'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence, or action=record-composite to drive the WINDOW-ISOLATED composite recorder (two app windows side-by-side via ScreenCaptureKit, caffeinate-wrapped so the display never sleeps, with a post-capture black-frame guard). Audio is always stripped.', {
-    action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP'),
-    // scan + auto-ramp fields
-    input: z.string().optional().describe('scan/auto-ramp: path to the source video file'),
-    threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
-    // auto-ramp fields
-    deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
-    minDeadSec: z.number().optional().describe('auto-ramp: min gap length to ramp, seconds (default 1.5)'),
-    maxWidth: z.number().optional().describe('auto-ramp: lanczos-downscale max width (default 1600)'),
-    crf: z.number().optional().describe('auto-ramp: x264 quality (default 20)'),
-    fps: z.number().optional().describe('auto-ramp: output fps (default 60)'),
-    // polish fields
-    spec: z.object({
-        canvas: z.object({ w: z.number(), h: z.number() }).describe('Output canvas dimensions (pixels)'),
-        fps: z.number().optional().describe('Target frame rate (informational)'),
-        segments: z.array(z.object({
-            input: z.string().describe('Path to the source recording for this segment'),
-            startSec: z.number().describe('Start offset in seconds'),
-            durationSec: z.number().describe('Segment duration in seconds'),
-            focal: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).describe('Focal region in source pixels'),
-            caption: z.string().optional().describe('Lower-third caption text'),
-            captionPngPath: z.string().optional().describe('PNG overlay fallback when drawtext is unavailable'),
-        })).describe('Ordered segments to render and merge'),
-        speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
-    }).optional().describe('polish: segment specification'),
-    out: z.string().optional().describe('polish/auto-ramp: output mp4 path'),
-    // record-composite fields (window-isolated two-pane recorder)
-    appA: z.string().optional().describe('record-composite: app name / bundle substring for the LEFT pane'),
-    titleA: z.string().optional().describe('record-composite: optional window-title substring for the left pane'),
-    labelA: z.string().optional().describe('record-composite: optional label for the left pane'),
-    appB: z.string().optional().describe('record-composite: app name / bundle substring for the RIGHT pane'),
-    titleB: z.string().optional().describe('record-composite: optional window-title substring for the right pane'),
-    labelB: z.string().optional().describe('record-composite: optional label for the right pane'),
-    durationSeconds: z.number().optional().describe('record-composite: capture duration in seconds (default 5)'),
-    spotlight: z.enum(['none', 'a', 'b']).optional().describe('record-composite: dim+blur the non-focal pane — none | a (left) | b (right). Default none'),
-    cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
-    outPath: z.string().optional().describe('record-composite: composite MP4 output path'),
-    sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
-}, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (params) => {
-    return wrapHandler(() => handleDemo(params, ctx), 'spectra_demo');
-});
-server.prompt('walkthrough', 'Walk through a UI flow and capture screenshots at each step', {
-    url: z.string().describe('URL to connect to'),
-    steps: z.string().describe('Comma-separated steps, e.g., "click Login, enter email test@example.com, click Submit"'),
-}, ({ url, steps }) => ({
-    messages: [{
-            role: 'user',
-            content: {
-                type: 'text',
-                text: `Connect to ${url} using spectra_connect, then use spectra_walkthrough to execute these steps in order: ${steps}. Capture a screenshot after each step.`,
-            },
-        }],
-}));
-server.prompt('capture-feature', 'Capture screenshots of a specific feature from multiple angles', {
-    url: z.string().describe('URL to connect to'),
-    feature: z.string().describe('Feature to capture, e.g., "dashboard", "settings page"'),
-}, ({ url, feature }) => ({
-    messages: [{
-            role: 'user',
-            content: {
-                type: 'text',
-                text: `Connect to ${url} using spectra_connect. Use spectra_analyze to find regions of interest. Navigate to the ${feature} and capture it using spectra_capture with mode=auto. Also capture with mode=region for each detected region. Save all captures.`,
-            },
-        }],
-}));
-server.prompt('full-audit', 'Discover and capture all screens in an app', {
-    url: z.string().describe('URL to connect to'),
-}, ({ url }) => ({
-    messages: [{
-            role: 'user',
-            content: {
-                type: 'text',
-                text: `Connect to ${url} using spectra_connect, then use spectra_discover to auto-navigate the entire app. Set maxDepth=3 and captureStates=true to capture loading, error, and empty states as well. Report the manifest path and a summary of what was found.`,
-            },
-        }],
-}));
-/** Get the configured McpServer instance (for HTTP transport mounting). */
-export function getMcpServer() {
+    if (err instanceof ToolMappingError) {
+        return {
+            content: [{ type: 'text', text: JSON.stringify({ error: err.message, code: 'bad_request', tool: toolName, timestamp: Date.now() }, null, 2) }],
+            isError: true,
+        };
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+        content: [{ type: 'text', text: JSON.stringify({ error: message, tool: toolName, timestamp: Date.now() }, null, 2) }],
+        isError: true,
+    };
+}
+/** Forward a tool call and wrap the result as MCP text content. */
+async function forward(client, toolName, args) {
+    try {
+        const result = await forwardTool(client, toolName, args);
+        return { content: [{ type: 'text', text: JSON.stringify({ ...Object(result), timestamp: Date.now() }, null, 2) }] };
+    }
+    catch (err) {
+        return formatError(err, toolName);
+    }
+}
+/**
+ * Build a coreless Spectra MCP server bound to the given daemon client. The
+ * client is injectable so tests can point it at a mock daemon.
+ */
+export function createSpectraServer(client) {
+    const server = new McpServer({ name: 'spectra', version: getVersionInfo().daemonVersion });
+    registerResources(server, client);
+    server.tool('spectra_connect', 'Start a new UI automation session. Target: URL (web), app name (macOS), sim:device (iOS/watchOS). If repoPath is set, the launcher first boots a dev server / macOS app from that directory and uses its resolved URL/app-name as the effective target.', {
+        target: z.string().describe('URL, app name, or sim:device identifier. Ignored if repoPath is set and the launcher resolves a target.'),
+        name: z.string().optional().describe('Human-readable session name'),
+        record: z.boolean().optional().describe('Start video recording'),
+        repoPath: z.string().optional().describe('Absolute path to a repo to launch first (Next.js / Vite / static HTML / macOS Xcode project).'),
+    }, { readOnlyHint: false, destructiveHint: false, idempotentHint: true }, async (args) => forward(client, 'spectra_connect', args));
+    server.tool('spectra_snapshot', 'Get current AX tree snapshot of the active session.', {
+        sessionId: z.string().describe('Session ID'),
+        screenshot: z.boolean().optional().describe('Include screenshot'),
+    }, { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async (args) => forward(client, 'spectra_snapshot', args));
+    server.tool('spectra_act', 'Perform an action on an element (click, type, clear, scroll, hover, focus).', {
+        sessionId: z.string(),
+        elementId: z.string().describe('Element ID from snapshot (e.g., "e4")'),
+        action: z.enum(['click', 'type', 'clear', 'select', 'scroll', 'hover', 'focus']),
+        value: z.string().optional().describe('Text to type or scroll amount'),
+    }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_act', args));
+    server.tool('spectra_step', 'Natural language step: describe what to do, Spectra finds the element and optionally executes.', {
+        sessionId: z.string(),
+        intent: z.string().describe('What to do, e.g., "click the Log In button"'),
+    }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => {
+        // step returns mixed content (text + optional image); preserve that.
+        try {
+            const result = (await forwardTool(client, 'spectra_step', args));
+            const { screenshot, ...textResult } = result;
+            const content = [
+                { type: 'text', text: JSON.stringify({ ...textResult, timestamp: Date.now() }, null, 2) },
+            ];
+            if (typeof screenshot === 'string' && screenshot.length > 0) {
+                content.push({ type: 'image', data: screenshot, mimeType: 'image/png' });
+            }
+            return { content };
+        }
+        catch (err) {
+            return formatError(err, 'spectra_step');
+        }
+    });
+    server.tool('spectra_capture', 'Capture screenshot or manage video recording. Supports intelligent framing modes: full, element, region, auto.', {
+        sessionId: z.string(),
+        type: z.enum(['screenshot', 'start_recording', 'stop_recording']),
+        preset: z.enum(['docs', 'demo', 'social', 'app-store']).optional().describe('Production capture preset'),
+        mode: z.enum(['full', 'element', 'region', 'auto']).optional().describe('Capture mode (default: full)'),
+        elementId: z.string().optional().describe('Element ID for mode=element'),
+        region: z.string().optional().describe('Region label for mode=region (e.g., "Navigation", "Form")'),
+        aspectRatio: z.string().optional().describe('Output aspect ratio e.g. "16:9", "4:3", "1:1"'),
+        clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
+        quality: z.enum(['lossless', 'high', 'medium']).optional().describe('Output quality'),
+        fps: z.union([z.literal(30), z.literal(60)]).optional().describe('Recording frame rate'),
+        codec: z.enum(['h264', 'hevc']).optional().describe('Recording codec'),
+        bitrate: z.enum(['4M', '8M']).optional().describe('Recording bitrate'),
+        hardware: z.boolean().optional().describe('Use hardware encoding when available'),
+        composite: z.object({
+            enabled: z.boolean().optional(),
+            displayWidth: z.number().optional(),
+            displayHeight: z.number().optional(),
+            left: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+            right: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+        }).optional().describe('Side-by-side composite recording (start_recording): split the full-display capture into left/right panes and hstack them. Omit rects/dims for an auto equal-halves split.'),
+    }, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_capture', args));
+    server.tool('spectra_analyze', 'Score the current screen and identify regions of interest, UI state, and top elements by importance', {
+        sessionId: z.string().describe('Active session ID'),
+        viewport: z.object({
+            width: z.number(),
+            height: z.number(),
+            devicePixelRatio: z.number().optional(),
+        }).optional().describe('Viewport dimensions for scoring (defaults: 1280x800@1x)'),
+    }, { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async (args) => forward(client, 'spectra_analyze', args));
+    server.tool('spectra_discover', 'Auto-navigate and capture an entire app — discovers screens via BFS crawl, scores elements, detects UI states, and produces framed screenshots', {
+        sessionId: z.string().describe('Active session ID'),
+        maxDepth: z.number().optional().describe('Max navigation depth (default: 3)'),
+        maxScreens: z.number().optional().describe('Max screens to discover (default: 50)'),
+        captureStates: z.boolean().optional().describe('Capture loading/error/empty states (default: false)'),
+        clean: z.boolean().optional().describe('Apply visual cleanup before capture (default: true)'),
+        outputDir: z.string().optional().describe('Custom output directory'),
+    }, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_discover', args));
+    server.tool('spectra_walkthrough', 'Execute a multi-step UI flow with optional screenshot capture at each step. Reduces tool calls from 2N to 1 for N-step walkthroughs.', {
+        sessionId: z.string().describe('Active session ID'),
+        steps: z.array(z.object({
+            intent: z.string().describe('What to do, e.g., "click the Login button"'),
+            capture: z.boolean().optional().describe('Take screenshot after this step (default: true)'),
+            waitMs: z.number().optional().describe('Wait ms after action before capture (default: 500)'),
+        })).describe('Steps to execute in order'),
+        clean: z.boolean().optional().describe('Apply visual cleanup for screenshots (default: true)'),
+    }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_walkthrough', args));
+    server.tool('spectra_llm_step', 'Execute a fully-formed action plan from a client-side LLM planner (the Spectra menu-bar app holds the API key; the daemon never sees it). Each action is { type, elementId, value?, intent?, waitAfterMs? }. Short-circuits on first failure unless continueOnError=true.', {
+        sessionId: z.string().describe('Active session ID'),
+        actions: z.array(z.object({
+            type: z.enum(['click', 'type', 'clear', 'select', 'scroll', 'hover', 'focus']),
+            elementId: z.string(),
+            value: z.string().optional(),
+            intent: z.string().optional(),
+            waitAfterMs: z.number().optional(),
+        })).describe('Action plan to execute in order'),
+        continueOnError: z.boolean().optional().describe('Continue past a failing step (default: false)'),
+    }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_llm_step', args));
+    server.tool('spectra_session', 'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session.', {
+        action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage']),
+        sessionId: z.string().optional(),
+        usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
+    }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_session', args));
+    server.tool('spectra_record', 'Record a terminal command session (stdout/stderr with timestamps) in asciicast format', {
+        command: z.string().describe('Command to record'),
+        timeout: z.number().optional().describe('Max duration in ms (default 300000)'),
+        watch_files: z.array(z.string()).optional().describe('File paths to watch for changes during recording'),
+        outputDir: z.string().optional().describe('Directory to write .cast file (default: .spectra/recordings/)'),
+    }, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_record', args));
+    server.tool('spectra_replay', 'Read, search, or summarize a terminal recording (.cast file)', {
+        file: z.string().describe('Path to .cast file'),
+        search: z.string().optional().describe('Search pattern (regex or string)'),
+        commands_only: z.boolean().optional().describe('Extract only input commands'),
+    }, { readOnlyHint: true, destructiveHint: false, idempotentHint: true }, async (args) => forward(client, 'spectra_replay', args));
+    server.tool('spectra_library', 'Manage the spectra capture library (tag, find, gallery, export, status, delete, add, migrate-from-showcase). Action-dispatched like spectra_session.', {
+        action: z
+            .enum(['add', 'find', 'gallery', 'get', 'tag', 'delete', 'status', 'export', 'migrate-from-showcase'])
+            .describe('Library operation to perform'),
+        sourcePath: z.string().optional().describe('add: path to a media file to import'),
+        type: z.enum(['screenshot', 'video', 'walkthrough']).optional(),
+        platform: z.enum(['web', 'macos', 'ios', 'watchos', 'unknown']).optional(),
+        url: z.string().optional(),
+        viewport: z.string().optional(),
+        selector: z.string().optional(),
+        deviceName: z.string().optional(),
+        title: z.string().optional(),
+        feature: z.string().optional().describe('Canonical feature slug (kebab-case) used for grouping'),
+        component: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+        starred: z.boolean().optional(),
+        walkthrough: z
+            .object({ step_count: z.number(), steps: z.array(z.string()) })
+            .optional(),
+        durationMs: z.number().optional(),
+        gitBranch: z.string().optional(),
+        gitCommit: z.string().optional(),
+        tagsAny: z.array(z.string()).optional(),
+        tagsAll: z.array(z.string()).optional(),
+        since: z.string().optional().describe('ISO date — only include captures on or after'),
+        until: z.string().optional(),
+        text: z.string().optional().describe('Free-text search over title / tags / feature / component'),
+        limit: z.number().optional(),
+        groupBy: z.enum(['feature', 'date', 'component', 'platform', 'type']).optional(),
+        id: z.string().optional(),
+        outDir: z.string().optional(),
+        flatten: z.boolean().optional(),
+        manifest: z.boolean().optional(),
+        showcasePath: z.string().optional().describe('Path to a legacy .showcase/ directory'),
+    }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_library', args));
+    server.tool('spectra_demo', 'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence, or action=record-composite to drive the WINDOW-ISOLATED composite recorder (two app windows side-by-side via ScreenCaptureKit, caffeinate-wrapped so the display never sleeps, with a post-capture black-frame guard). Audio is always stripped.', {
+        action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP'),
+        input: z.string().optional().describe('scan/auto-ramp: path to the source video file'),
+        threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
+        deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
+        minDeadSec: z.number().optional().describe('auto-ramp: min gap length to ramp, seconds (default 1.5)'),
+        maxWidth: z.number().optional().describe('auto-ramp: lanczos-downscale max width (default 1600)'),
+        crf: z.number().optional().describe('auto-ramp: x264 quality (default 20)'),
+        fps: z.number().optional().describe('auto-ramp: output fps (default 60)'),
+        spec: z.object({
+            canvas: z.object({ w: z.number(), h: z.number() }).describe('Output canvas dimensions (pixels)'),
+            fps: z.number().optional().describe('Target frame rate (informational)'),
+            segments: z.array(z.object({
+                input: z.string().describe('Path to the source recording for this segment'),
+                startSec: z.number().describe('Start offset in seconds'),
+                durationSec: z.number().describe('Segment duration in seconds'),
+                focal: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).describe('Focal region in source pixels'),
+                caption: z.string().optional().describe('Lower-third caption text'),
+                captionPngPath: z.string().optional().describe('PNG overlay fallback when drawtext is unavailable'),
+            })).describe('Ordered segments to render and merge'),
+            speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
+        }).optional().describe('polish: segment specification'),
+        out: z.string().optional().describe('polish/auto-ramp: output mp4 path'),
+        appA: z.string().optional().describe('record-composite: app name / bundle substring for the LEFT pane'),
+        titleA: z.string().optional().describe('record-composite: optional window-title substring for the left pane'),
+        labelA: z.string().optional().describe('record-composite: optional label for the left pane'),
+        appB: z.string().optional().describe('record-composite: app name / bundle substring for the RIGHT pane'),
+        titleB: z.string().optional().describe('record-composite: optional window-title substring for the right pane'),
+        labelB: z.string().optional().describe('record-composite: optional label for the right pane'),
+        durationSeconds: z.number().optional().describe('record-composite: capture duration in seconds (default 5)'),
+        spotlight: z.enum(['none', 'a', 'b']).optional().describe('record-composite: dim+blur the non-focal pane — none | a (left) | b (right). Default none'),
+        cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
+        outPath: z.string().optional().describe('record-composite: composite MP4 output path'),
+        sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
+    }, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_demo', args));
+    // ─── Prompts (unchanged) ───────────────────────────────────
+    server.prompt('walkthrough', 'Walk through a UI flow and capture screenshots at each step', {
+        url: z.string().describe('URL to connect to'),
+        steps: z.string().describe('Comma-separated steps, e.g., "click Login, enter email test@example.com, click Submit"'),
+    }, ({ url, steps }) => ({
+        messages: [{
+                role: 'user',
+                content: { type: 'text', text: `Connect to ${url} using spectra_connect, then use spectra_walkthrough to execute these steps in order: ${steps}. Capture a screenshot after each step.` },
+            }],
+    }));
+    server.prompt('capture-feature', 'Capture screenshots of a specific feature from multiple angles', {
+        url: z.string().describe('URL to connect to'),
+        feature: z.string().describe('Feature to capture, e.g., "dashboard", "settings page"'),
+    }, ({ url, feature }) => ({
+        messages: [{
+                role: 'user',
+                content: { type: 'text', text: `Connect to ${url} using spectra_connect. Use spectra_analyze to find regions of interest. Navigate to the ${feature} and capture it using spectra_capture with mode=auto. Also capture with mode=region for each detected region. Save all captures.` },
+            }],
+    }));
+    server.prompt('full-audit', 'Discover and capture all screens in an app', {
+        url: z.string().describe('URL to connect to'),
+    }, ({ url }) => ({
+        messages: [{
+                role: 'user',
+                content: { type: 'text', text: `Connect to ${url} using spectra_connect, then use spectra_discover to auto-navigate the entire app. Set maxDepth=3 and captureStates=true to capture loading, error, and empty states as well. Report the manifest path and a summary of what was found.` },
+            }],
+    }));
     return server;
 }
-/** Connect the McpServer to the given transport. Returns when transport is ready. */
+// ─── Default singletons for the legacy HTTP-mount path (deleted in P3) ──
+let defaultClient = null;
+let defaultServer = null;
+/** Build a stdio client whose auto-bootstrap polls a separate probe client on
+ * the same socket (avoids a self-referential bootstrap). */
+function buildStdioClient() {
+    const probe = new DaemonClient({ surface: 'stdio-mcp', callerName: 'spectra-stdio' });
+    return new DaemonClient({
+        surface: 'stdio-mcp',
+        callerName: 'spectra-stdio',
+        bootstrap: spawnDaemonBootstrap(probe),
+    });
+}
+function getDefaultClient() {
+    if (!defaultClient)
+        defaultClient = buildStdioClient();
+    return defaultClient;
+}
+function getDefaultServer() {
+    if (!defaultServer)
+        defaultServer = createSpectraServer(getDefaultClient());
+    return defaultServer;
+}
+/** Get the default McpServer instance (for HTTP transport mounting). */
+export function getMcpServer() {
+    return getDefaultServer();
+}
+/** Connect the default McpServer to the given transport. */
 export async function connectTransport(transport) {
-    await server.connect(transport);
+    await getDefaultServer().connect(transport);
 }
-/** Default stdio entry — preserves the existing Claude Code MCP path. */
+/** Default stdio entry — the path Claude Code spawns (coreless daemon proxy). */
 export async function startStdio() {
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+    const server = createSpectraServer(buildStdioClient());
+    await server.connect(new StdioServerTransport());
 }
-// Run stdio if this file is the entry point (preserves legacy
+// Run stdio if this file is the entry point (preserves the
 // `node dist/mcp/server.js` invocation from .claude-plugin/plugin.json).
 const isEntry = import.meta.url === `file://${process.argv[1]}` ||
     import.meta.url.endsWith(process.argv[1] ?? '');
