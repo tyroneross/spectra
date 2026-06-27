@@ -1,0 +1,157 @@
+import { spawn, spawnSync } from 'node:child_process';
+import { stat } from 'node:fs/promises';
+import { detectFfmpeg } from '../media/ffmpeg.js';
+import { ensureCompositeBinary } from '../native/compiler.js';
+export const COMPOSITE_WORKER_DEFAULTS = {
+    durationSeconds: 5,
+    fps: 60,
+    spotlight: 'none',
+    cursor: true,
+    maxWidth: 1600,
+    crf: 20,
+    blackThreshold: 16,
+};
+export function buildCompositeWorkerArgs(params) {
+    if (!params.appA)
+        throw new Error('recordComposite requires appA');
+    if (!params.appB)
+        throw new Error('recordComposite requires appB');
+    if (!params.outPath)
+        throw new Error('recordComposite requires outPath');
+    const args = ['--app-a', params.appA, '--app-b', params.appB, '--out', params.outPath];
+    if (params.titleA)
+        args.push('--title-a', params.titleA);
+    if (params.labelA)
+        args.push('--label-a', params.labelA);
+    if (params.titleB)
+        args.push('--title-b', params.titleB);
+    if (params.labelB)
+        args.push('--label-b', params.labelB);
+    args.push('--duration', String(params.durationSeconds ?? COMPOSITE_WORKER_DEFAULTS.durationSeconds));
+    args.push('--fps', String(params.fps ?? COMPOSITE_WORKER_DEFAULTS.fps));
+    args.push('--spotlight', params.spotlight ?? COMPOSITE_WORKER_DEFAULTS.spotlight);
+    args.push(params.cursor === false ? '--no-cursor' : '--cursor');
+    args.push('--max-width', String(params.maxWidth ?? COMPOSITE_WORKER_DEFAULTS.maxWidth));
+    args.push('--crf', String(params.crf ?? COMPOSITE_WORKER_DEFAULTS.crf));
+    return args;
+}
+export function parseLuminance(output, blackThreshold = COMPOSITE_WORKER_DEFAULTS.blackThreshold) {
+    const values = [];
+    const pattern = /lavfi\.signalstats\.YAVG=(\d+(?:\.\d+)?)/g;
+    let match;
+    while ((match = pattern.exec(output)) !== null) {
+        const value = Number.parseFloat(match[1]);
+        if (Number.isFinite(value))
+            values.push(value);
+    }
+    if (values.length === 0) {
+        return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true };
+    }
+    const meanLuma = values.reduce((sum, value) => sum + value, 0) / values.length;
+    return {
+        sampleCount: values.length,
+        meanLuma,
+        allBlack: meanLuma < blackThreshold,
+        skipped: false,
+    };
+}
+function probeBlackFrames(outPath) {
+    const ffmpeg = detectFfmpeg();
+    if (!ffmpeg)
+        return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true };
+    try {
+        const result = spawnSync(ffmpeg, [
+            '-nostats',
+            '-i', outPath,
+            '-vf', 'fps=2,signalstats,metadata=print:file=-',
+            '-an',
+            '-f', 'null',
+            '-',
+        ], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        return parseLuminance(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
+    }
+    catch {
+        return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true };
+    }
+}
+function parseWorkerStdout(stdout) {
+    const trimmed = stdout.trim();
+    if (!trimmed)
+        return {};
+    try {
+        const parsed = JSON.parse(trimmed);
+        return {
+            output: typeof parsed.output === 'string' ? parsed.output : undefined,
+            validation: parsed.validation,
+            details: parsed,
+        };
+    }
+    catch {
+        return {};
+    }
+}
+export async function recordCompositeWithWorker(params) {
+    const args = buildCompositeWorkerArgs(params);
+    const binary = ensureCompositeBinary();
+    const commandLine = [binary, ...args].join(' ');
+    const { stdout, stderr, code } = await new Promise((resolve, reject) => {
+        const child = spawn(binary, args, { stdio: 'pipe' });
+        const stdoutChunks = [];
+        const stderrChunks = [];
+        child.stdout?.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));
+        child.stderr?.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
+        child.on('error', reject);
+        child.on('close', (exitCode) => {
+            resolve({
+                stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+                stderr: Buffer.concat(stderrChunks).toString('utf8'),
+                code: exitCode,
+            });
+        });
+    });
+    if (code !== 0) {
+        return {
+            ok: false,
+            command: commandLine,
+            blackFrameGuard: { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true },
+            warnings: [],
+            error: `spectra-composite-capture exited with code ${code}${stderr.trim() ? `\n${stderr.trim()}` : ''}`,
+        };
+    }
+    const parsed = parseWorkerStdout(stdout);
+    const output = parsed.output ?? params.outPath;
+    const warnings = [];
+    try {
+        await stat(output);
+    }
+    catch {
+        return {
+            ok: false,
+            output,
+            command: commandLine,
+            validation: parsed.validation,
+            details: parsed.details,
+            blackFrameGuard: { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true },
+            warnings,
+            error: `Composite worker completed but output was not written: ${output}`,
+        };
+    }
+    const guard = probeBlackFrames(output);
+    if (guard.allBlack) {
+        warnings.push(`Output appears all-black (mean luminance ${guard.meanLuma?.toFixed(1)} < `
+            + `${COMPOSITE_WORKER_DEFAULTS.blackThreshold} across ${guard.sampleCount} sampled frames).`);
+    }
+    else if (guard.skipped) {
+        warnings.push('Black-frame guard skipped; ffmpeg was unavailable or no luminance samples were produced.');
+    }
+    return {
+        ok: true,
+        output,
+        command: commandLine,
+        validation: parsed.validation,
+        details: parsed.details,
+        blackFrameGuard: guard,
+        warnings,
+    };
+}
+//# sourceMappingURL=composite-worker.js.map

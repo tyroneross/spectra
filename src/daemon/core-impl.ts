@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import type {
   AnalyzeParams,
@@ -54,6 +55,7 @@ import type {
   LlmStepResult,
   WalkthroughParams,
   WalkthroughResult,
+  JsonValue,
   TerminalRecordParams,
   TerminalRecordResult,
   TerminalReplayParams,
@@ -73,15 +75,20 @@ import { handleSession } from '../mcp/tools/session.js'
 import { handleSnapshot } from '../mcp/tools/snapshot.js'
 import { handleStep } from '../mcp/tools/step.js'
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js'
-import { DaemonApiError, NotYetImplementedError } from './errors.js'
+import { recordCompositeWithWorker } from './composite-worker.js'
+import { DaemonApiError } from './errors.js'
 import { health as daemonHealth, type HealthProbeOptions } from './health.js'
 import type { KeepAwakeController } from './keep-awake.js'
-import { NoopKeepAwakeController } from './keep-awake.js'
+import { createKeepAwakeController } from './keep-awake.js'
 
 const execFileAsync = promisify(execFile)
 
-const NEXT_RECORDING_CHUNK =
-  'Native ScreenCaptureKit recording remains in the next backend chunk; Phase 1 only owns daemon transport, dispatch, health, and non-recording CoreApi wiring.'
+const SINGLE_WINDOW_RECORDING_HINT =
+  'Use recordComposite(params) for daemon-owned window-isolated ScreenCaptureKit capture. '
+  + 'startRecording/stopRecording are intentionally not wired to the legacy full-display '
+  + 'AVFoundation path; they need a separate frozen single-window streaming contract.'
+
+type CompositeWorker = typeof recordCompositeWithWorker
 
 export interface CoreApiImplementationOptions {
   context?: ToolContext
@@ -89,6 +96,7 @@ export interface CoreApiImplementationOptions {
   daemonVersion?: string
   healthProbe?: HealthProbeOptions
   keepAwake?: KeepAwakeController
+  recordCompositeWorker?: CompositeWorker
 }
 
 export function createCoreApi(options: CoreApiImplementationOptions = {}): CoreApi {
@@ -101,13 +109,15 @@ class CoreApiImplementation implements CoreApi {
   private readonly daemonVersion?: string
   private readonly healthProbe?: HealthProbeOptions
   private readonly keepAwake: KeepAwakeController
+  private readonly recordCompositeWorker: CompositeWorker
 
   constructor(options: CoreApiImplementationOptions) {
     this.ctx = options.context ?? createContext()
     this.startedAt = options.startedAt ?? Date.now()
     this.daemonVersion = options.daemonVersion
     this.healthProbe = options.healthProbe
-    this.keepAwake = options.keepAwake ?? new NoopKeepAwakeController()
+    this.keepAwake = options.keepAwake ?? createKeepAwakeController()
+    this.recordCompositeWorker = options.recordCompositeWorker ?? recordCompositeWithWorker
   }
 
   async health(params: HealthParams = {}): Promise<HealthResult> {
@@ -230,15 +240,44 @@ class CoreApiImplementation implements CoreApi {
   }
 
   async startRecording(_params: StartRecordingParams): Promise<StartRecordingResult> {
-    throw new NotYetImplementedError('startRecording', NEXT_RECORDING_CHUNK)
+    throw new DaemonApiError(
+      'recording_failed',
+      'startRecording is not available on the daemon until single-window recording is wired.',
+      { status: 501, hint: SINGLE_WINDOW_RECORDING_HINT, retryable: false },
+    )
   }
 
   async stopRecording(_params: StopRecordingParams): Promise<StopRecordingResult> {
-    throw new NotYetImplementedError('stopRecording', NEXT_RECORDING_CHUNK)
+    throw new DaemonApiError(
+      'recording_failed',
+      'stopRecording is not available on the daemon until single-window recording is wired.',
+      { status: 501, hint: SINGLE_WINDOW_RECORDING_HINT, retryable: false },
+    )
   }
 
-  async recordComposite(_params: RecordCompositeParams): Promise<RecordCompositeResult> {
-    throw new NotYetImplementedError('recordComposite', NEXT_RECORDING_CHUNK)
+  async recordComposite(params: RecordCompositeParams): Promise<RecordCompositeResult> {
+    const recordingId = `composite-${randomUUID().slice(0, 8)}`
+    await this.keepAwake.recordingStarted(recordingId)
+    try {
+      const result = await this.recordCompositeWorker(params)
+      const artifactId = result.ok && result.output
+        ? await this.addCompositeArtifact(params, result, recordingId)
+        : undefined
+      return artifactId ? { ...result, artifactId } : result
+    } catch (error) {
+      throw new DaemonApiError(
+        'recording_failed',
+        `recordComposite failed: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          status: 500,
+          hint: 'Verify the daemon is running in a GUI/Aqua session with Screen Recording permission, target windows are visible, ffmpeg is installed, and the Swift composite worker builds.',
+          retryable: false,
+          cause: error,
+        },
+      )
+    } finally {
+      await this.keepAwake.recordingStopped(recordingId).catch(() => {})
+    }
   }
 
   async analyze(params: AnalyzeParams): Promise<AnalyzeResult> {
@@ -263,7 +302,8 @@ class CoreApiImplementation implements CoreApi {
 
   async demo(params: DemoParams): Promise<DemoResult> {
     if (params.action === 'record-composite') {
-      throw new NotYetImplementedError('demo(record-composite)', NEXT_RECORDING_CHUNK)
+      const { action: _action, ...recordParams } = params
+      return this.recordComposite(recordParams)
     }
     return handleDemo(params, this.ctx) as Promise<DemoResult>
   }
@@ -274,6 +314,33 @@ class CoreApiImplementation implements CoreApi {
 
   async close(): Promise<void> {
     await this.keepAwake.close()
+  }
+
+  private async addCompositeArtifact(
+    params: RecordCompositeParams,
+    result: RecordCompositeResult,
+    recordingId: string,
+  ): Promise<string | undefined> {
+    if (!params.sessionId || !this.ctx.sessions.get(params.sessionId)) return undefined
+    const metadata: Record<string, JsonValue> = {
+      recordingId,
+      appA: params.appA,
+      appB: params.appB,
+      blackFrameMeanLuma: result.blackFrameGuard.meanLuma,
+      blackFrameAllBlack: result.blackFrameGuard.allBlack,
+      blackFrameSampleCount: result.blackFrameGuard.sampleCount,
+      warnings: result.warnings,
+    }
+    if (params.durationSeconds !== undefined) metadata.durationSeconds = params.durationSeconds
+    if (params.fps !== undefined) metadata.fps = params.fps
+    const artifact = await this.ctx.sessions.addArtifact(params.sessionId, {
+      type: 'video',
+      path: result.output!,
+      format: 'mp4',
+      label: 'Composite recording',
+      metadata,
+    })
+    return artifact.id
   }
 }
 
