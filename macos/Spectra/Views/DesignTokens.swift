@@ -114,6 +114,10 @@ enum SpectraSurface {
     /// as a control in both appearances without competing with prominent CTAs.
     static let control: Color = Color.primary.opacity(0.07)
 
+    /// Pressed fill for standard buttons — a perceptible deepening of `control`
+    /// (not a ~2% nudge) so the press reads on the compact menu-bar surface.
+    static let controlPressed: Color = Color.primary.opacity(0.15)
+
     /// Slightly stronger background for emphasized neutral regions.
     static let raised: Color = Color.primary.opacity(0.06)
 

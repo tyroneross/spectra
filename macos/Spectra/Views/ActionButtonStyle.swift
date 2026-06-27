@@ -92,7 +92,7 @@ struct SpectraStandardButtonStyle: ButtonStyle {
                     // confirmation. Disabled: no fill (outline only).
                     .fill(
                         isEnabled
-                            ? (configuration.isPressed ? SpectraSurface.subtleHover : SpectraSurface.control)
+                            ? (configuration.isPressed ? SpectraSurface.controlPressed : SpectraSurface.control)
                             : Color.clear
                     )
             )
