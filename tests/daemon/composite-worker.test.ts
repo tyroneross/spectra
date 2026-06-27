@@ -71,6 +71,7 @@ describe('buildCompositeWorkerArgs — explicit values', () => {
       durationSeconds: 12,
       fps: 30,
       spotlight: 'b',
+      caption: 'Live product walkthrough',
       maxWidth: 1280,
       crf: 18,
     })
@@ -81,6 +82,7 @@ describe('buildCompositeWorkerArgs — explicit values', () => {
     expect(flagValue(args, '--duration')).toBe('12')
     expect(flagValue(args, '--fps')).toBe('30')
     expect(flagValue(args, '--spotlight')).toBe('b')
+    expect(flagValue(args, '--caption')).toBe('Live product walkthrough')
     expect(flagValue(args, '--max-width')).toBe('1280')
     expect(flagValue(args, '--crf')).toBe('18')
   })
@@ -97,6 +99,7 @@ describe('buildCompositeWorkerArgs — explicit values', () => {
     expect(args).not.toContain('--label-a')
     expect(args).not.toContain('--title-b')
     expect(args).not.toContain('--label-b')
+    expect(args).not.toContain('--caption')
   })
 })
 

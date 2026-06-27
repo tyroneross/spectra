@@ -534,6 +534,7 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     durationSeconds: z.ZodOptional<z.ZodNumber>;
     fps: z.ZodOptional<z.ZodNumber>;
     spotlight: z.ZodOptional<z.ZodEnum<["none", "a", "b"]>>;
+    caption: z.ZodOptional<z.ZodString>;
     cursor: z.ZodOptional<z.ZodBoolean>;
     maxWidth: z.ZodOptional<z.ZodNumber>;
     crf: z.ZodOptional<z.ZodNumber>;
@@ -545,6 +546,7 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
+    caption?: string | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -560,6 +562,7 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
+    caption?: string | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -1112,6 +1115,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     durationSeconds: z.ZodOptional<z.ZodNumber>;
     fps: z.ZodOptional<z.ZodNumber>;
     spotlight: z.ZodOptional<z.ZodEnum<["none", "a", "b"]>>;
+    caption: z.ZodOptional<z.ZodString>;
     cursor: z.ZodOptional<z.ZodBoolean>;
     maxWidth: z.ZodOptional<z.ZodNumber>;
     crf: z.ZodOptional<z.ZodNumber>;
@@ -1125,6 +1129,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
+    caption?: string | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -1141,6 +1146,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
+    caption?: string | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
@@ -1568,6 +1574,7 @@ export declare const operationParamSchemas: {
         durationSeconds: z.ZodOptional<z.ZodNumber>;
         fps: z.ZodOptional<z.ZodNumber>;
         spotlight: z.ZodOptional<z.ZodEnum<["none", "a", "b"]>>;
+        caption: z.ZodOptional<z.ZodString>;
         cursor: z.ZodOptional<z.ZodBoolean>;
         maxWidth: z.ZodOptional<z.ZodNumber>;
         crf: z.ZodOptional<z.ZodNumber>;
@@ -1579,6 +1586,7 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
+        caption?: string | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -1594,6 +1602,7 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
+        caption?: string | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -2115,6 +2124,7 @@ export declare const operationParamSchemas: {
         durationSeconds: z.ZodOptional<z.ZodNumber>;
         fps: z.ZodOptional<z.ZodNumber>;
         spotlight: z.ZodOptional<z.ZodEnum<["none", "a", "b"]>>;
+        caption: z.ZodOptional<z.ZodString>;
         cursor: z.ZodOptional<z.ZodBoolean>;
         maxWidth: z.ZodOptional<z.ZodNumber>;
         crf: z.ZodOptional<z.ZodNumber>;
@@ -2128,6 +2138,7 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
+        caption?: string | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -2144,6 +2155,7 @@ export declare const operationParamSchemas: {
         outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
+        caption?: string | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
@@ -2681,6 +2693,7 @@ export interface ContractSurface {
     errorCodes: string[];
     clientSurfaces: string[];
     eventTypes: string[];
+    operationParams: Record<string, string[]>;
     routes: {
         socketPath: string;
         socketMode: string;

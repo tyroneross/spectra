@@ -41,6 +41,7 @@ export function buildCompositeWorkerArgs(params: RecordCompositeParams): string[
   if (params.labelA) args.push('--label-a', params.labelA)
   if (params.titleB) args.push('--title-b', params.titleB)
   if (params.labelB) args.push('--label-b', params.labelB)
+  if (params.caption) args.push('--caption', params.caption)
 
   args.push('--duration', String(params.durationSeconds ?? COMPOSITE_WORKER_DEFAULTS.durationSeconds))
   args.push('--fps', String(params.fps ?? COMPOSITE_WORKER_DEFAULTS.fps))

@@ -66,6 +66,7 @@ struct Options {
     var appB: String?
     var titleB: String?
     var labelB: String?
+    var caption: String?
     var out: String?
     var validateFile: String?
     var duration: Double = 5
@@ -207,8 +208,11 @@ struct SpectraCompositeCapture {
                 output: outputURL,
                 leftLabel: labelA,
                 rightLabel: labelB,
+                caption: options.caption,
                 leftHeight: left.height,
+                leftWidth: left.width,
                 rightHeight: right.height,
+                rightWidth: right.width,
                 fps: options.fps,
                 pixFmt: options.pixFmt,
                 focus: options.focus,
@@ -258,6 +262,7 @@ Options:
   --app-b <name>              App name or bundle substring for the right pane.
   --title-b <substring>       Optional window-title substring for the right pane.
   --label-b <text>            Optional label for the right pane.
+  --caption <text>            Optional lower-third caption strip text.
   --out <path.mp4>            Composite MP4 output path.
   --duration <seconds>        Capture duration. Default: 5.
   --fps <frames>              Capture FPS. Default: 60.
@@ -304,6 +309,8 @@ func parseOptions(_ args: [String]) throws -> Options {
             options.titleB = try value(after: arg)
         case "--label-b":
             options.labelB = try value(after: arg)
+        case "--caption":
+            options.caption = try value(after: arg)
         case "--out":
             options.out = try value(after: arg)
         case "--validate-file", "--validate-only":
@@ -1194,8 +1201,11 @@ func stitchVideos(
     output: URL,
     leftLabel: String,
     rightLabel: String,
+    caption: String?,
     leftHeight: Int,
+    leftWidth: Int,
     rightHeight: Int,
+    rightWidth: Int,
     fps: Int,
     pixFmt: String,
     focus: Bool,
@@ -1210,6 +1220,10 @@ func stitchVideos(
     try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
 
     let height = max(2, min(leftHeight, rightHeight) - (min(leftHeight, rightHeight) % 2))
+    let leftPaneWidth = scaledPaneWidth(sourceWidth: leftWidth, sourceHeight: leftHeight, targetHeight: height)
+    let rightPaneWidth = scaledPaneWidth(sourceWidth: rightWidth, sourceHeight: rightHeight, targetHeight: height)
+    let stackWidth = leftPaneWidth + rightPaneWidth
+    let finalWidth = min(maxWidth, stackWidth)
     let hasDrawtext = ffmpegSupportsDrawtext()
 
     var arguments = ["-y", "-i", left.path, "-i", right.path]
@@ -1229,7 +1243,7 @@ func stitchVideos(
     }
 
     // Labels.
-    let labelMode: String
+    var labelMode: String
     if hasDrawtext {
         parts.append("[\(leftPane)]drawtext=\(drawtext(label: leftLabel))[la]")
         parts.append("[\(rightPane)]drawtext=\(drawtext(label: rightLabel))[ra]")
@@ -1259,8 +1273,19 @@ func stitchVideos(
         lastLabel = "cur"
     }
 
-    // P3 — lanczos downscale to <= maxWidth (preserve even height), final SAR.
-    parts.append("[\(lastLabel)]scale=w='min(\(maxWidth)\\,iw)':h=-2:flags=lanczos,setsar=1[v]")
+    if let rawCaption = caption?.trimmingCharacters(in: .whitespacesAndNewlines), !rawCaption.isEmpty {
+        parts.append("[\(lastLabel)]scale=w='min(\(maxWidth)\\,iw)':h=-2:flags=lanczos,setsar=1[scaled]")
+        let captionURL = tempDir.appendingPathComponent("caption.png")
+        let stripWidth = max(2, finalWidth - 56)
+        try writeCaptionImage(rawCaption, width: stripWidth, to: captionURL)
+        arguments += ["-i", captionURL.path]
+        let ci = inputCount; inputCount += 1
+        parts.append("[scaled][\(ci):v]overlay=(W-w)/2:H-h-28:format=auto[v]")
+        labelMode += "+caption-png"
+    } else {
+        // P3 — lanczos downscale to <= maxWidth (preserve even height), final SAR.
+        parts.append("[\(lastLabel)]scale=w='min(\(maxWidth)\\,iw)':h=-2:flags=lanczos,setsar=1[v]")
+    }
 
     let filter = parts.joined(separator: ";")
 
@@ -1296,6 +1321,10 @@ func paneSourceFilter(inputIndex: Int, output: String, height: Int, fps: Int, fo
     }
 
     return "\(scaled),format=rgba[\(base)];\(focusFilter(input: base, output: output))"
+}
+
+func scaledPaneWidth(sourceWidth: Int, sourceHeight: Int, targetHeight: Int) -> Int {
+    max(2, 2 * Int((Double(sourceWidth) * Double(targetHeight) / Double(sourceHeight) / 2.0).rounded()))
 }
 
 func focusFilter(input: String, output: String) -> String {
@@ -1377,6 +1406,76 @@ func writeLabelImage(_ text: String, to url: URL) throws {
           let bitmap = NSBitmapImageRep(data: tiff),
           let png = bitmap.representation(using: .png, properties: [:]) else {
         throw CLIError(description: "Failed to create label image")
+    }
+
+    try png.write(to: url)
+}
+
+func writeCaptionImage(_ text: String, width: Int, to url: URL) throws {
+    let height = 106
+    let padX = 40
+    let maxTextWidth = max(20, CGFloat(width - padX * 2))
+    let minFontSize = CGFloat(24)
+    var fontSize = CGFloat(36)
+    var font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+    let paragraph = NSMutableParagraphStyle()
+    paragraph.alignment = .center
+    paragraph.lineBreakMode = .byTruncatingTail
+
+    func attributes(for font: NSFont) -> [NSAttributedString.Key: Any] {
+        [
+            .font: font,
+            .foregroundColor: NSColor.white,
+            .paragraphStyle: paragraph
+        ]
+    }
+
+    var attrs = attributes(for: font)
+    while fontSize > minFontSize {
+        let size = (text as NSString).size(withAttributes: attrs)
+        if size.width <= maxTextWidth { break }
+        fontSize -= 1
+        font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+        attrs = attributes(for: font)
+    }
+
+    let imageSize = NSSize(width: CGFloat(width), height: CGFloat(height))
+    let textSize = (text as NSString).size(withAttributes: attrs)
+    let textRect = NSRect(
+        x: CGFloat(padX),
+        y: max(0, (imageSize.height - textSize.height) / 2.0),
+        width: maxTextWidth,
+        height: min(imageSize.height, textSize.height + 4)
+    )
+
+    guard let bitmap = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: width,
+        pixelsHigh: height,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else {
+        throw CLIError(description: "Failed to create caption image")
+    }
+
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+    NSGraphicsContext.current?.shouldAntialias = true
+    NSColor.clear.setFill()
+    NSRect(origin: .zero, size: imageSize).fill()
+    NSColor.black.withAlphaComponent(0.72).setFill()
+    let radius = CGFloat(8)
+    NSBezierPath(roundedRect: NSRect(origin: .zero, size: imageSize), xRadius: radius, yRadius: radius).fill()
+    (text as NSString).draw(in: textRect, withAttributes: attrs)
+    NSGraphicsContext.restoreGraphicsState()
+
+    guard let png = bitmap.representation(using: .png, properties: [:]) else {
+        throw CLIError(description: "Failed to create caption image")
     }
 
     try png.write(to: url)

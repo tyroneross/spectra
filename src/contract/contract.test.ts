@@ -77,4 +77,9 @@ describe('contract freeze — drift gate', () => {
     expect(live.routes).toEqual(snapshot.routes)
     expect(live.envelopes).toEqual(snapshot.envelopes)
   })
+
+  it('operation param field sets are frozen', () => {
+    expect(live.operationParams).toEqual(snapshot.operationParams)
+    expect(snapshot.operationParams.recordComposite).toContain('caption')
+  })
 })

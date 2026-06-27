@@ -87,6 +87,153 @@
     "library.changed",
     "error"
   ],
+  "operationParams": {
+    "act": [
+      "action",
+      "elementId",
+      "sessionId",
+      "value"
+    ],
+    "analyze": [
+      "sessionId",
+      "viewport"
+    ],
+    "autoRampDemo": [
+      "crf",
+      "deadSpeed",
+      "fps",
+      "input",
+      "maxWidth",
+      "minDeadSec",
+      "out",
+      "padSec",
+      "threshold"
+    ],
+    "closeAllSessions": [],
+    "closeSession": [
+      "sessionId"
+    ],
+    "createSession": [
+      "name",
+      "record",
+      "repoPath",
+      "target"
+    ],
+    "demo": [],
+    "discover": [
+      "captureStates",
+      "clean",
+      "maxDepth",
+      "maxScreens",
+      "outputDir",
+      "sessionId"
+    ],
+    "getPermissions": [
+      "permissions"
+    ],
+    "getRun": [
+      "sessionId"
+    ],
+    "getSession": [
+      "sessionId"
+    ],
+    "health": [
+      "includePermissions"
+    ],
+    "library": [],
+    "listSessions": [
+      "includeClosed"
+    ],
+    "listWindows": [
+      "app",
+      "onScreenOnly",
+      "title"
+    ],
+    "llmStep": [
+      "actions",
+      "continueOnError",
+      "sessionId"
+    ],
+    "observe": [
+      "analyze",
+      "screenshot",
+      "sessionId",
+      "viewport"
+    ],
+    "recordComposite": [
+      "appA",
+      "appB",
+      "caption",
+      "crf",
+      "cursor",
+      "durationSeconds",
+      "fps",
+      "labelA",
+      "labelB",
+      "maxWidth",
+      "outPath",
+      "sessionId",
+      "spotlight",
+      "titleA",
+      "titleB"
+    ],
+    "recordLlmUsage": [
+      "sessionId",
+      "usage"
+    ],
+    "recordTerminal": [
+      "command",
+      "outputDir",
+      "timeout",
+      "watch_files"
+    ],
+    "replayTerminal": [
+      "commands_only",
+      "file",
+      "search"
+    ],
+    "requestPermissions": [
+      "openSettings",
+      "permissions",
+      "prompt"
+    ],
+    "screenshot": [
+      "aspectRatio",
+      "clean",
+      "elementId",
+      "mode",
+      "preset",
+      "quality",
+      "region",
+      "sessionId"
+    ],
+    "snapshot": [
+      "screenshot",
+      "sessionId"
+    ],
+    "startRecording": [
+      "bitrate",
+      "codec",
+      "composite",
+      "fps",
+      "hardware",
+      "preset",
+      "sessionId"
+    ],
+    "step": [
+      "intent",
+      "sessionId"
+    ],
+    "stopRecording": [
+      "preset",
+      "sessionId"
+    ],
+    "walkthrough": [
+      "clean",
+      "sessionId",
+      "steps"
+    ]
+  },
   "routes": {
     "socketPath": "~/.spectra/daemon.sock",
     "socketMode": "0600",

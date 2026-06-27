@@ -518,6 +518,7 @@ export interface RecordCompositeParams {
     durationSeconds?: number;
     fps?: number;
     spotlight?: CompositeSpotlight;
+    caption?: string;
     cursor?: boolean;
     maxWidth?: number;
     crf?: number;

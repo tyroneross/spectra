@@ -339,6 +339,7 @@ export function createSpectraServer(client: DaemonClient): McpServer {
       titleB: z.string().optional().describe('record-composite: optional window-title substring for the right pane'),
       labelB: z.string().optional().describe('record-composite: optional label for the right pane'),
       durationSeconds: z.number().optional().describe('record-composite: capture duration in seconds (default 5)'),
+      caption: z.string().optional().describe('record-composite: optional lower-third caption strip text'),
       spotlight: z.enum(['none', 'a', 'b']).optional().describe('record-composite: dim+blur the non-focal pane — none | a (left) | b (right). Default none'),
       cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
       outPath: z.string().optional().describe('record-composite: composite MP4 output path'),

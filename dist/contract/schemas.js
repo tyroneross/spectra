@@ -166,6 +166,7 @@ const recordCompositeShape = {
     durationSeconds: z.number().optional(),
     fps: z.number().optional(),
     spotlight: compositeSpotlightSchema.optional(),
+    caption: z.string().optional(),
     cursor: z.boolean().optional(),
     maxWidth: z.number().optional(),
     crf: z.number().optional(),
@@ -456,6 +457,15 @@ export const daemonEventEnvelopeSchema = z.object({
     deliveryPath: z.enum(clientSurfaces).optional(),
     data: z.unknown(),
 });
+function objectParamKeys(schema) {
+    let current = schema;
+    while (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
+        current = current.unwrap();
+    }
+    if (current instanceof z.ZodObject)
+        return Object.keys(current.shape).sort();
+    return [];
+}
 export function contractSurface() {
     return {
         apiVersion: API_VERSION,
@@ -464,6 +474,10 @@ export function contractSurface() {
         errorCodes: [...apiErrorCodes],
         clientSurfaces: [...clientSurfaces],
         eventTypes: [...daemonEventTypes],
+        operationParams: Object.fromEntries(apiOperations.map((operation) => [
+            operation,
+            objectParamKeys(operationParamSchemas[operation]),
+        ])),
         routes: {
             socketPath: primarySocketPath,
             socketMode: primarySocketMode,
