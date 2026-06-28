@@ -49,6 +49,7 @@ export declare const operationCapabilities: {
     readonly startRecording: readonly ["media:record"];
     readonly stopRecording: readonly ["media:record"];
     readonly recordComposite: readonly ["media:record", "windows:read"];
+    readonly getRecording: readonly ["sessions:read"];
     readonly analyze: readonly ["analysis:read"];
     readonly discover: readonly ["discover:write", "ui:act", "media:capture"];
     readonly recordTerminal: readonly ["terminal:record"];

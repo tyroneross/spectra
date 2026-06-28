@@ -31,6 +31,7 @@ export const operationCapabilities = {
     startRecording: ['media:record'],
     stopRecording: ['media:record'],
     recordComposite: ['media:record', 'windows:read'],
+    getRecording: ['sessions:read'],
     analyze: ['analysis:read'],
     discover: ['discover:write', 'ui:act', 'media:capture'],
     recordTerminal: ['terminal:record'],

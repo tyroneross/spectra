@@ -216,8 +216,13 @@ const recordCompositeShape = {
   crf: z.number().optional(),
   outPath: z.string(),
   sessionId: z.string().optional(),
+  async: z.boolean().optional(),
 }
 export const recordCompositeParamsSchema = z.object(recordCompositeShape)
+
+export const getRecordingParamsSchema = z.object({
+  recordingId: z.string(),
+})
 
 export const analyzeParamsSchema = z.object({
   sessionId: z.string(),
@@ -379,6 +384,7 @@ export const operationParamSchemas = {
   startRecording: startRecordingParamsSchema,
   stopRecording: stopRecordingParamsSchema,
   recordComposite: recordCompositeParamsSchema,
+  getRecording: getRecordingParamsSchema,
   analyze: analyzeParamsSchema,
   discover: discoverParamsSchema,
   recordTerminal: terminalRecordParamsSchema,

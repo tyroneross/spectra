@@ -597,6 +597,30 @@ export interface BlackFrameGuard {
 
 export type CompositeSpotlight = 'none' | 'a' | 'b'
 
+export type RecordingKind = 'single-window' | 'composite'
+
+export interface RecordingStatus {
+  recordingId: string
+  kind: RecordingKind
+  state: CaptureRunRecordingState
+  sessionId?: string
+  startedAt: TimestampMs
+  updatedAt: TimestampMs
+  stoppedAt?: TimestampMs
+  outPath?: string
+  path?: string
+  artifactId?: string
+  error?: string
+}
+
+export interface GetRecordingParams {
+  recordingId: string
+}
+
+export interface GetRecordingResult {
+  recording: RecordingStatus
+}
+
 export interface RecordCompositeParams {
   appA: string
   titleA?: string
@@ -613,10 +637,12 @@ export interface RecordCompositeParams {
   crf?: number
   outPath: string
   sessionId?: string
+  async?: boolean
 }
 
-export interface RecordCompositeResult {
+export interface RecordCompositeCompletedResult {
   ok: boolean
+  recordingId?: string
   output?: string
   command: string
   validation?: JsonValue
@@ -629,6 +655,22 @@ export interface RecordCompositeResult {
   retryable?: boolean
   artifactId?: string
 }
+
+export interface RecordCompositeAcceptedResult {
+  ok: true
+  accepted: true
+  async: true
+  recordingId: string
+  state: 'recording'
+  startedAt: TimestampMs
+  sessionId?: string
+  poll: {
+    operation: 'getRecording'
+    params: GetRecordingParams
+  }
+}
+
+export type RecordCompositeResult = RecordCompositeCompletedResult | RecordCompositeAcceptedResult
 
 export interface AnalyzeParams {
   sessionId: string
@@ -1022,6 +1064,7 @@ export interface CoreApi {
   startRecording(params: StartRecordingParams): Promise<StartRecordingResult>
   stopRecording(params: StopRecordingParams): Promise<StopRecordingResult>
   recordComposite(params: RecordCompositeParams): Promise<RecordCompositeResult>
+  getRecording(params: GetRecordingParams): Promise<GetRecordingResult>
 
   analyze(params: AnalyzeParams): Promise<AnalyzeResult>
   discover(params: DiscoverParams): Promise<DiscoverResult>

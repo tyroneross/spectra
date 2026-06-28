@@ -471,7 +471,6 @@ export declare const startRecordingParamsSchema: z.ZodObject<{
     codec?: "h264" | "hevc" | undefined;
     fps?: 60 | 30 | undefined;
     bitrate?: "4M" | "8M" | undefined;
-    hardware?: boolean | undefined;
     composite?: {
         left?: {
             width: number;
@@ -489,13 +488,13 @@ export declare const startRecordingParamsSchema: z.ZodObject<{
         displayWidth?: number | undefined;
         displayHeight?: number | undefined;
     } | undefined;
+    hardware?: boolean | undefined;
 }, {
     sessionId: string;
     preset?: "docs" | "demo" | "social" | "app-store" | undefined;
     codec?: "h264" | "hevc" | undefined;
     fps?: 60 | 30 | undefined;
     bitrate?: "4M" | "8M" | undefined;
-    hardware?: boolean | undefined;
     composite?: {
         left?: {
             width: number;
@@ -513,6 +512,7 @@ export declare const startRecordingParamsSchema: z.ZodObject<{
         displayWidth?: number | undefined;
         displayHeight?: number | undefined;
     } | undefined;
+    hardware?: boolean | undefined;
 }>;
 export declare const stopRecordingParamsSchema: z.ZodObject<{
     sessionId: z.ZodString;
@@ -540,6 +540,7 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     crf: z.ZodOptional<z.ZodNumber>;
     outPath: z.ZodString;
     sessionId: z.ZodOptional<z.ZodString>;
+    async: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     appA: string;
     appB: string;
@@ -556,6 +557,7 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    async?: boolean | undefined;
 }, {
     appA: string;
     appB: string;
@@ -572,6 +574,14 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    async?: boolean | undefined;
+}>;
+export declare const getRecordingParamsSchema: z.ZodObject<{
+    recordingId: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    recordingId: string;
+}, {
+    recordingId: string;
 }>;
 export declare const analyzeParamsSchema: z.ZodObject<{
     sessionId: z.ZodString;
@@ -1121,6 +1131,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     crf: z.ZodOptional<z.ZodNumber>;
     outPath: z.ZodString;
     sessionId: z.ZodOptional<z.ZodString>;
+    async: z.ZodOptional<z.ZodBoolean>;
     action: z.ZodLiteral<"record-composite">;
 }, "strip", z.ZodTypeAny, {
     action: "record-composite";
@@ -1139,6 +1150,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    async?: boolean | undefined;
 }, {
     action: "record-composite";
     appA: string;
@@ -1156,6 +1168,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
+    async?: boolean | undefined;
 }>]>;
 export declare const operationParamSchemas: {
     health: z.ZodObject<{
@@ -1511,7 +1524,6 @@ export declare const operationParamSchemas: {
         codec?: "h264" | "hevc" | undefined;
         fps?: 60 | 30 | undefined;
         bitrate?: "4M" | "8M" | undefined;
-        hardware?: boolean | undefined;
         composite?: {
             left?: {
                 width: number;
@@ -1529,13 +1541,13 @@ export declare const operationParamSchemas: {
             displayWidth?: number | undefined;
             displayHeight?: number | undefined;
         } | undefined;
+        hardware?: boolean | undefined;
     }, {
         sessionId: string;
         preset?: "docs" | "demo" | "social" | "app-store" | undefined;
         codec?: "h264" | "hevc" | undefined;
         fps?: 60 | 30 | undefined;
         bitrate?: "4M" | "8M" | undefined;
-        hardware?: boolean | undefined;
         composite?: {
             left?: {
                 width: number;
@@ -1553,6 +1565,7 @@ export declare const operationParamSchemas: {
             displayWidth?: number | undefined;
             displayHeight?: number | undefined;
         } | undefined;
+        hardware?: boolean | undefined;
     }>;
     stopRecording: z.ZodObject<{
         sessionId: z.ZodString;
@@ -1580,6 +1593,7 @@ export declare const operationParamSchemas: {
         crf: z.ZodOptional<z.ZodNumber>;
         outPath: z.ZodString;
         sessionId: z.ZodOptional<z.ZodString>;
+        async: z.ZodOptional<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
         appA: string;
         appB: string;
@@ -1596,6 +1610,7 @@ export declare const operationParamSchemas: {
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        async?: boolean | undefined;
     }, {
         appA: string;
         appB: string;
@@ -1612,6 +1627,14 @@ export declare const operationParamSchemas: {
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        async?: boolean | undefined;
+    }>;
+    getRecording: z.ZodObject<{
+        recordingId: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        recordingId: string;
+    }, {
+        recordingId: string;
     }>;
     analyze: z.ZodObject<{
         sessionId: z.ZodString;
@@ -2130,6 +2153,7 @@ export declare const operationParamSchemas: {
         crf: z.ZodOptional<z.ZodNumber>;
         outPath: z.ZodString;
         sessionId: z.ZodOptional<z.ZodString>;
+        async: z.ZodOptional<z.ZodBoolean>;
         action: z.ZodLiteral<"record-composite">;
     }, "strip", z.ZodTypeAny, {
         action: "record-composite";
@@ -2148,6 +2172,7 @@ export declare const operationParamSchemas: {
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        async?: boolean | undefined;
     }, {
         action: "record-composite";
         appA: string;
@@ -2165,6 +2190,7 @@ export declare const operationParamSchemas: {
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
+        async?: boolean | undefined;
     }>]>;
     autoRampDemo: z.ZodObject<{
         input: z.ZodString;
@@ -2333,9 +2359,9 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
     deliveryPath: z.ZodOptional<z.ZodEnum<["stdio-mcp", "cli", "menubar", "slash-command", "http-mcp", "test", "unknown"]>>;
 }, "strip", z.ZodTypeAny, {
     timestamp: number;
+    ok: true;
     apiVersion: 2;
     requestId: string;
-    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2349,9 +2375,9 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
     deliveryPath?: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test" | undefined;
 }, {
     timestamp: number;
+    ok: true;
     apiVersion: 2;
     requestId: string;
-    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2423,8 +2449,8 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
         details?: unknown;
         retryable?: boolean | undefined;
     };
-    apiVersion: 2;
     ok: false;
+    apiVersion: 2;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2445,8 +2471,8 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
         details?: unknown;
         retryable?: boolean | undefined;
     };
-    apiVersion: 2;
     ok: false;
+    apiVersion: 2;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2493,9 +2519,9 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     deliveryPath: z.ZodOptional<z.ZodEnum<["stdio-mcp", "cli", "menubar", "slash-command", "http-mcp", "test", "unknown"]>>;
 }, "strip", z.ZodTypeAny, {
     timestamp: number;
+    ok: true;
     apiVersion: 2;
     requestId: string;
-    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2509,9 +2535,9 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     deliveryPath?: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test" | undefined;
 }, {
     timestamp: number;
+    ok: true;
     apiVersion: 2;
     requestId: string;
-    ok: true;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2582,8 +2608,8 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
         details?: unknown;
         retryable?: boolean | undefined;
     };
-    apiVersion: 2;
     ok: false;
+    apiVersion: 2;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
@@ -2604,8 +2630,8 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
         details?: unknown;
         retryable?: boolean | undefined;
     };
-    apiVersion: 2;
     ok: false;
+    apiVersion: 2;
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";

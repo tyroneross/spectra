@@ -10,6 +10,7 @@
     "demo",
     "discover",
     "getPermissions",
+    "getRecording",
     "getRun",
     "getSession",
     "health",
@@ -131,6 +132,9 @@
     "getPermissions": [
       "permissions"
     ],
+    "getRecording": [
+      "recordingId"
+    ],
     "getRun": [
       "sessionId"
     ],
@@ -163,6 +167,7 @@
     "recordComposite": [
       "appA",
       "appB",
+      "async",
       "caption",
       "crf",
       "cursor",
