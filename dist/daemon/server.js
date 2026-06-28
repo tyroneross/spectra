@@ -30,8 +30,8 @@ class DaemonEventBus {
     }
 }
 export async function startDaemonServer(options = {}) {
-    const api = options.api ?? createCoreApi();
     const bus = new DaemonEventBus();
+    const api = options.api ?? createCoreApi({ eventSink: (event) => bus.emit(event) });
     const unixEnabled = options.unix?.enabled ?? true;
     const socketPath = unixEnabled
         ? expandHomePath(options.socketPath ?? primarySocketPath)

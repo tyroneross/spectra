@@ -1,10 +1,12 @@
 import type { CoreApi, WindowRecord } from '../contract/core-api.js';
+import type { DaemonEvent } from '../contract/wire.js';
 import { type ToolContext } from '../mcp/context.js';
 import { recordCompositeWithWorker } from './composite-worker.js';
 import { type HealthProbeOptions } from './health.js';
 import type { KeepAwakeController } from './keep-awake.js';
 type CompositeWorker = typeof recordCompositeWithWorker;
 type SingleWindowRecordingRunner = (input: NativeStartRecordingInput) => Promise<NativeRecordingHandle>;
+type DaemonEventSink = (event: DaemonEvent) => void;
 export interface CoreApiImplementationOptions {
     context?: ToolContext;
     startedAt?: number;
@@ -14,6 +16,7 @@ export interface CoreApiImplementationOptions {
     recordCompositeWorker?: CompositeWorker;
     singleWindowRecordingRunner?: SingleWindowRecordingRunner;
     windowListProvider?: () => Promise<WindowRecord[]>;
+    eventSink?: DaemonEventSink;
 }
 export declare function createCoreApi(options?: CoreApiImplementationOptions): CoreApi;
 interface NativeStartRecordingInput {

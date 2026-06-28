@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { API_VERSION } from '../../src/contract/wire.js'
+import { API_VERSION, type DaemonEvent } from '../../src/contract/wire.js'
 import { createDaemonCore } from '../../src/daemon/core.js'
 import { eventEnvelope, formatSseFrame, sseFrame, successEnvelope } from '../../src/daemon/envelope.js'
 import type { KeepAwakeController } from '../../src/daemon/keep-awake.js'
@@ -203,6 +203,7 @@ describe('daemon core', () => {
     const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-test-'))
     const keepAwake = new FakeKeepAwake()
     const ctx = createContext()
+    const events: DaemonEvent[] = []
     const session = await ctx.sessions.create({
       platform: 'macos',
       target: { appName: 'TextEdit' },
@@ -212,6 +213,7 @@ describe('daemon core', () => {
     const core = createDaemonCore({
       context: ctx,
       keepAwake,
+      eventSink: (event) => events.push(event),
       windowListProvider: async () => [{
         windowId: 42,
         appName: 'TextEdit',
@@ -299,9 +301,90 @@ describe('daemon core', () => {
         expect.stringMatching(/^stop:recording-/),
       ])
       expect(keepAwake.activeRecordings).toBe(0)
+      expect(events.map((event) => event.type)).toEqual([
+        'recording.status',
+        'recording.status',
+        'artifact.added',
+      ])
+      expect(events[0]).toMatchObject({
+        type: 'recording.status',
+        sessionId: session.id,
+        data: { state: 'recording', recordingId: started.recordingId, sessionId: session.id },
+      })
+      expect(events[1]).toMatchObject({
+        type: 'recording.status',
+        sessionId: session.id,
+        data: { state: 'saved', recordingId: started.recordingId, sessionId: session.id },
+      })
+      expect(events[2]).toMatchObject({
+        type: 'artifact.added',
+        sessionId: session.id,
+        data: { type: 'video', path: stopped.path },
+      })
 
       await expect(core.stopRecording({ sessionId: session.id })).resolves.toMatchObject({
         alreadyStopped: true,
+      })
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('emits recording and artifact events around synchronous composite recording', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-composite-events-'))
+    const ctx = createContext()
+    const events: DaemonEvent[] = []
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const core = createDaemonCore({
+      context: ctx,
+      eventSink: (event) => events.push(event),
+      recordCompositeWorker: async () => ({
+        ok: true,
+        output: '/tmp/composite.mp4',
+        command: '/tmp/spectra-composite-capture --out /tmp/composite.mp4',
+        blackFrameGuard: {
+          sampleCount: 2,
+          meanLuma: 70,
+          allBlack: false,
+          skipped: false,
+        },
+        warnings: [],
+      }),
+    })
+
+    try {
+      const result = await core.recordComposite({
+        appA: 'TextEdit',
+        appB: 'Terminal',
+        outPath: '/tmp/composite.mp4',
+        sessionId: session.id,
+      })
+
+      expect(result).toMatchObject({ ok: true, artifactId: expect.any(String) })
+      expect(events.map((event) => event.type)).toEqual([
+        'recording.status',
+        'recording.status',
+        'artifact.added',
+      ])
+      expect(events[0]).toMatchObject({
+        type: 'recording.status',
+        sessionId: session.id,
+        data: { state: 'recording', sessionId: session.id },
+      })
+      expect(events[1]).toMatchObject({
+        type: 'recording.status',
+        sessionId: session.id,
+        data: { state: 'saved', sessionId: session.id, path: '/tmp/composite.mp4' },
+      })
+      expect(events[2]).toMatchObject({
+        type: 'artifact.added',
+        sessionId: session.id,
+        data: { type: 'video', path: '/tmp/composite.mp4' },
       })
     } finally {
       await core.close()

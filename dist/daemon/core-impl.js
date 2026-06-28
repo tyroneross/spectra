@@ -39,6 +39,7 @@ class CoreApiImplementation {
     recordCompositeWorker;
     singleWindowRecordingRunner;
     windowListProvider;
+    eventSink;
     recordings = new RecordingRegistry();
     constructor(options) {
         this.ctx = options.context ?? createContext();
@@ -49,6 +50,7 @@ class CoreApiImplementation {
         this.recordCompositeWorker = options.recordCompositeWorker ?? recordCompositeWithWorker;
         this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording;
         this.windowListProvider = options.windowListProvider ?? listMacWindows;
+        this.eventSink = options.eventSink;
     }
     async health(params = {}) {
         return daemonHealth(params, {
@@ -89,7 +91,25 @@ class CoreApiImplementation {
         };
     }
     async createSession(params) {
-        return handleConnect(params, this.ctx);
+        const result = await handleConnect(params, this.ctx);
+        const session = this.ctx.sessions.get(result.sessionId);
+        if (session) {
+            this.emit({
+                type: 'session.created',
+                sessionId: session.id,
+                data: {
+                    session: {
+                        id: session.id,
+                        name: session.name,
+                        platform: session.platform,
+                        steps: session.steps.length,
+                        recordingState: this.ctx.sessions.getRun(session.id)?.recording.state ?? 'idle',
+                        createdAt: new Date(session.createdAt).toISOString(),
+                    },
+                },
+            });
+        }
+        return result;
     }
     async listSessions(_params = {}) {
         return {
@@ -211,7 +231,7 @@ class CoreApiImplementation {
             bitrate,
             handle,
         });
-        await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+        const recording = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
             state: 'recording',
             recordingId,
             preset: params.preset,
@@ -225,6 +245,7 @@ class CoreApiImplementation {
             source: `${target.appName}${target.title ? `: ${target.title}` : ''}`,
             sourceVerified: true,
         });
+        this.emitRecordingStatus(params.sessionId, recording);
         return {
             recordingId,
             preset: params.preset,
@@ -264,7 +285,7 @@ class CoreApiImplementation {
         catch (error) {
             await this.keepAwake.recordingStopped(active.recordingId).catch(() => { });
             await active.handle.abort().catch(() => { });
-            await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+            const failed = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
                 state: 'failed',
                 recordingId: active.recordingId,
                 preset: active.preset,
@@ -273,6 +294,8 @@ class CoreApiImplementation {
                 rawPath: active.outPath,
                 error: error instanceof Error ? error.message : String(error),
             }).catch(() => { });
+            if (failed)
+                this.emitRecordingStatus(params.sessionId, failed);
             throw new DaemonApiError('recording_failed', `stopRecording failed: ${error instanceof Error ? error.message : String(error)}`, { status: 500, retryable: false, cause: error });
         }
         await this.keepAwake.recordingStopped(active.recordingId).catch(() => { });
@@ -291,23 +314,7 @@ class CoreApiImplementation {
         }
         const durationMs = stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt);
         const sizeBytes = stopped.sizeBytes ?? file?.size;
-        await this.ctx.sessions.addArtifact(params.sessionId, {
-            type: 'video',
-            path,
-            format: stopped.format ?? 'mp4',
-            label: 'Window recording',
-            sizeBytes,
-            metadata: {
-                recordingId: active.recordingId,
-                appName: active.target.appName,
-                title: active.target.title,
-                blackFrameMeanLuma: blackFrameGuard.meanLuma,
-                blackFrameAllBlack: blackFrameGuard.allBlack,
-                blackFrameSampleCount: blackFrameGuard.sampleCount,
-                warnings,
-            },
-        });
-        await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+        const saved = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
             state: 'saved',
             recordingId: active.recordingId,
             preset: active.preset,
@@ -326,6 +333,24 @@ class CoreApiImplementation {
             source: `${active.target.appName}${active.target.title ? `: ${active.target.title}` : ''}`,
             sourceVerified: true,
         });
+        this.emitRecordingStatus(params.sessionId, saved);
+        const artifact = await this.ctx.sessions.addArtifact(params.sessionId, {
+            type: 'video',
+            path,
+            format: stopped.format ?? 'mp4',
+            label: 'Window recording',
+            sizeBytes,
+            metadata: {
+                recordingId: active.recordingId,
+                appName: active.target.appName,
+                title: active.target.title,
+                blackFrameMeanLuma: blackFrameGuard.meanLuma,
+                blackFrameAllBlack: blackFrameGuard.allBlack,
+                blackFrameSampleCount: blackFrameGuard.sampleCount,
+                warnings,
+            },
+        });
+        this.emitArtifactAdded(params.sessionId, artifact);
         return {
             recordingId: active.recordingId,
             preset: active.preset,
@@ -343,15 +368,61 @@ class CoreApiImplementation {
     }
     async recordComposite(params) {
         const recordingId = `composite-${randomUUID().slice(0, 8)}`;
+        const startedAt = Date.now();
+        const compositeSession = params.sessionId && this.ctx.sessions.get(params.sessionId)
+            ? params.sessionId
+            : undefined;
         await this.keepAwake.recordingStarted(recordingId);
         try {
+            if (compositeSession) {
+                const recording = await this.ctx.sessions.setRecordingStatus(compositeSession, {
+                    state: 'recording',
+                    recordingId,
+                    startedAt,
+                    rawPath: params.outPath,
+                    fps: params.fps,
+                    source: `${params.appA} + ${params.appB}`,
+                    sourceVerified: true,
+                });
+                this.emitRecordingStatus(compositeSession, recording);
+            }
             const result = await this.recordCompositeWorker(params);
-            const artifactId = result.ok && result.output
+            const artifact = result.ok && result.output
                 ? await this.addCompositeArtifact(params, result, recordingId)
                 : undefined;
-            return artifactId ? { ...result, artifactId } : result;
+            if (compositeSession) {
+                const recording = await this.ctx.sessions.setRecordingStatus(compositeSession, {
+                    state: result.ok ? 'saved' : 'failed',
+                    recordingId,
+                    startedAt,
+                    stoppedAt: Date.now(),
+                    rawPath: params.outPath,
+                    path: result.output,
+                    durationMs: params.durationSeconds !== undefined ? Math.round(params.durationSeconds * 1000) : undefined,
+                    fps: params.fps,
+                    source: `${params.appA} + ${params.appB}`,
+                    sourceVerified: true,
+                    error: result.ok ? undefined : result.error,
+                });
+                this.emitRecordingStatus(compositeSession, recording);
+            }
+            if (artifact && params.sessionId)
+                this.emitArtifactAdded(params.sessionId, artifact);
+            return artifact ? { ...result, artifactId: artifact.id } : result;
         }
         catch (error) {
+            if (compositeSession) {
+                const recording = await this.ctx.sessions.setRecordingStatus(compositeSession, {
+                    state: 'failed',
+                    recordingId,
+                    startedAt,
+                    stoppedAt: Date.now(),
+                    rawPath: params.outPath,
+                    error: error instanceof Error ? error.message : String(error),
+                }).catch(() => undefined);
+                if (recording)
+                    this.emitRecordingStatus(compositeSession, recording);
+            }
             throw new DaemonApiError('recording_failed', `recordComposite failed: ${error instanceof Error ? error.message : String(error)}`, {
                 status: 500,
                 hint: 'Verify the daemon is running in a GUI/Aqua session with Screen Recording permission, target windows are visible, ffmpeg is installed, and the Swift composite worker builds.',
@@ -393,7 +464,7 @@ class CoreApiImplementation {
             this.recordings.remove(recording.recordingId);
             await recording.handle.abort().catch(() => { });
             await this.keepAwake.recordingStopped(recording.recordingId).catch(() => { });
-            await this.ctx.sessions.setRecordingStatus(recording.sessionId, {
+            const status = await this.ctx.sessions.setRecordingStatus(recording.sessionId, {
                 state: 'aborted',
                 recordingId: recording.recordingId,
                 preset: recording.preset,
@@ -401,6 +472,8 @@ class CoreApiImplementation {
                 stoppedAt: Date.now(),
                 rawPath: recording.outPath,
             }).catch(() => { });
+            if (status)
+                this.emitRecordingStatus(recording.sessionId, status);
         }));
         await this.keepAwake.close();
     }
@@ -427,7 +500,24 @@ class CoreApiImplementation {
             label: 'Composite recording',
             metadata,
         });
-        return artifact.id;
+        return artifact;
+    }
+    emit(event) {
+        this.eventSink?.(event);
+    }
+    emitRecordingStatus(sessionId, recording) {
+        this.emit({
+            type: 'recording.status',
+            sessionId,
+            data: { ...recording, sessionId },
+        });
+    }
+    emitArtifactAdded(sessionId, artifact) {
+        this.emit({
+            type: 'artifact.added',
+            sessionId,
+            data: artifact,
+        });
     }
     async resolveRecordingTarget(app) {
         const appNeedle = app.toLowerCase();
