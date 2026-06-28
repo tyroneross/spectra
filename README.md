@@ -449,23 +449,23 @@ const state: CleanState = await prepareForCapture(cdpConnection, sessionId, 'web
 await restoreAfterCapture(state)  // reverses all cleanup (reverse order, fault-tolerant)
 ```
 
-### Media — Video Pipeline
+### Media — Video Probe + Poster Frames
 
 ```typescript
-import { buildCaptureArgs, buildEncodeArgs } from 'spectra'
-import type { VideoOptions } from 'spectra'
+import { buildProbeArgs, buildPosterFrameArgs, probeVideo } from 'spectra'
 
-// Build FFmpeg arguments for lossless capture
-const captureArgs = buildCaptureArgs('web', '/tmp/raw.mkv', {
-  fps: 60, quality: 'lossless', hardware: false,
-})
-// → ['-f', 'avfoundation', '-framerate', '60', '-i', '1:none', '-c:v', 'libx264rgb', '-crf', '0', ...]
+// Build FFprobe arguments for metadata extraction.
+const probeArgs = buildProbeArgs('/tmp/output.mp4')
+// -> ['-v', 'error', '-select_streams', 'v:0', ...]
 
-// Build FFmpeg arguments for optimized encoding
-const encodeArgs = buildEncodeArgs('/tmp/raw.mkv', '/tmp/output.mp4', {
-  fps: 30, quality: 'high', hardware: true,
+const metadata = await probeVideo('/tmp/output.mp4')
+// -> { durationMs, width, height, fps, codec }
+
+// Build FFmpeg arguments for a poster frame.
+const posterArgs = buildPosterFrameArgs('/tmp/output.mp4', '/tmp/poster.jpg', {
+  atSeconds: 1,
+  maxWidth: 1280,
 })
-// → ['-i', '/tmp/raw.mkv', '-c:v', 'h264_videotoolbox', '-b:v', '8M', '-pix_fmt', 'yuv420p', ...]
 ```
 
 ### Media — Production Bundles
