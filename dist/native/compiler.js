@@ -1,6 +1,6 @@
 // src/native/compiler.ts
 import { execFileSync, execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -14,6 +14,8 @@ const SCREEN_RECORDING_PREFLIGHT_HASH_PATH = join(BIN_DIR, '.screen-recording-pr
 const DAEMON_LAUNCHER_PATH = join(BIN_DIR, 'spectra-daemon-launcher');
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app');
 const DEFAULT_CODESIGN_IDENTITY = 'Apple Development: tyrone.ross@icloud.com (7AK2KDLAVP)';
+const COMPILE_LOCK_STALE_MS = 60_000;
+const COMPILE_LOCK_WAIT_MS = 30_000;
 // Find project root by looking for native/swift/ directory
 function findSwiftSource() {
     // Walk up from this file's location to find the project root
@@ -273,21 +275,85 @@ export function compileDaemonLauncher() {
 }
 export function ensureBinary() {
     if (isStale()) {
-        compile();
+        withCompileLock('native', () => {
+            if (isStale())
+                compile();
+        });
     }
     return BINARY_PATH;
 }
 export function ensureCompositeBinary() {
     if (isCompositeStale()) {
-        compileComposite();
+        withCompileLock('composite', () => {
+            if (isCompositeStale())
+                compileComposite();
+        });
     }
     return COMPOSITE_BINARY_PATH;
 }
 export function ensureScreenRecordingPreflightBinary() {
     if (isScreenRecordingPreflightStale()) {
-        compileScreenRecordingPreflight();
+        withCompileLock('screen-recording-preflight', () => {
+            if (isScreenRecordingPreflightStale())
+                compileScreenRecordingPreflight();
+        });
     }
     return SCREEN_RECORDING_PREFLIGHT_PATH;
+}
+function withCompileLock(name, fn) {
+    mkdirSync(BIN_DIR, { recursive: true });
+    const lockPath = join(BIN_DIR, `.${name}.compile.lock`);
+    const deadline = Date.now() + COMPILE_LOCK_WAIT_MS;
+    while (true) {
+        let fd;
+        try {
+            fd = openSync(lockPath, 'wx');
+            try {
+                fn();
+            }
+            finally {
+                if (fd !== undefined)
+                    closeSync(fd);
+                rmSync(lockPath, { force: true });
+            }
+            return;
+        }
+        catch (error) {
+            if (fd !== undefined) {
+                try {
+                    closeSync(fd);
+                }
+                catch { }
+            }
+            if (!isExistingLockError(error))
+                throw error;
+            removeStaleCompileLock(lockPath);
+            if (Date.now() >= deadline) {
+                throw new Error(`Timed out waiting for ${name} compile lock: ${lockPath}`);
+            }
+            sleepSync(100);
+        }
+    }
+}
+function isExistingLockError(error) {
+    return typeof error === 'object'
+        && error !== null
+        && 'code' in error
+        && error.code === 'EEXIST';
+}
+function removeStaleCompileLock(lockPath) {
+    try {
+        const ageMs = Date.now() - statSync(lockPath).mtimeMs;
+        if (ageMs > COMPILE_LOCK_STALE_MS)
+            rmSync(lockPath, { force: true });
+    }
+    catch {
+        // Missing lock means the other compiler finished between open attempts.
+    }
+}
+function sleepSync(ms) {
+    const buffer = new SharedArrayBuffer(4);
+    Atomics.wait(new Int32Array(buffer), 0, 0, ms);
 }
 export function compileTestApp() {
     const swiftDir = findSwiftSource();
