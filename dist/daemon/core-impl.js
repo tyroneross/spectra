@@ -1,6 +1,11 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { stat, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
+import { detectFfmpeg } from '../media/ffmpeg.js';
+import { probeVideo } from '../media/pipeline.js';
 import { createContext } from '../mcp/context.js';
 import { handleAnalyze } from '../mcp/tools/analyze.js';
 import { handleAct } from '../mcp/tools/act.js';
@@ -15,15 +20,12 @@ import { handleSession } from '../mcp/tools/session.js';
 import { handleSnapshot } from '../mcp/tools/snapshot.js';
 import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
-import { ensureCompositeBinary } from '../native/compiler.js';
-import { recordCompositeWithWorker } from './composite-worker.js';
+import { ensureBinary, ensureCompositeBinary } from '../native/compiler.js';
+import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
 import { createKeepAwakeController } from './keep-awake.js';
 const execFileAsync = promisify(execFile);
-const SINGLE_WINDOW_RECORDING_HINT = 'Use recordComposite(params) for daemon-owned window-isolated ScreenCaptureKit capture. '
-    + 'startRecording/stopRecording are intentionally not wired to the legacy full-display '
-    + 'AVFoundation path; they need a separate frozen single-window streaming contract.';
 let screenCaptureKitWindowList;
 export function createCoreApi(options = {}) {
     return new CoreApiImplementation(options);
@@ -35,6 +37,9 @@ class CoreApiImplementation {
     healthProbe;
     keepAwake;
     recordCompositeWorker;
+    singleWindowRecordingRunner;
+    windowListProvider;
+    recordings = new RecordingRegistry();
     constructor(options) {
         this.ctx = options.context ?? createContext();
         this.startedAt = options.startedAt ?? Date.now();
@@ -42,6 +47,8 @@ class CoreApiImplementation {
         this.healthProbe = options.healthProbe;
         this.keepAwake = options.keepAwake ?? createKeepAwakeController();
         this.recordCompositeWorker = options.recordCompositeWorker ?? recordCompositeWithWorker;
+        this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording;
+        this.windowListProvider = options.windowListProvider ?? listMacWindows;
     }
     async health(params = {}) {
         return daemonHealth(params, {
@@ -62,7 +69,7 @@ class CoreApiImplementation {
         return { ...result, requested: params.permissions };
     }
     async listWindows(params = {}) {
-        const windows = await listMacWindows();
+        const windows = await this.windowListProvider();
         const app = params.app?.toLowerCase();
         const title = params.title?.toLowerCase();
         return {
@@ -150,11 +157,189 @@ class CoreApiImplementation {
     async screenshot(params) {
         return handleCapture({ ...params, type: 'screenshot' }, this.ctx);
     }
-    async startRecording(_params) {
-        throw new DaemonApiError('recording_failed', 'startRecording is not available on the daemon until single-window recording is wired.', { status: 501, hint: SINGLE_WINDOW_RECORDING_HINT, retryable: false });
+    async startRecording(params) {
+        const session = this.ctx.sessions.get(params.sessionId);
+        if (!session)
+            throw new DaemonApiError('not_found', `Session ${params.sessionId} not found`, { status: 404 });
+        if (session.platform !== 'macos' || !session.target.appName) {
+            throw new DaemonApiError('recording_failed', 'startRecording currently requires a macOS session with an app target.', { status: 400, retryable: false });
+        }
+        if (this.recordings.forSession(params.sessionId)) {
+            throw new DaemonApiError('conflict', `Session ${params.sessionId} already has an active recording.`, { status: 409, retryable: false });
+        }
+        const target = await this.resolveRecordingTarget(session.target.appName);
+        const recordingId = `recording-${randomUUID().slice(0, 8)}`;
+        const sessionDir = this.ctx.sessions.sessionDir(params.sessionId);
+        await mkdir(sessionDir, { recursive: true });
+        const outPath = join(sessionDir, `${recordingId}.mp4`);
+        const startedAt = Date.now();
+        const fps = params.fps ?? 60;
+        const codec = params.codec ?? 'h264';
+        const bitrate = params.bitrate ?? '8M';
+        await this.keepAwake.recordingStarted(recordingId);
+        let handle;
+        try {
+            handle = await this.singleWindowRecordingRunner({
+                recordingId,
+                sessionId: params.sessionId,
+                app: session.target.appName,
+                outPath,
+                fps,
+                codec,
+                bitrate,
+                maxDurationSeconds: 300,
+            });
+        }
+        catch (error) {
+            await this.keepAwake.recordingStopped(recordingId).catch(() => { });
+            throw new DaemonApiError('recording_failed', `startRecording failed: ${error instanceof Error ? error.message : String(error)}`, {
+                status: 500,
+                hint: 'Verify the target window is visible/on-screen and Screen Recording permission is granted to the signed Spectra daemon helper.',
+                retryable: false,
+                cause: error,
+            });
+        }
+        this.recordings.add({
+            recordingId,
+            sessionId: params.sessionId,
+            target,
+            startedAt,
+            outPath,
+            preset: params.preset,
+            fps,
+            codec,
+            bitrate,
+            handle,
+        });
+        await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+            state: 'recording',
+            recordingId,
+            preset: params.preset,
+            startedAt,
+            rawPath: outPath,
+            fps,
+            codec,
+            bitrate,
+            width: handle.started.width,
+            height: handle.started.height,
+            source: `${target.appName}${target.title ? `: ${target.title}` : ''}`,
+            sourceVerified: true,
+        });
+        return {
+            recordingId,
+            preset: params.preset,
+            startedAt,
+            fps,
+            codec,
+            bitrate,
+        };
     }
-    async stopRecording(_params) {
-        throw new DaemonApiError('recording_failed', 'stopRecording is not available on the daemon until single-window recording is wired.', { status: 501, hint: SINGLE_WINDOW_RECORDING_HINT, retryable: false });
+    async stopRecording(params) {
+        const session = this.ctx.sessions.get(params.sessionId);
+        if (!session)
+            throw new DaemonApiError('not_found', `Session ${params.sessionId} not found`, { status: 404 });
+        const active = this.recordings.forSession(params.sessionId);
+        if (!active) {
+            return {
+                preset: params.preset,
+                alreadyStopped: true,
+                error: `No active recording for session ${params.sessionId}`,
+            };
+        }
+        this.recordings.remove(active.recordingId);
+        let stopped;
+        try {
+            await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'encoding',
+                recordingId: active.recordingId,
+                preset: active.preset,
+                startedAt: active.startedAt,
+                rawPath: active.outPath,
+                fps: active.fps,
+                codec: active.codec,
+                bitrate: active.bitrate,
+            });
+            stopped = await active.handle.stop();
+        }
+        catch (error) {
+            await this.keepAwake.recordingStopped(active.recordingId).catch(() => { });
+            await active.handle.abort().catch(() => { });
+            await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'failed',
+                recordingId: active.recordingId,
+                preset: active.preset,
+                startedAt: active.startedAt,
+                stoppedAt: Date.now(),
+                rawPath: active.outPath,
+                error: error instanceof Error ? error.message : String(error),
+            }).catch(() => { });
+            throw new DaemonApiError('recording_failed', `stopRecording failed: ${error instanceof Error ? error.message : String(error)}`, { status: 500, retryable: false, cause: error });
+        }
+        await this.keepAwake.recordingStopped(active.recordingId).catch(() => { });
+        const stoppedAt = Date.now();
+        const path = stopped.path || active.outPath;
+        const file = await stat(path).catch(() => undefined);
+        const probed = await probeVideo(path).catch(() => undefined);
+        const blackFrameGuard = probeRecordingBlackFrames(path);
+        const warnings = [];
+        if (blackFrameGuard.allBlack) {
+            warnings.push(`Output appears all-black (mean luminance ${blackFrameGuard.meanLuma?.toFixed(1)} < `
+                + `${COMPOSITE_WORKER_DEFAULTS.blackThreshold} across ${blackFrameGuard.sampleCount} sampled frames).`);
+        }
+        else if (blackFrameGuard.skipped) {
+            warnings.push('Black-frame guard skipped; ffmpeg was unavailable or no luminance samples were produced.');
+        }
+        const durationMs = stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt);
+        const sizeBytes = stopped.sizeBytes ?? file?.size;
+        await this.ctx.sessions.addArtifact(params.sessionId, {
+            type: 'video',
+            path,
+            format: stopped.format ?? 'mp4',
+            label: 'Window recording',
+            sizeBytes,
+            metadata: {
+                recordingId: active.recordingId,
+                appName: active.target.appName,
+                title: active.target.title,
+                blackFrameMeanLuma: blackFrameGuard.meanLuma,
+                blackFrameAllBlack: blackFrameGuard.allBlack,
+                blackFrameSampleCount: blackFrameGuard.sampleCount,
+                warnings,
+            },
+        });
+        await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+            state: 'saved',
+            recordingId: active.recordingId,
+            preset: active.preset,
+            startedAt: active.startedAt,
+            stoppedAt,
+            rawPath: active.outPath,
+            path,
+            durationMs,
+            sizeBytes,
+            codec: stopped.codec ?? probed?.codec ?? active.codec,
+            fps: stopped.fps ?? probed?.fps ?? active.fps,
+            width: stopped.width ?? probed?.width,
+            height: stopped.height ?? probed?.height,
+            bitrate: active.bitrate,
+            droppedFrames: stopped.droppedFrames,
+            source: `${active.target.appName}${active.target.title ? `: ${active.target.title}` : ''}`,
+            sourceVerified: true,
+        });
+        return {
+            recordingId: active.recordingId,
+            preset: active.preset,
+            path,
+            format: stopped.format ?? 'mp4',
+            durationMs,
+            sizeBytes,
+            codec: stopped.codec ?? probed?.codec ?? active.codec,
+            fps: stopped.fps ?? probed?.fps ?? active.fps,
+            width: stopped.width ?? probed?.width,
+            height: stopped.height ?? probed?.height,
+            droppedFrames: stopped.droppedFrames,
+            alreadyStopped: false,
+        };
     }
     async recordComposite(params) {
         const recordingId = `composite-${randomUUID().slice(0, 8)}`;
@@ -204,6 +389,19 @@ class CoreApiImplementation {
         return handleDemo({ ...params, action: 'auto-ramp' }, this.ctx);
     }
     async close() {
+        await Promise.all(this.recordings.list().map(async (recording) => {
+            this.recordings.remove(recording.recordingId);
+            await recording.handle.abort().catch(() => { });
+            await this.keepAwake.recordingStopped(recording.recordingId).catch(() => { });
+            await this.ctx.sessions.setRecordingStatus(recording.sessionId, {
+                state: 'aborted',
+                recordingId: recording.recordingId,
+                preset: recording.preset,
+                startedAt: recording.startedAt,
+                stoppedAt: Date.now(),
+                rawPath: recording.outPath,
+            }).catch(() => { });
+        }));
         await this.keepAwake.close();
     }
     async addCompositeArtifact(params, result, recordingId) {
@@ -230,6 +428,222 @@ class CoreApiImplementation {
             metadata,
         });
         return artifact.id;
+    }
+    async resolveRecordingTarget(app) {
+        const appNeedle = app.toLowerCase();
+        const windows = await this.windowListProvider();
+        const candidates = windows.filter((window) => {
+            const appName = window.appName.toLowerCase();
+            const bundle = window.bundleIdentifier?.toLowerCase() ?? '';
+            return window.onScreen
+                && window.layer === 0
+                && window.width >= 100
+                && window.height >= 100
+                && (appName.includes(appNeedle) || bundle.includes(appNeedle));
+        });
+        if (candidates.length === 0) {
+            throw new DaemonApiError('recording_failed', `No on-screen ScreenCaptureKit window found for app ${app}`, { status: 404, retryable: false });
+        }
+        return candidates.sort((left, right) => {
+            const leftTitled = left.title.length > 0;
+            const rightTitled = right.title.length > 0;
+            if (leftTitled !== rightTitled)
+                return leftTitled ? -1 : 1;
+            if (left.layer !== right.layer)
+                return left.layer - right.layer;
+            return (right.width * right.height) - (left.width * left.height);
+        })[0];
+    }
+}
+class RecordingRegistry {
+    byId = new Map();
+    bySession = new Map();
+    add(recording) {
+        if (this.byId.has(recording.recordingId)) {
+            throw new Error(`Duplicate recordingId ${recording.recordingId}`);
+        }
+        if (this.bySession.has(recording.sessionId)) {
+            throw new Error(`Session ${recording.sessionId} already has an active recording`);
+        }
+        this.byId.set(recording.recordingId, recording);
+        this.bySession.set(recording.sessionId, recording.recordingId);
+    }
+    forSession(sessionId) {
+        const recordingId = this.bySession.get(sessionId);
+        return recordingId ? this.byId.get(recordingId) : undefined;
+    }
+    remove(recordingId) {
+        const recording = this.byId.get(recordingId);
+        if (!recording)
+            return undefined;
+        this.byId.delete(recordingId);
+        this.bySession.delete(recording.sessionId);
+        return recording;
+    }
+    list() {
+        return [...this.byId.values()];
+    }
+}
+class NativeRecordingProcess {
+    child;
+    input;
+    pid;
+    started;
+    readline;
+    stderrChunks = [];
+    pending = new Map();
+    nextId = 0;
+    closed = false;
+    constructor(child, input) {
+        this.child = child;
+        this.input = input;
+        this.pid = child.pid;
+        this.readline = createInterface({ input: child.stdout });
+        this.readline.on('line', (line) => this.handleLine(line));
+        child.stderr.on('data', (chunk) => this.stderrChunks.push(Buffer.from(chunk)));
+        child.on('error', (error) => this.rejectAll(error));
+        child.on('close', (code, signal) => {
+            this.closed = true;
+            this.rejectAll(new Error(`spectra-native recording process exited with code ${code ?? 'null'} signal ${signal ?? 'null'}`));
+            this.readline.close();
+        });
+    }
+    async start() {
+        this.started = await this.send('startRecording', {
+            recordingId: this.input.recordingId,
+            sessionId: this.input.sessionId,
+            app: this.input.app,
+            outPath: this.input.outPath,
+            fps: this.input.fps,
+            codec: this.input.codec,
+            bitrate: this.input.bitrate,
+            maxDuration: this.input.maxDurationSeconds,
+        }, 15_000);
+        return this;
+    }
+    async stop() {
+        const result = await this.send('stopRecording', {
+            recordingId: this.input.recordingId,
+            sessionId: this.input.sessionId,
+        }, 45_000);
+        await this.quit();
+        return result;
+    }
+    async abort() {
+        if (this.closed)
+            return;
+        await this.quit().catch(() => { });
+        if (!this.closed) {
+            this.child.kill('SIGTERM');
+            await waitForChildExit(this.child, 2_000).catch(() => {
+                if (!this.closed)
+                    this.child.kill('SIGKILL');
+            });
+        }
+    }
+    async quit() {
+        if (this.closed)
+            return;
+        await this.send('quit', {}, 1_000).catch(() => { });
+        await waitForChildExit(this.child, 2_000).catch(() => { });
+    }
+    send(method, params, timeoutMs) {
+        if (this.closed) {
+            return Promise.reject(new Error('spectra-native recording process is closed'));
+        }
+        const id = ++this.nextId;
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.pending.delete(id);
+                reject(new Error(`Native recording request '${method}' timed out after ${timeoutMs}ms${this.stderrDetail()}`));
+            }, timeoutMs);
+            this.pending.set(id, {
+                resolve: resolve,
+                reject,
+                timer,
+            });
+            this.child.stdin.write(`${JSON.stringify({ id, method, params })}\n`);
+        });
+    }
+    handleLine(line) {
+        const trimmed = line.trim();
+        if (!trimmed)
+            return;
+        let parsed;
+        try {
+            parsed = JSON.parse(trimmed);
+        }
+        catch {
+            return;
+        }
+        const pending = this.pending.get(parsed.id);
+        if (!pending)
+            return;
+        clearTimeout(pending.timer);
+        this.pending.delete(parsed.id);
+        if (parsed.error) {
+            pending.reject(new Error(parsed.error.message ?? `Native recording error ${parsed.error.code ?? ''}`.trim()));
+        }
+        else {
+            pending.resolve(parsed.result);
+        }
+    }
+    rejectAll(error) {
+        for (const pending of this.pending.values()) {
+            clearTimeout(pending.timer);
+            pending.reject(error);
+        }
+        this.pending.clear();
+    }
+    stderrDetail() {
+        const stderr = Buffer.concat(this.stderrChunks).toString('utf8').trim();
+        return stderr ? `\n${stderr}` : '';
+    }
+}
+async function startNativeSingleWindowRecording(input) {
+    const binary = ensureBinary();
+    const child = spawn(binary, [], { stdio: 'pipe' });
+    const process = new NativeRecordingProcess(child, input);
+    try {
+        return await process.start();
+    }
+    catch (error) {
+        await process.abort().catch(() => { });
+        throw error;
+    }
+}
+async function waitForChildExit(child, timeoutMs) {
+    if (child.exitCode !== null || child.signalCode !== null)
+        return;
+    await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            child.off('close', onClose);
+            reject(new Error('Timed out waiting for child process exit'));
+        }, timeoutMs);
+        const onClose = () => {
+            clearTimeout(timer);
+            resolve();
+        };
+        child.once('close', onClose);
+    });
+}
+function probeRecordingBlackFrames(outPath) {
+    const ffmpeg = detectFfmpeg();
+    if (!ffmpeg)
+        return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true };
+    try {
+        const result = spawnSync(ffmpeg, [
+            '-nostats',
+            '-i', outPath,
+            '-vf', 'fps=2,signalstats,metadata=print:file=-',
+            '-an',
+            '-f', 'null',
+            '-',
+        ], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        return parseLuminance(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
+    }
+    catch {
+        return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true };
     }
 }
 async function getPermissionStatuses(filter) {

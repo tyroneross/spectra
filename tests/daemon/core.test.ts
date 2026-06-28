@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { API_VERSION } from '../../src/contract/wire.js'
 import { createDaemonCore } from '../../src/daemon/core.js'
 import { eventEnvelope, formatSseFrame, sseFrame, successEnvelope } from '../../src/daemon/envelope.js'
 import type { KeepAwakeController } from '../../src/daemon/keep-awake.js'
+import { createContext } from '../../src/mcp/context.js'
 
 class FakeKeepAwake implements KeepAwakeController {
   readonly events: string[] = []
@@ -196,17 +199,114 @@ describe('daemon core', () => {
     expect(keepAwake.activeRecordings).toBe(0)
   })
 
-  it('does not wire daemon start/stop recording to the legacy full-display path', async () => {
-    const core = createDaemonCore()
+  it('starts and stops single-window recordings through the daemon registry', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-test-'))
+    const keepAwake = new FakeKeepAwake()
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const calls: string[] = []
+    const core = createDaemonCore({
+      context: ctx,
+      keepAwake,
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => {
+        calls.push(`start:${input.recordingId}:${input.app}:${input.outPath}`)
+        return {
+          pid: 999,
+          started: {
+            recordingId: input.recordingId,
+            path: input.outPath,
+            startedAt: Date.now(),
+            fps: input.fps,
+            codec: input.codec,
+            bitrate: input.bitrate,
+            width: 800,
+            height: 600,
+          },
+          stop: async () => {
+            calls.push(`stop:${input.recordingId}`)
+            return {
+              recordingId: input.recordingId,
+              path: input.outPath,
+              format: 'mp4',
+              durationMs: 1250,
+              sizeBytes: 2048,
+              codec: input.codec,
+              fps: input.fps,
+              width: 800,
+              height: 600,
+              droppedFrames: 0,
+            }
+          },
+          abort: async () => {
+            calls.push(`abort:${input.recordingId}`)
+          },
+        }
+      },
+    })
 
-    await expect(core.startRecording({ sessionId: 's' })).rejects.toMatchObject({
-      code: 'recording_failed',
-      status: 501,
-    })
-    await expect(core.stopRecording({ sessionId: 's' })).rejects.toMatchObject({
-      code: 'recording_failed',
-      status: 501,
-    })
+    try {
+      const started = await core.startRecording({ sessionId: session.id, fps: 30, codec: 'h264', bitrate: '4M' })
+      expect(started).toMatchObject({
+        recordingId: expect.stringMatching(/^recording-/),
+        fps: 30,
+        codec: 'h264',
+        bitrate: '4M',
+      })
+      expect(ctx.sessions.getRun(session.id)?.recording).toMatchObject({
+        state: 'recording',
+        recordingId: started.recordingId,
+        width: 800,
+        height: 600,
+      })
+
+      const stopped = await core.stopRecording({ sessionId: session.id })
+      expect(stopped).toMatchObject({
+        recordingId: started.recordingId,
+        path: expect.stringContaining(`${started.recordingId}.mp4`),
+        durationMs: 1250,
+        sizeBytes: 2048,
+        alreadyStopped: false,
+      })
+      expect(ctx.sessions.getRun(session.id)?.recording).toMatchObject({
+        state: 'saved',
+        recordingId: started.recordingId,
+        durationMs: 1250,
+        sizeBytes: 2048,
+      })
+      expect(ctx.sessions.getRun(session.id)?.artifacts).toEqual([
+        expect.objectContaining({ type: 'video', path: stopped.path }),
+      ])
+      expect(calls).toEqual([
+        expect.stringMatching(/^start:recording-/),
+        expect.stringMatching(/^stop:recording-/),
+      ])
+      expect(keepAwake.activeRecordings).toBe(0)
+
+      await expect(core.stopRecording({ sessionId: session.id })).resolves.toMatchObject({
+        alreadyStopped: true,
+      })
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
   })
 })
 

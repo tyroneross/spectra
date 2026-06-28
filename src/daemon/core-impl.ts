@@ -1,5 +1,8 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { stat, mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { createInterface, type Interface } from 'node:readline'
 import { promisify } from 'node:util'
 import type {
   AnalyzeParams,
@@ -26,6 +29,7 @@ import type {
   ListSessionsResult,
   ListWindowsParams,
   ListWindowsResult,
+  BlackFrameGuard,
   PermissionKind,
   PermissionState,
   PermissionStatus,
@@ -61,6 +65,8 @@ import type {
   TerminalReplayParams,
   TerminalReplayResult,
 } from '../contract/core-api.js'
+import { detectFfmpeg } from '../media/ffmpeg.js'
+import { probeVideo } from '../media/pipeline.js'
 import { createContext, type ToolContext } from '../mcp/context.js'
 import { handleAnalyze } from '../mcp/tools/analyze.js'
 import { handleAct } from '../mcp/tools/act.js'
@@ -75,8 +81,12 @@ import { handleSession } from '../mcp/tools/session.js'
 import { handleSnapshot } from '../mcp/tools/snapshot.js'
 import { handleStep } from '../mcp/tools/step.js'
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js'
-import { ensureCompositeBinary } from '../native/compiler.js'
-import { recordCompositeWithWorker } from './composite-worker.js'
+import { ensureBinary, ensureCompositeBinary } from '../native/compiler.js'
+import {
+  COMPOSITE_WORKER_DEFAULTS,
+  parseLuminance,
+  recordCompositeWithWorker,
+} from './composite-worker.js'
 import { DaemonApiError } from './errors.js'
 import { health as daemonHealth, type HealthProbeOptions } from './health.js'
 import type { KeepAwakeController } from './keep-awake.js'
@@ -84,12 +94,8 @@ import { createKeepAwakeController } from './keep-awake.js'
 
 const execFileAsync = promisify(execFile)
 
-const SINGLE_WINDOW_RECORDING_HINT =
-  'Use recordComposite(params) for daemon-owned window-isolated ScreenCaptureKit capture. '
-  + 'startRecording/stopRecording are intentionally not wired to the legacy full-display '
-  + 'AVFoundation path; they need a separate frozen single-window streaming contract.'
-
 type CompositeWorker = typeof recordCompositeWithWorker
+type SingleWindowRecordingRunner = (input: NativeStartRecordingInput) => Promise<NativeRecordingHandle>
 let screenCaptureKitWindowList: Promise<WindowRecord[]> | undefined
 
 export interface CoreApiImplementationOptions {
@@ -99,6 +105,8 @@ export interface CoreApiImplementationOptions {
   healthProbe?: HealthProbeOptions
   keepAwake?: KeepAwakeController
   recordCompositeWorker?: CompositeWorker
+  singleWindowRecordingRunner?: SingleWindowRecordingRunner
+  windowListProvider?: () => Promise<WindowRecord[]>
 }
 
 export function createCoreApi(options: CoreApiImplementationOptions = {}): CoreApi {
@@ -112,6 +120,9 @@ class CoreApiImplementation implements CoreApi {
   private readonly healthProbe?: HealthProbeOptions
   private readonly keepAwake: KeepAwakeController
   private readonly recordCompositeWorker: CompositeWorker
+  private readonly singleWindowRecordingRunner: SingleWindowRecordingRunner
+  private readonly windowListProvider: () => Promise<WindowRecord[]>
+  private readonly recordings = new RecordingRegistry()
 
   constructor(options: CoreApiImplementationOptions) {
     this.ctx = options.context ?? createContext()
@@ -120,6 +131,8 @@ class CoreApiImplementation implements CoreApi {
     this.healthProbe = options.healthProbe
     this.keepAwake = options.keepAwake ?? createKeepAwakeController()
     this.recordCompositeWorker = options.recordCompositeWorker ?? recordCompositeWithWorker
+    this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording
+    this.windowListProvider = options.windowListProvider ?? listMacWindows
   }
 
   async health(params: HealthParams = {}): Promise<HealthResult> {
@@ -144,7 +157,7 @@ class CoreApiImplementation implements CoreApi {
   }
 
   async listWindows(params: ListWindowsParams = {}): Promise<ListWindowsResult> {
-    const windows = await listMacWindows()
+    const windows = await this.windowListProvider()
     const app = params.app?.toLowerCase()
     const title = params.title?.toLowerCase()
     return {
@@ -245,20 +258,209 @@ class CoreApiImplementation implements CoreApi {
     return handleCapture({ ...params, type: 'screenshot' }, this.ctx) as Promise<ScreenshotResult>
   }
 
-  async startRecording(_params: StartRecordingParams): Promise<StartRecordingResult> {
-    throw new DaemonApiError(
-      'recording_failed',
-      'startRecording is not available on the daemon until single-window recording is wired.',
-      { status: 501, hint: SINGLE_WINDOW_RECORDING_HINT, retryable: false },
-    )
+  async startRecording(params: StartRecordingParams): Promise<StartRecordingResult> {
+    const session = this.ctx.sessions.get(params.sessionId)
+    if (!session) throw new DaemonApiError('not_found', `Session ${params.sessionId} not found`, { status: 404 })
+    if (session.platform !== 'macos' || !session.target.appName) {
+      throw new DaemonApiError(
+        'recording_failed',
+        'startRecording currently requires a macOS session with an app target.',
+        { status: 400, retryable: false },
+      )
+    }
+    if (this.recordings.forSession(params.sessionId)) {
+      throw new DaemonApiError(
+        'conflict',
+        `Session ${params.sessionId} already has an active recording.`,
+        { status: 409, retryable: false },
+      )
+    }
+
+    const target = await this.resolveRecordingTarget(session.target.appName)
+    const recordingId = `recording-${randomUUID().slice(0, 8)}`
+    const sessionDir = this.ctx.sessions.sessionDir(params.sessionId)
+    await mkdir(sessionDir, { recursive: true })
+    const outPath = join(sessionDir, `${recordingId}.mp4`)
+    const startedAt = Date.now()
+    const fps = params.fps ?? 60
+    const codec = params.codec ?? 'h264'
+    const bitrate = params.bitrate ?? '8M'
+
+    await this.keepAwake.recordingStarted(recordingId)
+    let handle: NativeRecordingHandle
+    try {
+      handle = await this.singleWindowRecordingRunner({
+        recordingId,
+        sessionId: params.sessionId,
+        app: session.target.appName,
+        outPath,
+        fps,
+        codec,
+        bitrate,
+        maxDurationSeconds: 300,
+      })
+    } catch (error) {
+      await this.keepAwake.recordingStopped(recordingId).catch(() => {})
+      throw new DaemonApiError(
+        'recording_failed',
+        `startRecording failed: ${error instanceof Error ? error.message : String(error)}`,
+        {
+          status: 500,
+          hint: 'Verify the target window is visible/on-screen and Screen Recording permission is granted to the signed Spectra daemon helper.',
+          retryable: false,
+          cause: error,
+        },
+      )
+    }
+
+    this.recordings.add({
+      recordingId,
+      sessionId: params.sessionId,
+      target,
+      startedAt,
+      outPath,
+      preset: params.preset,
+      fps,
+      codec,
+      bitrate,
+      handle,
+    })
+    await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+      state: 'recording',
+      recordingId,
+      preset: params.preset,
+      startedAt,
+      rawPath: outPath,
+      fps,
+      codec,
+      bitrate,
+      width: handle.started.width,
+      height: handle.started.height,
+      source: `${target.appName}${target.title ? `: ${target.title}` : ''}`,
+      sourceVerified: true,
+    })
+    return {
+      recordingId,
+      preset: params.preset,
+      startedAt,
+      fps,
+      codec,
+      bitrate,
+    }
   }
 
-  async stopRecording(_params: StopRecordingParams): Promise<StopRecordingResult> {
-    throw new DaemonApiError(
-      'recording_failed',
-      'stopRecording is not available on the daemon until single-window recording is wired.',
-      { status: 501, hint: SINGLE_WINDOW_RECORDING_HINT, retryable: false },
-    )
+  async stopRecording(params: StopRecordingParams): Promise<StopRecordingResult> {
+    const session = this.ctx.sessions.get(params.sessionId)
+    if (!session) throw new DaemonApiError('not_found', `Session ${params.sessionId} not found`, { status: 404 })
+
+    const active = this.recordings.forSession(params.sessionId)
+    if (!active) {
+      return {
+        preset: params.preset,
+        alreadyStopped: true,
+        error: `No active recording for session ${params.sessionId}`,
+      }
+    }
+
+    this.recordings.remove(active.recordingId)
+    let stopped: NativeStopRecordingOutput
+    try {
+      await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+        state: 'encoding',
+        recordingId: active.recordingId,
+        preset: active.preset,
+        startedAt: active.startedAt,
+        rawPath: active.outPath,
+        fps: active.fps,
+        codec: active.codec,
+        bitrate: active.bitrate,
+      })
+      stopped = await active.handle.stop()
+    } catch (error) {
+      await this.keepAwake.recordingStopped(active.recordingId).catch(() => {})
+      await active.handle.abort().catch(() => {})
+      await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+        state: 'failed',
+        recordingId: active.recordingId,
+        preset: active.preset,
+        startedAt: active.startedAt,
+        stoppedAt: Date.now(),
+        rawPath: active.outPath,
+        error: error instanceof Error ? error.message : String(error),
+      }).catch(() => {})
+      throw new DaemonApiError(
+        'recording_failed',
+        `stopRecording failed: ${error instanceof Error ? error.message : String(error)}`,
+        { status: 500, retryable: false, cause: error },
+      )
+    }
+
+    await this.keepAwake.recordingStopped(active.recordingId).catch(() => {})
+    const stoppedAt = Date.now()
+    const path = stopped.path || active.outPath
+    const file = await stat(path).catch(() => undefined)
+    const probed = await probeVideo(path).catch(() => undefined)
+    const blackFrameGuard = probeRecordingBlackFrames(path)
+    const warnings: string[] = []
+    if (blackFrameGuard.allBlack) {
+      warnings.push(
+        `Output appears all-black (mean luminance ${blackFrameGuard.meanLuma?.toFixed(1)} < `
+        + `${COMPOSITE_WORKER_DEFAULTS.blackThreshold} across ${blackFrameGuard.sampleCount} sampled frames).`,
+      )
+    } else if (blackFrameGuard.skipped) {
+      warnings.push('Black-frame guard skipped; ffmpeg was unavailable or no luminance samples were produced.')
+    }
+    const durationMs = stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt)
+    const sizeBytes = stopped.sizeBytes ?? file?.size
+    await this.ctx.sessions.addArtifact(params.sessionId, {
+      type: 'video',
+      path,
+      format: stopped.format ?? 'mp4',
+      label: 'Window recording',
+      sizeBytes,
+      metadata: {
+        recordingId: active.recordingId,
+        appName: active.target.appName,
+        title: active.target.title,
+        blackFrameMeanLuma: blackFrameGuard.meanLuma,
+        blackFrameAllBlack: blackFrameGuard.allBlack,
+        blackFrameSampleCount: blackFrameGuard.sampleCount,
+        warnings,
+      },
+    })
+    await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+      state: 'saved',
+      recordingId: active.recordingId,
+      preset: active.preset,
+      startedAt: active.startedAt,
+      stoppedAt,
+      rawPath: active.outPath,
+      path,
+      durationMs,
+      sizeBytes,
+      codec: stopped.codec ?? probed?.codec ?? active.codec,
+      fps: stopped.fps ?? probed?.fps ?? active.fps,
+      width: stopped.width ?? probed?.width,
+      height: stopped.height ?? probed?.height,
+      bitrate: active.bitrate,
+      droppedFrames: stopped.droppedFrames,
+      source: `${active.target.appName}${active.target.title ? `: ${active.target.title}` : ''}`,
+      sourceVerified: true,
+    })
+    return {
+      recordingId: active.recordingId,
+      preset: active.preset,
+      path,
+      format: stopped.format ?? 'mp4',
+      durationMs,
+      sizeBytes,
+      codec: stopped.codec ?? probed?.codec ?? active.codec,
+      fps: stopped.fps ?? probed?.fps ?? active.fps,
+      width: stopped.width ?? probed?.width,
+      height: stopped.height ?? probed?.height,
+      droppedFrames: stopped.droppedFrames,
+      alreadyStopped: false,
+    }
   }
 
   async recordComposite(params: RecordCompositeParams): Promise<RecordCompositeResult> {
@@ -319,6 +521,19 @@ class CoreApiImplementation implements CoreApi {
   }
 
   async close(): Promise<void> {
+    await Promise.all(this.recordings.list().map(async (recording) => {
+      this.recordings.remove(recording.recordingId)
+      await recording.handle.abort().catch(() => {})
+      await this.keepAwake.recordingStopped(recording.recordingId).catch(() => {})
+      await this.ctx.sessions.setRecordingStatus(recording.sessionId, {
+        state: 'aborted',
+        recordingId: recording.recordingId,
+        preset: recording.preset,
+        startedAt: recording.startedAt,
+        stoppedAt: Date.now(),
+        rawPath: recording.outPath,
+      }).catch(() => {})
+    }))
     await this.keepAwake.close()
   }
 
@@ -347,6 +562,303 @@ class CoreApiImplementation implements CoreApi {
       metadata,
     })
     return artifact.id
+  }
+
+  private async resolveRecordingTarget(app: string): Promise<WindowRecord> {
+    const appNeedle = app.toLowerCase()
+    const windows = await this.windowListProvider()
+    const candidates = windows.filter((window) => {
+      const appName = window.appName.toLowerCase()
+      const bundle = window.bundleIdentifier?.toLowerCase() ?? ''
+      return window.onScreen
+        && window.layer === 0
+        && window.width >= 100
+        && window.height >= 100
+        && (appName.includes(appNeedle) || bundle.includes(appNeedle))
+    })
+    if (candidates.length === 0) {
+      throw new DaemonApiError(
+        'recording_failed',
+        `No on-screen ScreenCaptureKit window found for app ${app}`,
+        { status: 404, retryable: false },
+      )
+    }
+    return candidates.sort((left, right) => {
+      const leftTitled = left.title.length > 0
+      const rightTitled = right.title.length > 0
+      if (leftTitled !== rightTitled) return leftTitled ? -1 : 1
+      if (left.layer !== right.layer) return left.layer - right.layer
+      return (right.width * right.height) - (left.width * left.height)
+    })[0]
+  }
+}
+
+interface NativeStartRecordingInput {
+  recordingId: string
+  sessionId: string
+  app: string
+  outPath: string
+  fps: number
+  codec: string
+  bitrate: string
+  maxDurationSeconds: number
+}
+
+interface NativeStartRecordingOutput {
+  recordingId: string
+  path: string
+  startedAt?: number
+  fps?: number
+  codec?: string
+  bitrate?: string
+  width?: number
+  height?: number
+}
+
+interface NativeStopRecordingOutput {
+  recordingId?: string
+  path?: string
+  format?: string
+  durationMs?: number
+  sizeBytes?: number
+  codec?: string
+  fps?: number
+  width?: number
+  height?: number
+  droppedFrames?: number
+}
+
+interface NativeRecordingHandle {
+  pid?: number
+  started: NativeStartRecordingOutput
+  stop(): Promise<NativeStopRecordingOutput>
+  abort(): Promise<void>
+}
+
+interface ActiveRecording {
+  recordingId: string
+  sessionId: string
+  target: WindowRecord
+  startedAt: number
+  outPath: string
+  preset?: StartRecordingParams['preset']
+  fps: number
+  codec: string
+  bitrate: string
+  handle: NativeRecordingHandle
+}
+
+class RecordingRegistry {
+  private readonly byId = new Map<string, ActiveRecording>()
+  private readonly bySession = new Map<string, string>()
+
+  add(recording: ActiveRecording): void {
+    if (this.byId.has(recording.recordingId)) {
+      throw new Error(`Duplicate recordingId ${recording.recordingId}`)
+    }
+    if (this.bySession.has(recording.sessionId)) {
+      throw new Error(`Session ${recording.sessionId} already has an active recording`)
+    }
+    this.byId.set(recording.recordingId, recording)
+    this.bySession.set(recording.sessionId, recording.recordingId)
+  }
+
+  forSession(sessionId: string): ActiveRecording | undefined {
+    const recordingId = this.bySession.get(sessionId)
+    return recordingId ? this.byId.get(recordingId) : undefined
+  }
+
+  remove(recordingId: string): ActiveRecording | undefined {
+    const recording = this.byId.get(recordingId)
+    if (!recording) return undefined
+    this.byId.delete(recordingId)
+    this.bySession.delete(recording.sessionId)
+    return recording
+  }
+
+  list(): ActiveRecording[] {
+    return [...this.byId.values()]
+  }
+}
+
+interface NativeRpcResponse<T> {
+  id: number
+  result?: T
+  error?: {
+    code?: number
+    message?: string
+  }
+}
+
+class NativeRecordingProcess implements NativeRecordingHandle {
+  readonly pid?: number
+  started!: NativeStartRecordingOutput
+
+  private readonly readline: Interface
+  private readonly stderrChunks: Buffer[] = []
+  private readonly pending = new Map<number, {
+    resolve: (value: unknown) => void
+    reject: (error: Error) => void
+    timer: ReturnType<typeof setTimeout>
+  }>()
+  private nextId = 0
+  private closed = false
+
+  constructor(
+    private readonly child: ChildProcessWithoutNullStreams,
+    private readonly input: NativeStartRecordingInput,
+  ) {
+    this.pid = child.pid
+    this.readline = createInterface({ input: child.stdout })
+    this.readline.on('line', (line) => this.handleLine(line))
+    child.stderr.on('data', (chunk: Buffer) => this.stderrChunks.push(Buffer.from(chunk)))
+    child.on('error', (error) => this.rejectAll(error))
+    child.on('close', (code, signal) => {
+      this.closed = true
+      this.rejectAll(new Error(`spectra-native recording process exited with code ${code ?? 'null'} signal ${signal ?? 'null'}`))
+      this.readline.close()
+    })
+  }
+
+  async start(): Promise<this> {
+    this.started = await this.send<NativeStartRecordingOutput>('startRecording', {
+      recordingId: this.input.recordingId,
+      sessionId: this.input.sessionId,
+      app: this.input.app,
+      outPath: this.input.outPath,
+      fps: this.input.fps,
+      codec: this.input.codec,
+      bitrate: this.input.bitrate,
+      maxDuration: this.input.maxDurationSeconds,
+    }, 15_000)
+    return this
+  }
+
+  async stop(): Promise<NativeStopRecordingOutput> {
+    const result = await this.send<NativeStopRecordingOutput>('stopRecording', {
+      recordingId: this.input.recordingId,
+      sessionId: this.input.sessionId,
+    }, 45_000)
+    await this.quit()
+    return result
+  }
+
+  async abort(): Promise<void> {
+    if (this.closed) return
+    await this.quit().catch(() => {})
+    if (!this.closed) {
+      this.child.kill('SIGTERM')
+      await waitForChildExit(this.child, 2_000).catch(() => {
+        if (!this.closed) this.child.kill('SIGKILL')
+      })
+    }
+  }
+
+  private async quit(): Promise<void> {
+    if (this.closed) return
+    await this.send('quit', {}, 1_000).catch(() => {})
+    await waitForChildExit(this.child, 2_000).catch(() => {})
+  }
+
+  private send<T>(method: string, params: Record<string, unknown>, timeoutMs: number): Promise<T> {
+    if (this.closed) {
+      return Promise.reject(new Error('spectra-native recording process is closed'))
+    }
+    const id = ++this.nextId
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`Native recording request '${method}' timed out after ${timeoutMs}ms${this.stderrDetail()}`))
+      }, timeoutMs)
+      this.pending.set(id, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timer,
+      })
+      this.child.stdin.write(`${JSON.stringify({ id, method, params })}\n`)
+    })
+  }
+
+  private handleLine(line: string): void {
+    const trimmed = line.trim()
+    if (!trimmed) return
+    let parsed: NativeRpcResponse<unknown>
+    try {
+      parsed = JSON.parse(trimmed) as NativeRpcResponse<unknown>
+    } catch {
+      return
+    }
+    const pending = this.pending.get(parsed.id)
+    if (!pending) return
+    clearTimeout(pending.timer)
+    this.pending.delete(parsed.id)
+    if (parsed.error) {
+      pending.reject(new Error(parsed.error.message ?? `Native recording error ${parsed.error.code ?? ''}`.trim()))
+    } else {
+      pending.resolve(parsed.result)
+    }
+  }
+
+  private rejectAll(error: Error): void {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(error)
+    }
+    this.pending.clear()
+  }
+
+  private stderrDetail(): string {
+    const stderr = Buffer.concat(this.stderrChunks).toString('utf8').trim()
+    return stderr ? `\n${stderr}` : ''
+  }
+}
+
+async function startNativeSingleWindowRecording(input: NativeStartRecordingInput): Promise<NativeRecordingHandle> {
+  const binary = ensureBinary()
+  const child = spawn(binary, [], { stdio: 'pipe' })
+  const process = new NativeRecordingProcess(child, input)
+  try {
+    return await process.start()
+  } catch (error) {
+    await process.abort().catch(() => {})
+    throw error
+  }
+}
+
+async function waitForChildExit(child: ChildProcessWithoutNullStreams, timeoutMs: number): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      child.off('close', onClose)
+      reject(new Error('Timed out waiting for child process exit'))
+    }, timeoutMs)
+    const onClose = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    child.once('close', onClose)
+  })
+}
+
+function probeRecordingBlackFrames(outPath: string): BlackFrameGuard {
+  const ffmpeg = detectFfmpeg()
+  if (!ffmpeg) return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true }
+  try {
+    const result = spawnSync(
+      ffmpeg,
+      [
+        '-nostats',
+        '-i', outPath,
+        '-vf', 'fps=2,signalstats,metadata=print:file=-',
+        '-an',
+        '-f', 'null',
+        '-',
+      ],
+      { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+    )
+    return parseLuminance(`${result.stdout ?? ''}\n${result.stderr ?? ''}`)
+  } catch {
+    return { sampleCount: 0, meanLuma: null, allBlack: false, skipped: true }
   }
 }
 

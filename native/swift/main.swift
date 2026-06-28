@@ -233,13 +233,30 @@ func handleSimTap(_ req: Request) {
 }
 
 func handleStartRecording(_ req: Request) {
-    // ScreenCaptureKit recording — Phase 2 stretch goal
-    // For now, return not implemented
-    sendError(id: req.id, code: -1, message: "macOS video recording via ScreenCaptureKit: coming in Phase 3a")
+    guard let params = req.params else {
+        sendError(id: req.id, code: -1, message: "Missing params")
+        return
+    }
+    Task { @MainActor in
+        do {
+            let result = try await SingleWindowRecordingStore.shared.start(params: params)
+            sendResult(id: req.id, AnyCodableValue.from(result))
+        } catch {
+            sendError(id: req.id, code: -1, message: String(describing: error))
+        }
+    }
 }
 
 func handleStopRecording(_ req: Request) {
-    sendError(id: req.id, code: -1, message: "No active recording")
+    let params = req.params ?? [:]
+    Task { @MainActor in
+        do {
+            let result = try await SingleWindowRecordingStore.shared.stop(params: params)
+            sendResult(id: req.id, AnyCodableValue.from(result))
+        } catch {
+            sendError(id: req.id, code: -1, message: String(describing: error))
+        }
+    }
 }
 
 // ─── Main Loop ────────────────────────────────────────────

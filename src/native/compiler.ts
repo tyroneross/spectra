@@ -179,6 +179,10 @@ export function compile(): void {
     '-framework', 'ApplicationServices',
     '-framework', 'AppKit',
     '-framework', 'CoreGraphics',
+    '-framework', 'ScreenCaptureKit',
+    '-framework', 'AVFoundation',
+    '-framework', 'CoreMedia',
+    '-framework', 'CoreVideo',
   ]
 
   const cmd = ['swiftc', ...files, ...frameworks, '-o', BINARY_PATH].join(' ')
