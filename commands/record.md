@@ -28,8 +28,9 @@ windows. The current composite recorder is the ScreenCaptureKit worker behind
 1. Ensure the two target windows are visible and on-screen.
 2. Call `spectra_demo` with `action: "record-composite"`, app selectors, and
    `outPath`.
-3. Wait for the synchronous result today. Async mode will return `recordingId`
-   once the async lifecycle work lands.
+3. Omit `async` for the synchronous result, or set `async: true` to receive a
+   `recordingId` immediately and follow completion through events or
+   `getRecording`.
 4. Use the returned output path, and the session artifact when `sessionId` was
    attached.
 

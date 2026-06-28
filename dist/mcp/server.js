@@ -239,6 +239,7 @@ export function createSpectraServer(client) {
         cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
         outPath: z.string().optional().describe('record-composite: composite MP4 output path'),
         sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
+        async: z.boolean().optional().describe('record-composite: return a recordingId immediately and finish via recording.status/artifact.added events'),
     }, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_demo', args));
     // ─── Prompts (unchanged) ───────────────────────────────────
     server.prompt('walkthrough', 'Walk through a UI flow and capture screenshots at each step', {

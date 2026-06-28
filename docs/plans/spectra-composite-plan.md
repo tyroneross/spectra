@@ -7,13 +7,14 @@
 
 Keep Spectra's recording surface aligned to the code that exists now: native
 ScreenCaptureKit composite recording plus native ScreenCaptureKit single-window
-recording. The next implementation step is async `recordComposite`.
+recording. `recordComposite` remains synchronous by default and supports opt-in
+async mode.
 
 ## Current Ground Truth
 
 | Capability | Current status | Evidence |
 |---|---|---|
-| Composite recording | Real, synchronous | `src/daemon/core-impl.ts` `recordComposite`; worker in `src/daemon/composite-worker.ts`; Swift source in `native/swift/composite-capture/` |
+| Composite recording | Real; sync default, async opt-in | `src/daemon/core-impl.ts` `recordComposite`; worker in `src/daemon/composite-worker.ts`; Swift source in `native/swift/composite-capture/` |
 | Single-window recording | Real | `startRecording` / `stopRecording` in `src/daemon/core-impl.ts`; registry in `core-impl.ts`; native helper in `native/swift/SingleWindowRecording.swift` and `native/swift/main.swift` |
 | Recording event bus | Real | `recording.status` and `artifact.added` emitted through `eventSink` in `src/daemon/core-impl.ts`; server bus wiring in `src/daemon/server.ts` |
 | Full-display recording fallback | Deleted | Removed in `b68ee69`; it is not a valid product or implementation path |
@@ -36,17 +37,16 @@ use media helpers. They are not live video recording paths.
 - `spectra_capture type=start_recording` forwards to daemon `startRecording`.
 - `spectra_capture type=stop_recording` forwards to daemon `stopRecording`.
 
-## Next Work: Async `recordComposite`
+## Async `recordComposite`
 
-`recordComposite` currently blocks for capture duration plus encode while also
-emitting lifecycle events. The planned change is:
+`recordComposite` accepts `async?: boolean`.
 
-1. Add `async?: boolean` to `recordComposite` params. Default remains sync.
-2. In async mode, return a `recordingId` immediately.
-3. Track composite recording lifecycle in the daemon.
-4. Emit `recording.status` for `recording`, then `saved` or `failed`.
-5. Emit `artifact.added` after a successful session-attached recording.
-6. Add a poll operation so clients can query the recording by `recordingId`.
+1. Default mode remains synchronous.
+2. Async mode returns a `recordingId` immediately.
+3. The daemon tracks composite recording lifecycle in a registry.
+4. Completion emits `recording.status` with `saved` or `failed`.
+5. Successful session-attached completion emits `artifact.added`.
+6. `getRecording({ recordingId })` returns the current status.
 
 ## Contract Shape Decision
 

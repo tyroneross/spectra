@@ -257,6 +257,7 @@ export function timeoutForOperation(
   baseTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 ): number {
   if (operation !== 'recordComposite') return baseTimeoutMs
+  if ((params as Partial<RecordCompositeParams> | undefined)?.async === true) return baseTimeoutMs
 
   const durationSeconds = recordCompositeDurationSeconds(params)
   return Math.max(

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make the Spectra repo internally consistent with current code, then make
+Make the Spectra repo internally consistent with current code and keep
 `recordComposite` non-blocking for callers that opt into async mode.
 
 ## Ground Truth
@@ -15,8 +15,9 @@ Make the Spectra repo internally consistent with current code, then make
   `native/swift/SingleWindowRecording.swift`.
 - Event bus: `recording.status` and `artifact.added` flow through
   `eventSink` and `src/daemon/server.ts`.
-- Current gap: `recordComposite` emits events but blocks until capture and encode
-  complete.
+- Composite lifecycle: `recordComposite` is sync by default; `async: true`
+  returns a `recordingId`, completes in the background, emits events, and is
+  pollable with `getRecording`.
 
 ## Chunks
 

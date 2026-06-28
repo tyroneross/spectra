@@ -4,7 +4,7 @@ import type {
   BlackFrameGuard,
   JsonValue,
   RecordCompositeParams,
-  RecordCompositeResult,
+  RecordCompositeCompletedResult,
 } from '../contract/core-api.js'
 import { detectFfmpeg } from '../media/ffmpeg.js'
 import {
@@ -169,7 +169,7 @@ function runScreenRecordingPreflight(): ScreenRecordingPreflightFailure | undefi
 
 export async function recordCompositeWithWorker(
   params: RecordCompositeParams,
-): Promise<RecordCompositeResult> {
+): Promise<RecordCompositeCompletedResult> {
   const args = buildCompositeWorkerArgs(params)
   const binary = ensureCompositeBinary()
   const commandLine = [binary, ...args].join(' ')

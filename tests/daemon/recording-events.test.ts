@@ -43,6 +43,21 @@ const recTypes = (events: DaemonEvent[]) => events.map((e) => e.type)
 const recStates = (events: DaemonEvent[]) =>
   events.filter((e) => e.type === 'recording.status').map((e) => (e as unknown as { data: { state: string } }).data.state)
 
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => { resolve = r })
+  return { promise, resolve }
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  const deadline = Date.now() + 1_000
+  while (Date.now() < deadline) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  throw new Error('Timed out waiting for async recording lifecycle')
+}
+
 describe('SSE emission — recordComposite', () => {
   it('emits recording.status(recording→saved) + artifact.added when a session exists', async () => {
     const events: DaemonEvent[] = []
@@ -100,6 +115,57 @@ describe('SSE emission — recordComposite', () => {
 
     expect(recTypes(events)).toEqual(['recording.status', 'recording.status'])
     expect(recStates(events)).toEqual(['recording', 'failed'])
+  })
+
+  it('async mode returns recordingId immediately, then emits saved + artifact when the worker finishes', async () => {
+    const events: DaemonEvent[] = []
+    const outPath = join(tmpRoot, 'async-out.mp4')
+    const workerDone = deferred<{
+      ok: true
+      output: string
+      command: string
+      blackFrameGuard: { sampleCount: number; meanLuma: number; allBlack: boolean; skipped: boolean }
+      warnings: string[]
+    }>()
+    const core = createDaemonCore({
+      context: fakeContext({ id: 'sess-1' }),
+      keepAwake: new FakeKeepAwake(),
+      recordCompositeWorker: (async () => workerDone.promise) as never,
+      eventSink: (e) => events.push(e),
+    })
+
+    const started = await core.recordComposite({
+      appA: 'A',
+      appB: 'B',
+      outPath,
+      durationSeconds: 5,
+      fps: 60,
+      sessionId: 'sess-1',
+      async: true,
+    } as never) as { recordingId: string }
+
+    expect(started.recordingId).toMatch(/^composite-/)
+    expect(recTypes(events)).toEqual(['recording.status'])
+    expect(recStates(events)).toEqual(['recording'])
+    await expect(core.getRecording({ recordingId: started.recordingId })).resolves.toMatchObject({
+      recording: { recordingId: started.recordingId, kind: 'composite', state: 'recording' },
+    })
+
+    writeFileSync(outPath, 'x')
+    workerDone.resolve({
+      ok: true,
+      output: outPath,
+      command: 'fake',
+      blackFrameGuard: { sampleCount: 3, meanLuma: 72, allBlack: false, skipped: false },
+      warnings: [],
+    })
+
+    await waitFor(() => recStates(events).includes('saved'))
+    expect(recTypes(events)).toEqual(['recording.status', 'recording.status', 'artifact.added'])
+    expect(recStates(events)).toEqual(['recording', 'saved'])
+    await expect(core.getRecording({ recordingId: started.recordingId })).resolves.toMatchObject({
+      recording: { recordingId: started.recordingId, kind: 'composite', state: 'saved', path: outPath, artifactId: 'art-1' },
+    })
   })
 })
 

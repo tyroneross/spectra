@@ -67,6 +67,13 @@ describe('DaemonClient — contract round-trip', () => {
       outPath: '/tmp/out.mp4',
       durationSeconds: 15,
     }, 30_000)).toBe(15_000 + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS)
+    expect(timeoutForOperation('recordComposite', {
+      appA: 'Chrome',
+      appB: 'Ghostty',
+      outPath: '/tmp/out.mp4',
+      durationSeconds: 15,
+      async: true,
+    }, 30_000)).toBe(30_000)
   })
 })
 

@@ -15,7 +15,8 @@ plan.
 
 ## Current Truth
 
-- Composite `recordComposite` is real but synchronous today.
+- Composite `recordComposite` is real. Sync remains the default; async is opt-in
+  with `async: true`.
 - Single-window `startRecording` / `stopRecording` is real.
 - `recording.status` and `artifact.added` events are emitted through the daemon
   event sink.
@@ -26,8 +27,8 @@ plan.
 
 1. Reconcile stale docs that still described the deleted full-display path.
 2. Reconcile this build-loop intent and plan with `CURRENT.md` and current code.
-3. Add async `recordComposite` while preserving sync mode as the default.
-4. Add a poll path so callers can query a recording by `recordingId`.
+3. Preserve sync `recordComposite` as the default.
+4. Support async `recordComposite` and a poll path by `recordingId`.
 5. Keep the contract drift gate active and update the frozen snapshot.
 
 ## Contract Decision

@@ -121,12 +121,11 @@ Source-verified on 2026-06-28:
 - `src/mcp/forward.ts` maps `spectra_demo action=record-composite` to the daemon
   `demo` operation, which delegates to `recordComposite`.
 
-## Roadmap Stance
+## Recording Lifecycle Stance
 
-The next product gap is async `recordComposite`: the synchronous path already
-emits recording lifecycle events, but it still blocks until capture and encode
-finish. Async mode should return a `recordingId` immediately, then report saved
-or failed over SSE plus a poll operation.
+`recordComposite` supports sync mode by default and opt-in async mode with
+`async: true`. Async mode returns a `recordingId` immediately, then reports
+`saved` or `failed` over SSE plus `getRecording` polling.
 
 ## Risks
 
@@ -151,5 +150,5 @@ below.
 
 - 0.2.0 (2026-06-28) - reconciled with current daemon code: the deleted
   full-display path is not valid; SCK composite and SCK single-window recording
-  are the only live recording paths.
+  are the only live recording paths; async composite recording is opt-in.
 - 0.1.0 (2026-06-26) - initial draft for the now-retired crop-from-display plan.

@@ -85,6 +85,7 @@ describe('daemon capability default-deny policy', () => {
   it('exposes the wire-contract capability requirements for an operation', () => {
     expect(requiredCapabilitiesForOperation('createSession')).toEqual(['sessions:write', 'ui:read'])
     expect(requiredCapabilitiesForOperation('recordComposite')).toEqual(['media:record', 'windows:read'])
+    expect(requiredCapabilitiesForOperation('getRecording')).toEqual(['sessions:read'])
   })
 
   it('denies operations until every required capability is granted', () => {

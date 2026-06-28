@@ -193,6 +193,8 @@ function stripUndefined(value) {
 export function timeoutForOperation(operation, params, baseTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
     if (operation !== 'recordComposite')
         return baseTimeoutMs;
+    if (params?.async === true)
+        return baseTimeoutMs;
     const durationSeconds = recordCompositeDurationSeconds(params);
     return Math.max(baseTimeoutMs, Math.ceil(durationSeconds * 1000) + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS);
 }

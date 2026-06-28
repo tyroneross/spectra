@@ -41,6 +41,7 @@ class CoreApiImplementation {
     windowListProvider;
     eventSink;
     recordings = new RecordingRegistry();
+    compositeRecordings = new CompositeRecordingRegistry();
     constructor(options) {
         this.ctx = options.context ?? createContext();
         this.startedAt = options.startedAt ?? Date.now();
@@ -367,6 +368,34 @@ class CoreApiImplementation {
         };
     }
     async recordComposite(params) {
+        if (params.async === true)
+            return this.startCompositeRecording(params);
+        return this.recordCompositeSync(params);
+    }
+    async getRecording(params) {
+        const composite = this.compositeRecordings.get(params.recordingId);
+        if (composite)
+            return { recording: composite };
+        const active = this.recordings.get(params.recordingId);
+        if (active) {
+            return {
+                recording: {
+                    recordingId: active.recordingId,
+                    kind: 'single-window',
+                    state: 'recording',
+                    sessionId: active.sessionId,
+                    startedAt: active.startedAt,
+                    updatedAt: Date.now(),
+                    outPath: active.outPath,
+                },
+            };
+        }
+        throw new DaemonApiError('not_found', `Recording ${params.recordingId} not found`, {
+            status: 404,
+            retryable: false,
+        });
+    }
+    async recordCompositeSync(params) {
         const recordingId = `composite-${randomUUID().slice(0, 8)}`;
         const startedAt = Date.now();
         const compositeSession = params.sessionId && this.ctx.sessions.get(params.sessionId)
@@ -408,7 +437,7 @@ class CoreApiImplementation {
             }
             if (artifact && params.sessionId)
                 this.emitArtifactAdded(params.sessionId, artifact);
-            return artifact ? { ...result, artifactId: artifact.id } : result;
+            return artifact ? { ...result, recordingId, artifactId: artifact.id } : { ...result, recordingId };
         }
         catch (error) {
             if (compositeSession) {
@@ -429,6 +458,128 @@ class CoreApiImplementation {
                 retryable: false,
                 cause: error,
             });
+        }
+        finally {
+            await this.keepAwake.recordingStopped(recordingId).catch(() => { });
+        }
+    }
+    async startCompositeRecording(params) {
+        const recordingId = `composite-${randomUUID().slice(0, 8)}`;
+        const startedAt = Date.now();
+        const compositeSession = params.sessionId && this.ctx.sessions.get(params.sessionId)
+            ? params.sessionId
+            : undefined;
+        if (compositeSession && this.compositeRecordings.forSession(compositeSession)) {
+            throw new DaemonApiError('conflict', `Session ${compositeSession} already has an active composite recording.`, { status: 409, retryable: false });
+        }
+        await this.keepAwake.recordingStarted(recordingId);
+        try {
+            this.compositeRecordings.add({
+                recordingId,
+                kind: 'composite',
+                state: 'recording',
+                sessionId: compositeSession,
+                startedAt,
+                updatedAt: startedAt,
+                outPath: params.outPath,
+            });
+            if (compositeSession) {
+                const recording = await this.ctx.sessions.setRecordingStatus(compositeSession, {
+                    state: 'recording',
+                    recordingId,
+                    startedAt,
+                    rawPath: params.outPath,
+                    fps: params.fps,
+                    source: `${params.appA} + ${params.appB}`,
+                    sourceVerified: true,
+                });
+                this.emitRecordingStatus(compositeSession, recording);
+            }
+        }
+        catch (error) {
+            this.compositeRecordings.remove(recordingId);
+            await this.keepAwake.recordingStopped(recordingId).catch(() => { });
+            throw error;
+        }
+        void this.finishCompositeRecording(recordingId, params, startedAt, compositeSession);
+        return {
+            ok: true,
+            accepted: true,
+            async: true,
+            recordingId,
+            state: 'recording',
+            startedAt,
+            sessionId: compositeSession,
+            poll: {
+                operation: 'getRecording',
+                params: { recordingId },
+            },
+        };
+    }
+    async finishCompositeRecording(recordingId, params, startedAt, compositeSession) {
+        try {
+            const result = await this.recordCompositeWorker(params);
+            const artifact = result.ok && result.output
+                ? await this.addCompositeArtifact(params, result, recordingId)
+                : undefined;
+            const stoppedAt = Date.now();
+            const current = this.compositeRecordings.get(recordingId);
+            if (current?.state === 'aborted')
+                return;
+            const status = this.compositeRecordings.update(recordingId, {
+                state: result.ok ? 'saved' : 'failed',
+                updatedAt: stoppedAt,
+                stoppedAt,
+                path: result.output,
+                artifactId: artifact?.id,
+                error: result.ok ? undefined : result.error,
+            });
+            this.compositeRecordings.complete(recordingId);
+            if (compositeSession) {
+                const recording = await this.ctx.sessions.setRecordingStatus(compositeSession, {
+                    state: result.ok ? 'saved' : 'failed',
+                    recordingId,
+                    startedAt,
+                    stoppedAt,
+                    rawPath: params.outPath,
+                    path: result.output,
+                    durationMs: params.durationSeconds !== undefined ? Math.round(params.durationSeconds * 1000) : undefined,
+                    fps: params.fps,
+                    source: `${params.appA} + ${params.appB}`,
+                    sourceVerified: true,
+                    error: result.ok ? undefined : result.error,
+                });
+                this.emitRecordingStatus(compositeSession, recording);
+            }
+            if (artifact && compositeSession)
+                this.emitArtifactAdded(compositeSession, artifact);
+            void status;
+        }
+        catch (error) {
+            const stoppedAt = Date.now();
+            const message = error instanceof Error ? error.message : String(error);
+            const current = this.compositeRecordings.get(recordingId);
+            if (current?.state !== 'aborted') {
+                this.compositeRecordings.update(recordingId, {
+                    state: 'failed',
+                    updatedAt: stoppedAt,
+                    stoppedAt,
+                    error: message,
+                });
+                this.compositeRecordings.complete(recordingId);
+                if (compositeSession) {
+                    const recording = await this.ctx.sessions.setRecordingStatus(compositeSession, {
+                        state: 'failed',
+                        recordingId,
+                        startedAt,
+                        stoppedAt,
+                        rawPath: params.outPath,
+                        error: message,
+                    }).catch(() => undefined);
+                    if (recording)
+                        this.emitRecordingStatus(compositeSession, recording);
+                }
+            }
         }
         finally {
             await this.keepAwake.recordingStopped(recordingId).catch(() => { });
@@ -474,6 +625,27 @@ class CoreApiImplementation {
             }).catch(() => { });
             if (status)
                 this.emitRecordingStatus(recording.sessionId, status);
+        }));
+        await Promise.all(this.compositeRecordings.active().map(async (recording) => {
+            const stoppedAt = Date.now();
+            this.compositeRecordings.update(recording.recordingId, {
+                state: 'aborted',
+                updatedAt: stoppedAt,
+                stoppedAt,
+            });
+            this.compositeRecordings.complete(recording.recordingId);
+            await this.keepAwake.recordingStopped(recording.recordingId).catch(() => { });
+            if (recording.sessionId) {
+                const status = await this.ctx.sessions.setRecordingStatus(recording.sessionId, {
+                    state: 'aborted',
+                    recordingId: recording.recordingId,
+                    startedAt: recording.startedAt,
+                    stoppedAt,
+                    rawPath: recording.outPath,
+                }).catch(() => undefined);
+                if (status)
+                    this.emitRecordingStatus(recording.sessionId, status);
+            }
         }));
         await this.keepAwake.close();
     }
@@ -562,6 +734,9 @@ class RecordingRegistry {
         const recordingId = this.bySession.get(sessionId);
         return recordingId ? this.byId.get(recordingId) : undefined;
     }
+    get(recordingId) {
+        return this.byId.get(recordingId);
+    }
     remove(recordingId) {
         const recording = this.byId.get(recordingId);
         if (!recording)
@@ -572,6 +747,66 @@ class RecordingRegistry {
     }
     list() {
         return [...this.byId.values()];
+    }
+}
+class CompositeRecordingRegistry {
+    byId = new Map();
+    activeBySession = new Map();
+    add(recording) {
+        if (this.byId.has(recording.recordingId)) {
+            throw new Error(`Duplicate recordingId ${recording.recordingId}`);
+        }
+        if (recording.sessionId && this.activeBySession.has(recording.sessionId)) {
+            throw new Error(`Session ${recording.sessionId} already has an active composite recording`);
+        }
+        this.byId.set(recording.recordingId, recording);
+        if (recording.sessionId && recording.state === 'recording') {
+            this.activeBySession.set(recording.sessionId, recording.recordingId);
+        }
+    }
+    get(recordingId) {
+        return this.byId.get(recordingId);
+    }
+    forSession(sessionId) {
+        const recordingId = this.activeBySession.get(sessionId);
+        return recordingId ? this.byId.get(recordingId) : undefined;
+    }
+    update(recordingId, patch) {
+        const current = this.byId.get(recordingId);
+        if (!current)
+            return undefined;
+        const next = {
+            ...current,
+            ...patch,
+            updatedAt: patch.updatedAt ?? Date.now(),
+        };
+        this.byId.set(recordingId, next);
+        if (next.sessionId && next.state === 'recording') {
+            this.activeBySession.set(next.sessionId, recordingId);
+        }
+        else if (next.sessionId && this.activeBySession.get(next.sessionId) === recordingId) {
+            this.activeBySession.delete(next.sessionId);
+        }
+        return next;
+    }
+    complete(recordingId) {
+        const recording = this.byId.get(recordingId);
+        if (recording?.sessionId && this.activeBySession.get(recording.sessionId) === recordingId) {
+            this.activeBySession.delete(recording.sessionId);
+        }
+    }
+    remove(recordingId) {
+        const recording = this.byId.get(recordingId);
+        if (!recording)
+            return undefined;
+        this.byId.delete(recordingId);
+        if (recording.sessionId && this.activeBySession.get(recording.sessionId) === recordingId) {
+            this.activeBySession.delete(recording.sessionId);
+        }
+        return recording;
+    }
+    active() {
+        return [...this.byId.values()].filter((recording) => recording.state === 'recording');
     }
 }
 class NativeRecordingProcess {
