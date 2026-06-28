@@ -84,7 +84,7 @@ import { handleSession } from '../mcp/tools/session.js'
 import { handleSnapshot } from '../mcp/tools/snapshot.js'
 import { handleStep } from '../mcp/tools/step.js'
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js'
-import { ensureBinary, ensureCompositeBinary } from '../native/compiler.js'
+import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary } from '../native/compiler.js'
 import {
   COMPOSITE_WORKER_DEFAULTS,
   parseLuminance,
@@ -984,6 +984,20 @@ async function probePermission(permission: PermissionKind): Promise<PermissionSt
       return 'unknown'
     }
   }
+  if (permission === 'screen-recording') {
+    try {
+      await execFileAsync(ensureScreenRecordingPreflightBinary(), [], {
+        timeout: 2_000,
+        maxBuffer: 1024 * 1024,
+      })
+      return 'granted'
+    } catch {
+      return 'denied'
+    }
+  }
+  // macOS exposes no non-prompting, daemon-safe public probe for Automation or
+  // Developer Tools consent equivalent to AXIsProcessTrusted or CGPreflight.
+  // Keep these unknown rather than fabricating a value from brittle UI state.
   return 'unknown'
 }
 
