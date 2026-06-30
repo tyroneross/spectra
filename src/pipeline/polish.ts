@@ -4,10 +4,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js'
 import { framingFilter } from './framing.js'
-import { buildScriptZoomTrack, scriptDurationMs, type DemoScript } from './script.js'
-import { renderCaptionPng } from './text-render.js'
+import { scriptDurationMs, scriptZoomWindows, type DemoScript } from './script.js'
+import { renderCaptionPng, renderFrameChromePng } from './text-render.js'
 import { buildZoomTrack, type CursorPoint, type ZoomClick } from './zoom-keyframes.js'
-import { zoomFilter } from './zoom-render.js'
+import { timedZoomFilter, zoomFilter } from './zoom-render.js'
 
 export type ClicksJsonInput =
   | string
@@ -56,6 +56,11 @@ interface CaptionOverlay {
   path: string
   filter: string
   outputLabel: string
+}
+
+interface StaticFramePlan {
+  imagePaths: string[]
+  filter: string
 }
 
 const OUTPUT_W = 1920
@@ -132,9 +137,11 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
 
   const metadata = await probeVideo(options.input)
   const durationMs = metadata.durationMs ?? scriptDurationMs(options.script)
-  const track = buildScriptZoomTrack(options.script, durationMs, fps)
+  const frames = frameCount(durationMs, fps)
   const finalCaption = options.script.finalCaption?.trim()
   let nextInputIndex = 1
+  const staticFrame = await buildStaticFramePlan(nextInputIndex, OUTPUT_W, OUTPUT_H)
+  if (staticFrame) nextInputIndex += staticFrame.imagePaths.length
   const captionOverlay = finalCaption
     ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
     : undefined
@@ -142,8 +149,9 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
 
   const fallbackCaption = captionOverlay ? undefined : finalCaption
   const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
-  const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
-  const frame = framingFilter({
+  const zoom = timedZoomFilter(scriptZoomWindows(options.script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
+  const useStaticFrame = staticFrame && !fallbackCaption
+  const frame = useStaticFrame ? staticFrame.filter : framingFilter({
     inputLabel: 'zoomed',
     outputLabel: 'framed',
     caption: fallbackCaption,
@@ -163,6 +171,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     inputIndexStart: nextInputIndex,
   })
   const imagePaths = [
+    ...(useStaticFrame ? staticFrame.imagePaths : []),
     ...(captionOverlay ? [captionOverlay.path] : []),
     ...cardPlan.imagePaths,
   ]
@@ -180,7 +189,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     ...imageInputArgs(imagePaths, fps),
     '-filter_complex', filterComplex,
     '-map', '[v]',
-    '-frames:v', String(Math.max(1, track.length)),
+    '-frames:v', String(Math.max(1, frames)),
     '-an',
     '-r', String(fps),
     '-c:v', 'libx264',
@@ -196,8 +205,53 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     height: OUTPUT_H,
     fps,
     durationMs,
-    frames: track.length,
+    frames,
   }
+}
+
+async function buildStaticFramePlan(
+  inputIndex: number,
+  outW: number,
+  outH: number,
+): Promise<StaticFramePlan | undefined> {
+  const layout = frameLayout(outW, outH)
+  const chrome = await renderFrameChromePng({
+    outW,
+    outH,
+    contentW: layout.contentW,
+    contentH: layout.contentH,
+    contentX: layout.contentX,
+    contentY: layout.contentY,
+    cornerRadius: layout.radius,
+  })
+  if (!chrome) return undefined
+
+  return {
+    imagePaths: [chrome.backgroundPath, chrome.maskPath],
+    filter: [
+      `${labelRef(`${inputIndex}:v`)}format=rgba[frameBg]`,
+      `${labelRef(`${inputIndex + 1}:v`)}format=gray[frameMask]`,
+      `[zoomed]scale=${layout.contentW}:${layout.contentH}:force_original_aspect_ratio=decrease:flags=bicubic,format=rgba,pad=${layout.contentW}:${layout.contentH}:(ow-iw)/2:(oh-ih)/2:color=0x00000000[scaled]`,
+      '[scaled][frameMask]alphamerge[window]',
+      `[frameBg][window]overlay=x=${layout.contentX}:y=${layout.contentY}:shortest=1[framed]`,
+    ].join(';'),
+  }
+}
+
+function frameLayout(outW: number, outH: number): { contentW: number; contentH: number; contentX: number; contentY: number; radius: number } {
+  const contentW = even(Math.round(outW * 0.88))
+  const contentH = even(Math.round(outH * 0.88))
+  return {
+    contentW,
+    contentH,
+    contentX: Math.round((outW - contentW) / 2),
+    contentY: Math.round((outH - contentH) / 2) - Math.round(outH * 0.02),
+    radius: 20,
+  }
+}
+
+function even(value: number): number {
+  return value % 2 === 0 ? value : value + 1
 }
 
 async function buildClipCaptionOverlay(
@@ -354,6 +408,10 @@ function inferDurationMs(parsed: ParsedClicks): number {
   const cursorTimes = parsed.cursorPath?.map((point) => point.tMs) ?? []
   const latest = Math.max(0, ...clickTimes, ...cursorTimes)
   return latest + 3500
+}
+
+function frameCount(durationMs: number, fps: number): number {
+  return Math.ceil((durationMs / 1000) * fps)
 }
 
 function numberFromString(value: string | undefined): number | undefined {

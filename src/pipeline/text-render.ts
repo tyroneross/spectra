@@ -28,6 +28,22 @@ export interface CaptionPngOptions {
   cacheDir?: string
 }
 
+export interface FrameChromePngOptions {
+  outW: number
+  outH: number
+  contentW: number
+  contentH: number
+  contentX: number
+  contentY: number
+  cornerRadius: number
+  cacheDir?: string
+}
+
+export interface FrameChromePngResult {
+  backgroundPath: string
+  maskPath: string
+}
+
 type RenderRequest =
   | {
     version: number
@@ -53,6 +69,18 @@ type RenderRequest =
     fontPath: string
     fontIndex: number
     text: string
+  }
+  | {
+    version: number
+    kind: 'frame-background' | 'frame-mask'
+    outPath: string
+    outW: number
+    outH: number
+    contentW: number
+    contentH: number
+    contentX: number
+    contentY: number
+    cornerRadius: number
   }
 
 const CACHE_VERSION = 1
@@ -121,6 +149,26 @@ export async function renderCaptionPng(options: CaptionPngOptions): Promise<stri
   const outPath = cachedPath(options.cacheDir, requestBase)
   const request: RenderRequest = { ...requestBase, outPath }
   return renderCachedPng(request, outPath)
+}
+
+export async function renderFrameChromePng(options: FrameChromePngOptions): Promise<FrameChromePngResult | undefined> {
+  const requestBase = {
+    version: CACHE_VERSION,
+    outW: positiveInteger(options.outW, 'outW'),
+    outH: positiveInteger(options.outH, 'outH'),
+    contentW: positiveInteger(options.contentW, 'contentW'),
+    contentH: positiveInteger(options.contentH, 'contentH'),
+    contentX: nonNegativeInteger(options.contentX, 'contentX'),
+    contentY: nonNegativeInteger(options.contentY, 'contentY'),
+    cornerRadius: positiveInteger(options.cornerRadius, 'cornerRadius'),
+  }
+  const backgroundBase = { ...requestBase, kind: 'frame-background' as const }
+  const maskBase = { ...requestBase, kind: 'frame-mask' as const }
+  const backgroundPath = cachedPath(options.cacheDir, backgroundBase)
+  const maskPath = cachedPath(options.cacheDir, maskBase)
+  const background = await renderCachedPng({ ...backgroundBase, outPath: backgroundPath }, backgroundPath)
+  const mask = await renderCachedPng({ ...maskBase, outPath: maskPath }, maskPath)
+  return background && mask ? { backgroundPath, maskPath } : undefined
 }
 
 async function renderCachedPng(request: RenderRequest, outPath: string): Promise<string | undefined> {
@@ -279,6 +327,39 @@ if request['kind'] == 'step-card':
     render_step_card(request, draw, image)
 elif request['kind'] == 'caption':
     render_caption(request, draw, image)
+elif request['kind'] == 'frame-background':
+    from PIL import ImageFilter
+    out_w = int(request['outW'])
+    out_h = int(request['outH'])
+    content_w = int(request['contentW'])
+    content_h = int(request['contentH'])
+    content_x = int(request['contentX'])
+    content_y = int(request['contentY'])
+    radius = int(request['cornerRadius'])
+    top = (18, 20, 26, 255)
+    bottom = (32, 36, 46, 255)
+    for y in range(out_h):
+        p = y / max(1, out_h - 1)
+        color = tuple(round(top[i] + (bottom[i] - top[i]) * p) for i in range(4))
+        draw.line((0, y, out_w, y), fill=color)
+    for offset, alpha, sigma in ((14, 0.20, 24), (10, 0.26, 18), (24, 0.14, 8)):
+        shadow_alpha = Image.new('L', (out_w, out_h), 0)
+        shadow_draw = ImageDraw.Draw(shadow_alpha)
+        shadow_draw.rounded_rectangle(
+            (content_x, content_y + offset, content_x + content_w, content_y + offset + content_h),
+            radius=radius,
+            fill=int(255 * alpha),
+        )
+        shadow_alpha = shadow_alpha.filter(ImageFilter.GaussianBlur(radius=float(sigma)))
+        shadow = Image.new('RGBA', (out_w, out_h), (0, 0, 0, 255))
+        image.alpha_composite(Image.composite(shadow, Image.new('RGBA', (out_w, out_h), (0, 0, 0, 0)), shadow_alpha))
+elif request['kind'] == 'frame-mask':
+    content_w = int(request['contentW'])
+    content_h = int(request['contentH'])
+    radius = int(request['cornerRadius'])
+    image = Image.new('L', (content_w, content_h), 0)
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((0, 0, content_w - 1, content_h - 1), radius=radius, fill=255)
 else:
     raise ValueError('unknown render kind')
 

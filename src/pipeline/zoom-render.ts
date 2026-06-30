@@ -1,10 +1,12 @@
-import type { ZoomKeyframe } from './zoom-keyframes.js'
+import type { TimedZoomWindow, ZoomKeyframe } from './zoom-keyframes.js'
 
 const DEFAULT_OUTPUT_WIDTH = 1920
 const DEFAULT_OUTPUT_HEIGHT = 1080
 const DEFAULT_OUTPUT_FPS = 60
 const EPSILON = 0.000001
 const MAX_EXPRESSION_POINTS = 120
+const DEFAULT_EASE_IN_MS = 900
+const DEFAULT_EASE_OUT_MS = 1000
 
 export function zoomFilter(
   track: ZoomKeyframe[],
@@ -35,6 +37,39 @@ export function zoomFilter(
     `s=${outW}x${outH}`,
     `fps=${fps}`,
   ].join(':')
+}
+
+export function timedZoomFilter(
+  windows: TimedZoomWindow[],
+  totalMs: number,
+  srcW: number,
+  srcH: number,
+  outW = DEFAULT_OUTPUT_WIDTH,
+  outH = DEFAULT_OUTPUT_HEIGHT,
+  fps = DEFAULT_OUTPUT_FPS,
+): string {
+  assertNonNegativeFinite(totalMs, 'totalMs')
+  assertPositiveInteger(srcW, 'srcW')
+  assertPositiveInteger(srcH, 'srcH')
+  assertPositiveInteger(outW, 'outW')
+  assertPositiveInteger(outH, 'outH')
+  assertPositiveInteger(fps, 'fps')
+
+  const normalized = normalizeWindows(windows, totalMs)
+  const zoomExpr = timedExpression(1, normalized, fps, 'n', (window) =>
+    timedScaleExpression(window, fps, 'n')
+  )
+  const cxExpr = timedExpression(0.5, normalized, fps, 'n', (window) => formatNumber(clamp(window.cx, 0, 1)))
+  const cyExpr = timedExpression(0.5, normalized, fps, 'n', (window) => formatNumber(clamp(window.cy, 0, 1)))
+  const scaledWExpr = `trunc(${outW}*(${zoomExpr})/2)*2`
+  const scaledHExpr = `trunc(${outH}*(${zoomExpr})/2)*2`
+  const xExpr = `max(0\\,min(iw-${outW}\\,iw*(${cxExpr})-${outW / 2}))`
+  const yExpr = `max(0\\,min(ih-${outH}\\,ih*(${cyExpr})-${outH / 2}))`
+
+  return [
+    `scale=w='${scaledWExpr}':h='${scaledHExpr}':eval=frame:flags=bicubic`,
+    `crop=${outW}:${outH}:x='${xExpr}':y='${yExpr}'`,
+  ].join(',')
 }
 
 function compactTrack(track: ZoomKeyframe[]): ZoomKeyframe[] {
@@ -88,6 +123,78 @@ function normalizeTrack(track: ZoomKeyframe[]): ZoomKeyframe[] {
   return [...byFrame.values()].sort((a, b) => a.frame - b.frame)
 }
 
+function normalizeWindows(windows: TimedZoomWindow[], totalMs: number): TimedZoomWindow[] {
+  return windows
+    .filter((window) =>
+      Number.isFinite(window.startMs)
+      && Number.isFinite(window.endMs)
+      && Number.isFinite(window.cx)
+      && Number.isFinite(window.cy)
+      && Number.isFinite(window.scale)
+      && window.scale >= 1
+    )
+    .map((window) => ({
+      startMs: clamp(window.startMs, 0, totalMs),
+      endMs: clamp(window.endMs, 0, totalMs),
+      cx: window.cx,
+      cy: window.cy,
+      scale: window.scale,
+    }))
+    .filter((window) => window.endMs > window.startMs)
+    .sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs)
+}
+
+function timedExpression(
+  defaultValue: number,
+  windows: TimedZoomWindow[],
+  fps: number,
+  frameVariable: string,
+  valueExpression: (window: TimedZoomWindow) => string,
+): string {
+  let expr = formatNumber(defaultValue)
+  for (let index = windows.length - 1; index >= 0; index -= 1) {
+    const window = windows[index]
+    const startFrame = Math.ceil((window.startMs / 1000) * fps)
+    const endFrame = Math.ceil((window.endMs / 1000) * fps)
+    if (endFrame <= startFrame) continue
+    expr = `if(gte(${frameVariable}\\,${startFrame})*lt(${frameVariable}\\,${endFrame})\\,${valueExpression(window)}\\,${expr})`
+  }
+  return expr
+}
+
+function timedScaleExpression(window: TimedZoomWindow, fps: number, frameVariable: string): string {
+  const durationMs = window.endMs - window.startMs
+  const easeInMs = Math.min(DEFAULT_EASE_IN_MS, durationMs / 2)
+  const easeOutMs = Math.min(DEFAULT_EASE_OUT_MS, Math.max(0, durationMs - easeInMs))
+  const easeOutStartMs = window.endMs - easeOutMs
+  const targetScale = formatNumber(window.scale)
+  const delta = round6(window.scale - 1)
+  if (delta <= EPSILON) return '1'
+
+  const tMs = `${frameVariable}*${formatNumber(1000 / fps)}`
+  const easeIn = easeInMs > EPSILON
+    ? `1+${formatNumber(delta)}*${smoothstepExpression(`((${tMs})-${formatNumber(window.startMs)})/${formatNumber(easeInMs)}`)}`
+    : targetScale
+  const easeOut = easeOutMs > EPSILON
+    ? `${targetScale}-${formatNumber(delta)}*${smoothstepExpression(`((${tMs})-${formatNumber(easeOutStartMs)})/${formatNumber(easeOutMs)}`)}`
+    : targetScale
+
+  let expr = targetScale
+  if (easeOutMs > EPSILON) {
+    const easeOutStartFrame = Math.ceil((easeOutStartMs / 1000) * fps)
+    expr = `if(gte(${frameVariable}\\,${easeOutStartFrame})\\,${easeOut}\\,${expr})`
+  }
+  if (easeInMs > EPSILON) {
+    const easeInEndFrame = Math.ceil(((window.startMs + easeInMs) / 1000) * fps)
+    expr = `if(lt(${frameVariable}\\,${easeInEndFrame})\\,${easeIn}\\,${expr})`
+  }
+  return expr
+}
+
+function smoothstepExpression(progress: string): string {
+  return `(3*(${progress})*(${progress})-2*(${progress})*(${progress})*(${progress}))`
+}
+
 function interpolatedExpression(defaultValue: number, values: Array<{ frame: number; value: number }>): string {
   const points = values
     .map(({ frame, value }) => ({ frame, value: round6(value) }))
@@ -134,6 +241,12 @@ function linearExpression(
 function assertPositiveInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value <= 0) {
     throw new Error(`${name} must be a positive integer`)
+  }
+}
+
+function assertNonNegativeFinite(value: number, name: string): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative finite number`)
   }
 }
 
