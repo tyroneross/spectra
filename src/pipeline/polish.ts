@@ -4,9 +4,11 @@ import { access, mkdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { FocalRect } from '../media/spotlight.js'
 import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js'
 import { frameChromeRenderPlan, framingFilter, type FrameChromeAssets } from './framing.js'
 import { scriptDurationMs, scriptZoomWindows, type DemoScript } from './script.js'
+import { cleanupSpotlightPrePass, renderSpotlightPrePass } from './spotlight.js'
 import { renderCaptionPng } from './text-render.js'
 import { buildZoomTrack, type CursorPoint, type ZoomClick } from './zoom-keyframes.js'
 import { timedZoomFilter, zoomFilter } from './zoom-render.js'
@@ -19,12 +21,28 @@ export type ClicksJsonInput =
     cursorPath?: CursorPoint[]
   }
 
+/**
+ * Optional whole-clip spotlight pre-pass: the focal rect stays sharp and full
+ * brightness, everything else gets a feathered blur + dark-crush toward
+ * near-black (see pipeline/spotlight.ts DARK_SPOTLIGHT_DEFAULTS). Applied
+ * before zoom/framing/caption so those stages see an already-spotlighted
+ * frame. Per-beat spotlight is out of scope — this is a single focal rect for
+ * the whole clip.
+ */
+export interface PolishClipSpotlightOptions {
+  focal: FocalRect
+  dim?: number
+  blur?: number
+  feather?: number
+}
+
 export interface PolishClipOptions {
   input: string
   clicksJson: ClicksJsonInput
   caption?: string
   outPath: string
   fps?: number
+  spotlight?: PolishClipSpotlightOptions
 }
 
 export interface PolishScriptOptions {
@@ -83,65 +101,85 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     probeVideo(options.input),
     probeHasAudio(options.input),
   ])
-  const parsed = await parseClicksJson(options.clicksJson)
-  const durationMs = metadata.durationMs ?? inferDurationMs(parsed)
-  const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
-    cursorPath: parsed.cursorPath,
-  })
-  let nextInputIndex = 1
-  const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps)
-  nextInputIndex += 1
-  const captionText = options.caption?.trim()
-  const captionOverlay = captionText
-    ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
-    : undefined
-  if (captionOverlay) nextInputIndex += 1
-  const fallbackCaption = captionOverlay ? undefined : captionText
-  const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
-  const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
-  const frame = framingFilter({
-    inputLabel: 'zoomed',
-    outputLabel: captionOverlay ? 'framed' : 'v',
-    caption: fallbackCaption,
-    captionMode,
-    fps,
-    outW: OUTPUT_W,
-    outH: OUTPUT_H,
-    chromeAssets: chrome.chromeAssets,
-  })
-  const filterComplex = [
-    `[0:v]fps=${fps},${zoom}[zoomed]`,
-    frame,
-    ...(captionOverlay ? [captionOverlay.filter] : []),
-  ].join(';')
 
-  const audio = buildAudioArgs(hasAudio)
-  await mkdir(dirname(options.outPath), { recursive: true })
-  await runProcess('ffmpeg', [
-    '-y',
-    '-i', options.input,
-    ...chrome.maskInputArgs,
-    ...imageInputArgs(captionOverlay ? [captionOverlay.path] : [], fps),
-    '-filter_complex', filterComplex,
-    '-map', '[v]',
-    ...audio.mapArgs,
-    '-frames:v', String(Math.max(1, track.length)),
-    ...audio.codecArgs,
-    '-r', String(fps),
-    '-c:v', 'libx264',
-    '-pix_fmt', 'yuv420p',
-    '-crf', '18',
-    '-movflags', '+faststart',
-    options.outPath,
-  ])
+  let renderInput = options.input
+  let spotlightTempPath: string | undefined
+  if (options.spotlight) {
+    spotlightTempPath = await renderSpotlightPrePass({
+      input: options.input,
+      canvas: { w: metadata.width, h: metadata.height },
+      focal: options.spotlight.focal,
+      dim: options.spotlight.dim,
+      blur: options.spotlight.blur,
+      feather: options.spotlight.feather,
+      hasAudio,
+    })
+    renderInput = spotlightTempPath
+  }
 
-  return {
-    outPath: options.outPath,
-    width: OUTPUT_W,
-    height: OUTPUT_H,
-    fps,
-    durationMs,
-    frames: track.length,
+  try {
+    const parsed = await parseClicksJson(options.clicksJson)
+    const durationMs = metadata.durationMs ?? inferDurationMs(parsed)
+    const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
+      cursorPath: parsed.cursorPath,
+    })
+    let nextInputIndex = 1
+    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps)
+    nextInputIndex += 1
+    const captionText = options.caption?.trim()
+    const captionOverlay = captionText
+      ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
+      : undefined
+    if (captionOverlay) nextInputIndex += 1
+    const fallbackCaption = captionOverlay ? undefined : captionText
+    const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
+    const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
+    const frame = framingFilter({
+      inputLabel: 'zoomed',
+      outputLabel: captionOverlay ? 'framed' : 'v',
+      caption: fallbackCaption,
+      captionMode,
+      fps,
+      outW: OUTPUT_W,
+      outH: OUTPUT_H,
+      chromeAssets: chrome.chromeAssets,
+    })
+    const filterComplex = [
+      `[0:v]fps=${fps},${zoom}[zoomed]`,
+      frame,
+      ...(captionOverlay ? [captionOverlay.filter] : []),
+    ].join(';')
+
+    const audio = buildAudioArgs(hasAudio)
+    await mkdir(dirname(options.outPath), { recursive: true })
+    await runProcess('ffmpeg', [
+      '-y',
+      '-i', renderInput,
+      ...chrome.maskInputArgs,
+      ...imageInputArgs(captionOverlay ? [captionOverlay.path] : [], fps),
+      '-filter_complex', filterComplex,
+      '-map', '[v]',
+      ...audio.mapArgs,
+      '-frames:v', String(Math.max(1, track.length)),
+      ...audio.codecArgs,
+      '-r', String(fps),
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-crf', '18',
+      '-movflags', '+faststart',
+      options.outPath,
+    ])
+
+    return {
+      outPath: options.outPath,
+      width: OUTPUT_W,
+      height: OUTPUT_H,
+      fps,
+      durationMs,
+      frames: track.length,
+    }
+  } finally {
+    if (spotlightTempPath) await cleanupSpotlightPrePass(spotlightTempPath)
   }
 }
 

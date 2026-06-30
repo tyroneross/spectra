@@ -100,6 +100,51 @@ describe('polishClip', () => {
     })
   }, 30_000)
 
+  ffmpegIt('applies the spotlight pre-pass before zoom/framing when spotlight is set', async () => {
+    const root = await makeWorkDir()
+    const input = join(root, 'input.mp4')
+    const outPath = join(root, 'polished-spotlight.mp4')
+    await makeTestVideo(input, 480, 270, 0.25)
+
+    const result = await polishClip({
+      input,
+      clicksJson: JSON.stringify([{ tMs: 80, cx: 0.5, cy: 0.5 }]),
+      outPath,
+      spotlight: {
+        focal: { x: 120, y: 67, w: 240, h: 135 }, // middle 50% of 480x270
+      },
+    })
+
+    expect(result).toMatchObject({
+      outPath,
+      width: 1920,
+      height: 1080,
+      fps: 60,
+    })
+    // The spotlight pre-pass is a temp file that polishClip owns end-to-end —
+    // the final output is still a normal 1920x1080 mp4 like the non-spotlight path.
+    await expect(probeVideo(outPath)).resolves.toMatchObject({
+      width: 1920,
+      height: 1080,
+      fps: 60,
+    })
+  }, 30_000)
+
+  ffmpegIt('produces an unchanged render when spotlight is omitted (backward-compatible default)', async () => {
+    const root = await makeWorkDir()
+    const input = join(root, 'input.mp4')
+    const outPath = join(root, 'polished-no-spotlight.mp4')
+    await makeTestVideo(input, 480, 270, 0.25)
+
+    const result = await polishClip({
+      input,
+      clicksJson: JSON.stringify([{ tMs: 80, cx: 0.5, cy: 0.5 }]),
+      outPath,
+    })
+
+    expect(result).toMatchObject({ outPath, width: 1920, height: 1080, fps: 60 })
+  }, 30_000)
+
   ffmpegIt('renders scripted polish with step cards at a custom output fps', async () => {
     const root = await makeWorkDir()
     const input = join(root, 'input.mp4')

@@ -67,6 +67,39 @@ describe('DemoSchema — polish-clip / polish-script validation', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('accepts a polish-clip action with an optional spotlight focal rect', () => {
+    const result = DemoSchema.safeParse({
+      action: 'polish-clip',
+      input: '/tmp/input.mp4',
+      clicksJson: [{ tMs: 100, cx: 0.5, cy: 0.5 }],
+      out: '/tmp/out.mp4',
+      spotlight: { focal: { x: 10, y: 10, w: 100, h: 80 }, dim: 0.8, blur: 6, feather: 20 },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts polish-clip spotlight with only the required focal rect (dim/blur/feather optional)', () => {
+    const result = DemoSchema.safeParse({
+      action: 'polish-clip',
+      input: '/tmp/input.mp4',
+      clicksJson: '/tmp/clicks.json',
+      out: '/tmp/out.mp4',
+      spotlight: { focal: { x: 0, y: 0, w: 50, h: 50 } },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects polish-clip spotlight missing the focal rect', () => {
+    const result = DemoSchema.safeParse({
+      action: 'polish-clip',
+      input: '/tmp/input.mp4',
+      clicksJson: '/tmp/clicks.json',
+      out: '/tmp/out.mp4',
+      spotlight: { dim: 0.8 },
+    })
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('handleDemo — polish-clip / polish-script reach the rich pipeline', () => {
@@ -117,5 +150,23 @@ describe('handleDemo — polish-clip / polish-script reach the rich pipeline', (
 
     expect(result).toMatchObject({ outPath, width: 1920, height: 1080, fps: 30 })
     await expect(probeVideo(outPath)).resolves.toMatchObject({ width: 1920, height: 1080, fps: 30 })
+  }, 30_000)
+
+  ffmpegIt('polish-clip with a spotlight focal rect still produces a 1920x1080 60fps mp4', async () => {
+    const root = await makeWorkDir()
+    const input = join(root, 'input.mp4')
+    const outPath = join(root, 'spotlit.mp4')
+    await makeTestVideo(input, 480, 270, 0.25)
+
+    const result = (await handleDemo({
+      action: 'polish-clip',
+      input,
+      clicksJson: [{ tMs: 80, cx: 0.5, cy: 0.5 }],
+      out: outPath,
+      spotlight: { focal: { x: 120, y: 67, w: 240, h: 135 } },
+    })) as { outPath: string; width: number; height: number; fps: number }
+
+    expect(result).toMatchObject({ outPath, width: 1920, height: 1080, fps: 60 })
+    await expect(probeVideo(outPath)).resolves.toMatchObject({ width: 1920, height: 1080, fps: 60 })
   }, 30_000)
 })

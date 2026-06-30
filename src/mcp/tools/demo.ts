@@ -79,6 +79,17 @@ const DemoScriptSchema = z.object({
   beats: z.array(DemoScriptBeatSchema),
 }).describe('Multi-beat demo script — timed captions + zoom windows')
 
+// Optional whole-clip dark-crush spotlight pre-pass for polish-clip (mirrors
+// pipeline/spotlight.ts PolishClipSpotlightOptions). The focal rect stays
+// sharp and full brightness; everything else gets a feathered blur + heavy
+// darken toward near-black before zoom/framing/caption are applied.
+const SpotlightSchema = z.object({
+  focal: FocalRectSchema.describe('Focal region to keep sharp (x, y, w, h in source pixels)'),
+  dim: z.number().optional().describe('Background darken amount, 0-1 (default 0.75 — heavy dark-crush)'),
+  blur: z.number().optional().describe('Background gblur sigma (default 8)'),
+  feather: z.number().optional().describe('Soft edge width between focal and periphery, px (default 26)'),
+}).describe('Whole-clip spotlight: sharp focal pane, dark-crushed + blurred periphery')
+
 export const DemoSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('scan'),
@@ -108,6 +119,7 @@ export const DemoSchema = z.discriminatedUnion('action', [
     caption: z.string().optional().describe('Lower-third caption text rendered as a caption banner'),
     out: z.string().describe('Output mp4 path'),
     fps: z.number().optional().describe('Output fps (default 60)'),
+    spotlight: SpotlightSchema.optional(),
   }),
   z.object({
     action: z.literal('polish-script'),
@@ -145,6 +157,7 @@ export async function handleDemo(params: unknown, _ctx?: ToolContext): Promise<o
       caption: parsed.caption,
       outPath: parsed.out,
       fps: parsed.fps,
+      spotlight: parsed.spotlight,
     })
   }
 
