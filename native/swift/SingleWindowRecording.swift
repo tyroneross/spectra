@@ -72,7 +72,7 @@ final class SingleWindowRecordingStore {
         let sessionId = params["sessionId"]?.stringValue
 
         let content = try await singleWindowShareableContent(timeoutSeconds: 15)
-        let window = try selectSingleWindow(content.windows, app: app, title: title)
+        let window = try selectSingleWindow(content.windows, displays: content.displays, app: app, title: title)
         let outputURL = URL(fileURLWithPath: outPath).standardizedFileURL
         try FileManager.default.createDirectory(
             at: outputURL.deletingLastPathComponent(),
@@ -477,6 +477,7 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
             configuration.shouldBeOpaque = true
         }
 
+        singleWindowInitializeCoreGraphics()
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         setActiveStream(stream)
@@ -835,7 +836,7 @@ final class SingleWindowShareableContentState: @unchecked Sendable {
     }
 }
 
-func selectSingleWindow(_ windows: [SCWindow], app: String, title: String?) throws -> SCWindow {
+func selectSingleWindow(_ windows: [SCWindow], displays: [SCDisplay], app: String, title: String?) throws -> SCWindow {
     let appNeedle = app.lowercased()
     let titleNeedle = title?.lowercased()
     let matches = windows.filter { window in
@@ -850,17 +851,30 @@ func selectSingleWindow(_ windows: [SCWindow], app: String, title: String?) thro
         let titlePart = title.map { " title containing '\($0)'" } ?? ""
         throw SingleWindowRecordingError(description: "No ScreenCaptureKit window found for app '\(app)'\(titlePart)")
     }
-    let ordered = matches.sorted { lhs, rhs in
+    let onScreen = matches.filter { $0.isOnScreen }
+    guard !onScreen.isEmpty else {
+        let titlePart = title.map { " title containing '\($0)'" } ?? ""
+        throw SingleWindowRecordingError(description: "No on-screen ScreenCaptureKit window found for app '\(app)'\(titlePart); matched \(matches.count) off-screen/minimized window(s)")
+    }
+    let hasCompatibleDisplayGeometry = onScreen.contains {
+        singleWindowVisibleArea($0, displays: displays) > 0
+    }
+    let capturable = hasCompatibleDisplayGeometry
+        ? onScreen.filter { singleWindowCapturableOnScreen($0, displays: displays) }
+        : onScreen
+    let ordered = capturable.sorted { lhs, rhs in
         let lhsTitled = !(lhs.title ?? "").isEmpty
         let rhsTitled = !(rhs.title ?? "").isEmpty
-        if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen && !rhs.isOnScreen }
         if lhsTitled != rhsTitled { return lhsTitled && !rhsTitled }
         if lhs.windowLayer != rhs.windowLayer { return lhs.windowLayer < rhs.windowLayer }
+        let lhsVisibleArea = singleWindowVisibleArea(lhs, displays: displays)
+        let rhsVisibleArea = singleWindowVisibleArea(rhs, displays: displays)
+        if lhsVisibleArea != rhsVisibleArea { return lhsVisibleArea > rhsVisibleArea }
         return lhs.frame.width * lhs.frame.height > rhs.frame.width * rhs.frame.height
     }
-    let selected = ordered.first!
-    guard selected.isOnScreen else {
-        throw SingleWindowRecordingError(description: "window \(selected.windowID) is off-screen/minimized; no frames")
+    guard let selected = ordered.first else {
+        let titlePart = title.map { " title containing '\($0)'" } ?? ""
+        throw SingleWindowRecordingError(description: "No capturable ScreenCaptureKit window found for app '\(app)'\(titlePart)")
     }
     return selected
 }
@@ -869,6 +883,27 @@ func singleWindowCaptureCandidate(_ window: SCWindow) -> Bool {
     if window.windowLayer != 0 { return false }
     if window.frame.width < 100 || window.frame.height < 100 { return false }
     return true
+}
+
+func singleWindowCapturableOnScreen(_ window: SCWindow, displays: [SCDisplay]) -> Bool {
+    guard window.isOnScreen else { return false }
+    if displays.isEmpty { return true }
+    return singleWindowVisibleArea(window, displays: displays) > 0
+}
+
+func singleWindowVisibleArea(_ window: SCWindow, displays: [SCDisplay]) -> CGFloat {
+    if displays.isEmpty {
+        return window.frame.width * window.frame.height
+    }
+    return displays.reduce(CGFloat(0)) { area, display in
+        let intersection = window.frame.intersection(display.frame)
+        if intersection.isNull || intersection.isEmpty { return area }
+        return max(area, intersection.width * intersection.height)
+    }
+}
+
+func singleWindowInitializeCoreGraphics() {
+    _ = CGMainDisplayID()
 }
 
 func singleWindowOutputSize(for window: SCWindow, displays: [SCDisplay]) -> (width: Int, height: Int) {
