@@ -31,6 +31,19 @@ export interface ZoomTrackOptions {
   dwellDisplacement?: number
 }
 
+export interface TimedZoomWindow {
+  startMs: number
+  endMs: number
+  cx: number
+  cy: number
+  scale: number
+}
+
+export interface TimedZoomTrackOptions {
+  easeInMs?: number
+  easeOutMs?: number
+}
+
 interface ZoomSegment {
   startMs: number
   endMs: number
@@ -102,6 +115,50 @@ export function buildZoomTrack(
   return track
 }
 
+export function buildTimedZoomTrack(
+  windows: TimedZoomWindow[],
+  totalMs: number,
+  fps: number,
+  opts: TimedZoomTrackOptions = {},
+): ZoomKeyframe[] {
+  if (!Number.isFinite(totalMs) || totalMs < 0) {
+    throw new Error('totalMs must be a non-negative finite number')
+  }
+  if (!Number.isFinite(fps) || fps <= 0) {
+    throw new Error('fps must be a positive finite number')
+  }
+
+  const frameCount = Math.ceil((totalMs / 1000) * fps)
+  const frameDurationMs = 1000 / fps
+  const normalizedWindows = normalizeTimedWindows(windows, totalMs)
+  const track: ZoomKeyframe[] = []
+  let windowIndex = 0
+
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const tMs = frame * frameDurationMs
+    while (windowIndex < normalizedWindows.length && tMs >= normalizedWindows[windowIndex].endMs) {
+      windowIndex += 1
+    }
+
+    const window = normalizedWindows[windowIndex]
+    if (!window || tMs < window.startMs) {
+      track.push({ frame, scale: 1, cx: 0.5, cy: 0.5 })
+      continue
+    }
+
+    const scale = timedScaleAt(tMs, window, opts)
+    const center = clampCenter(window.cx, window.cy, scale)
+    track.push({
+      frame,
+      scale: round6(scale),
+      cx: round6(center.cx),
+      cy: round6(center.cy),
+    })
+  }
+
+  return track
+}
+
 function buildSegments(
   clicks: ZoomClick[],
   totalMs: number,
@@ -155,6 +212,27 @@ function mergeSegments(segments: ZoomSegment[], mergeGapMs: number): ZoomSegment
   return merged
 }
 
+function normalizeTimedWindows(windows: TimedZoomWindow[], totalMs: number): TimedZoomWindow[] {
+  return windows
+    .filter((window) =>
+      Number.isFinite(window.startMs)
+      && Number.isFinite(window.endMs)
+      && Number.isFinite(window.cx)
+      && Number.isFinite(window.cy)
+      && Number.isFinite(window.scale)
+      && window.scale >= 1
+    )
+    .map((window) => ({
+      startMs: clamp(window.startMs, 0, totalMs),
+      endMs: clamp(window.endMs, 0, totalMs),
+      cx: window.cx,
+      cy: window.cy,
+      scale: window.scale,
+    }))
+    .filter((window) => window.endMs > window.startMs)
+    .sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs)
+}
+
 function scaleAt(tMs: number, segment: ZoomSegment, targetScale: number, opts: ZoomTrackOptions): number {
   const durationMs = segment.endMs - segment.startMs
   const easeInMs = Math.min(opts.easeInMs ?? DEFAULT_EASE_IN_MS, durationMs / 2)
@@ -169,6 +247,22 @@ function scaleAt(tMs: number, segment: ZoomSegment, targetScale: number, opts: Z
     return targetScale - delta * smoothstep((tMs - easeOutStartMs) / easeOutMs)
   }
   return targetScale
+}
+
+function timedScaleAt(tMs: number, window: TimedZoomWindow, opts: TimedZoomTrackOptions): number {
+  const durationMs = window.endMs - window.startMs
+  const easeInMs = Math.min(opts.easeInMs ?? DEFAULT_EASE_IN_MS, durationMs / 2)
+  const easeOutMs = Math.min(opts.easeOutMs ?? DEFAULT_EASE_OUT_MS, Math.max(0, durationMs - easeInMs))
+  const easeOutStartMs = window.endMs - easeOutMs
+  const delta = window.scale - 1
+
+  if (easeInMs > 0 && tMs < window.startMs + easeInMs) {
+    return 1 + delta * smoothstep((tMs - window.startMs) / easeInMs)
+  }
+  if (easeOutMs > 0 && tMs > easeOutStartMs) {
+    return window.scale - delta * smoothstep((tMs - easeOutStartMs) / easeOutMs)
+  }
+  return window.scale
 }
 
 function centerAt(tMs: number, segment: ZoomSegment, scale: number): { cx: number; cy: number } {

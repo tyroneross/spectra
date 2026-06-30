@@ -32,6 +32,13 @@ describe('zoomFilter', () => {
     expect(filter).toContain('s=128x72')
   })
 
+  it('uses the requested output fps', () => {
+    const track = buildZoomTrack([{ tMs: 80, cx: 0.7, cy: 0.4 }], 1500, 30, { scale: 1.25 })
+    const filter = zoomFilter(track, 64, 36, 128, 72, 30)
+
+    expect(filter).toContain('fps=30')
+  })
+
   ffmpegIt('renders frames through zoompan and preserves requested dimensions', async () => {
     const root = await makeWorkDir()
     const outPath = join(root, 'zoom.mp4')

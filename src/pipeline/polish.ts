@@ -2,7 +2,9 @@ import { spawn } from 'node:child_process'
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cardsFromScript, timedStepCardsFilter } from './annotations.js'
 import { framingFilter } from './framing.js'
+import { buildScriptZoomTrack, scriptDurationMs, type DemoScript } from './script.js'
 import { buildZoomTrack, type CursorPoint, type ZoomClick } from './zoom-keyframes.js'
 import { zoomFilter } from './zoom-render.js'
 
@@ -18,6 +20,13 @@ export interface PolishClipOptions {
   input: string
   clicksJson: ClicksJsonInput
   caption?: string
+  outPath: string
+  fps?: number
+}
+
+export interface PolishScriptOptions {
+  input: string
+  script: DemoScript
   outPath: string
   fps?: number
 }
@@ -59,7 +68,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     cursorPath: parsed.cursorPath,
   })
   const captionMode = options.caption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
-  const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H)
+  const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
   const frame = framingFilter({
     inputLabel: 'zoomed',
     outputLabel: 'v',
@@ -70,6 +79,63 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     outH: OUTPUT_H,
   })
   const filterComplex = `[0:v]fps=${fps},${zoom}[zoomed];${frame}`
+
+  await mkdir(dirname(options.outPath), { recursive: true })
+  await runProcess('ffmpeg', [
+    '-y',
+    '-i', options.input,
+    '-filter_complex', filterComplex,
+    '-map', '[v]',
+    '-frames:v', String(Math.max(1, track.length)),
+    '-an',
+    '-r', String(fps),
+    '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p',
+    '-crf', '18',
+    '-movflags', '+faststart',
+    options.outPath,
+  ])
+
+  return {
+    outPath: options.outPath,
+    width: OUTPUT_W,
+    height: OUTPUT_H,
+    fps,
+    durationMs,
+    frames: track.length,
+  }
+}
+
+export async function polishScript(options: PolishScriptOptions): Promise<PolishClipResult> {
+  const fps = options.fps ?? DEFAULT_FPS
+  if (!Number.isInteger(fps) || fps <= 0) {
+    throw new Error('fps must be a positive integer')
+  }
+
+  const metadata = await probeVideo(options.input)
+  const durationMs = metadata.durationMs ?? scriptDurationMs(options.script)
+  const track = buildScriptZoomTrack(options.script, durationMs, fps)
+  const finalCaption = options.script.finalCaption?.trim()
+  const captionMode = finalCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
+  const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
+  const frame = framingFilter({
+    inputLabel: 'zoomed',
+    outputLabel: 'framed',
+    caption: finalCaption,
+    captionMode,
+    fps,
+    outW: OUTPUT_W,
+    outH: OUTPUT_H,
+  })
+  const cards = timedStepCardsFilter({
+    inputLabel: 'framed',
+    outputLabel: 'v',
+    cards: cardsFromScript(options.script),
+    fps,
+    outW: OUTPUT_W,
+    outH: OUTPUT_H,
+  })
+  const filterComplex = `[0:v]fps=${fps},${zoom}[zoomed];${frame};${cards}`
 
   await mkdir(dirname(options.outPath), { recursive: true })
   await runProcess('ffmpeg', [

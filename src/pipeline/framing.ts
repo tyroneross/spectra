@@ -13,12 +13,41 @@ export interface FramingFilterOptions {
   captionMode?: 'drawtext' | 'bitmap'
 }
 
+export interface BitmapTextLayer {
+  filter: string
+  width: number
+  height: number
+  normalizedText: string
+}
+
 const DEFAULT_OUT_W = 1920
 const DEFAULT_OUT_H = 1080
 const DEFAULT_FPS = 60
 const DEFAULT_CONTENT_SCALE = 0.88
 const DEFAULT_CORNER_RADIUS = 20
 const DEFAULT_FONT = '/System/Library/Fonts/Supplemental/Arial.ttf'
+
+export function bitmapTextLayer(
+  label: string,
+  text: string,
+  pixel: number,
+  fps: number,
+  color = 'white@1',
+): BitmapTextLayer {
+  const normalizedText = normalizeBitmapText(text)
+  const metrics = bitmapMetrics(normalizedText, positiveInteger(pixel, 'pixel'))
+  const rects = bitmapTextRects(normalizedText, pixel)
+  const textBoxes = rects.map((rect) =>
+    `drawbox=x=${rect.x}:y=${rect.y}:w=${rect.w}:h=${rect.h}:color=${color}:t=fill:replace=1`
+  )
+
+  return {
+    filter: `color=c=white@0:s=${metrics.width}x${metrics.height}:r=${positiveInteger(fps, 'fps')},format=rgba${textBoxes.length > 0 ? `,${textBoxes.join(',')}` : ''}${labelRef(label)}`,
+    width: metrics.width,
+    height: metrics.height,
+    normalizedText,
+  }
+}
 
 export function framingFilter(opts: FramingFilterOptions = {}): string {
   const outW = positiveInteger(opts.outW ?? DEFAULT_OUT_W, 'outW')
@@ -168,7 +197,7 @@ function normalizeBitmapText(caption: string): string {
   return caption
     .toUpperCase()
     .replace(/[–—]/g, '-')
-    .replace(/[^A-Z0-9 .,!?\-]/g, ' ')
+    .replace(/[^A-Z0-9 .,!?\-+]/g, ' ')
 }
 
 function shadowLayer(
@@ -288,6 +317,15 @@ const BITMAP_FONT: Record<string, string[]> = {
     '00',
     '01',
     '10',
+  ],
+  '+': [
+    '00000',
+    '00100',
+    '00100',
+    '11111',
+    '00100',
+    '00100',
+    '00000',
   ],
   '-': [
     '00000',

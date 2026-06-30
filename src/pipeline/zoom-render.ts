@@ -12,11 +12,13 @@ export function zoomFilter(
   srcH: number,
   outW = DEFAULT_OUTPUT_WIDTH,
   outH = DEFAULT_OUTPUT_HEIGHT,
+  fps = DEFAULT_OUTPUT_FPS,
 ): string {
   assertPositiveInteger(srcW, 'srcW')
   assertPositiveInteger(srcH, 'srcH')
   assertPositiveInteger(outW, 'outW')
   assertPositiveInteger(outH, 'outH')
+  assertPositiveInteger(fps, 'fps')
 
   const normalized = compactTrack(normalizeTrack(track))
   const zoomExpr = interpolatedExpression(1, normalized.map((point) => ({ frame: point.frame, value: point.scale })))
@@ -31,7 +33,7 @@ export function zoomFilter(
     `y='${yExpr}'`,
     'd=1',
     `s=${outW}x${outH}`,
-    `fps=${DEFAULT_OUTPUT_FPS}`,
+    `fps=${fps}`,
   ].join(':')
 }
 
