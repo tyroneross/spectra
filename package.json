@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "postbuild": "bash scripts/sync-dist.sh || true",
     "build:native": "mkdir -p $HOME/.spectra/bin && swiftc native/swift/*.swift -framework Foundation -framework ApplicationServices -framework AppKit -framework CoreGraphics -framework ScreenCaptureKit -framework AVFoundation -framework CoreMedia -framework CoreVideo -o $HOME/.spectra/bin/spectra-native && bash scripts/codesign-native.sh $HOME/.spectra/bin/spectra-native",
     "build:daemon-helper": "mkdir -p $HOME/.spectra/bin && swiftc native/swift/daemon-launcher/*.swift -framework Foundation -o $HOME/.spectra/bin/spectra-daemon-launcher && bash scripts/codesign-native.sh $HOME/.spectra/bin/spectra-daemon-launcher",
     "build:composite": "mkdir -p $HOME/.spectra/bin && swiftc -parse-as-library native/swift/composite-capture/*.swift -framework Foundation -framework ScreenCaptureKit -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework CoreGraphics -framework AppKit -o $HOME/.spectra/bin/spectra-composite-capture && bash scripts/codesign-native.sh $HOME/.spectra/bin/spectra-composite-capture && swiftc native/swift/screen-recording-preflight/*.swift -framework Foundation -framework CoreGraphics -o $HOME/.spectra/bin/spectra-screen-recording-preflight && bash scripts/codesign-native.sh $HOME/.spectra/bin/spectra-screen-recording-preflight",
@@ -43,7 +44,8 @@
     "serve": "cd web-ui && npm run dev -- -p 4300",
     "build:dmg": "bash scripts/build-and-refresh.sh",
     "build:dmg:adhoc": "bash scripts/build-and-refresh.sh --adhoc",
-    "postinstall": "bash scripts/postinstall.sh || true"
+    "postinstall": "bash scripts/postinstall.sh || true",
+    "sync:dist": "bash scripts/sync-dist.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
