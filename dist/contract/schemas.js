@@ -275,6 +275,38 @@ const polishDemoSpecSchema = z.object({
     segments: z.array(polishSegmentSchema),
     speed: z.number().optional(),
 });
+// Rich polish pipeline (src/pipeline/polish.ts) — mirrors PolishClipOptions /
+// PolishScriptOptions / DemoScript so the wire shape round-trips into the
+// same shape polishClip/polishScript expect.
+const demoZoomClickSchema = z.object({ tMs: z.number(), cx: z.number(), cy: z.number() });
+const demoCursorPointSchema = z.object({ tMs: z.number(), cx: z.number(), cy: z.number() });
+const demoClicksJsonSchema = z.union([
+    z.string(),
+    z.array(demoZoomClickSchema),
+    z.object({
+        clicks: z.array(demoZoomClickSchema).optional(),
+        cursorPath: z.array(demoCursorPointSchema).optional(),
+    }),
+]);
+const demoScriptBeatActionSchema = z.object({
+    kind: z.enum(['search', 'click', 'scroll', 'navigate', 'hold']),
+    target: z.string().optional(),
+    value: z.string().optional(),
+});
+const demoScriptBeatSchema = z.object({
+    id: z.string(),
+    stepLabel: z.string().optional(),
+    stepText: z.string().optional(),
+    startMs: z.number(),
+    endMs: z.number(),
+    zoom: z.object({ cx: z.number(), cy: z.number(), scale: z.number() }).optional(),
+    action: demoScriptBeatActionSchema.optional(),
+});
+const demoScriptSchema = z.object({
+    title: z.string().optional(),
+    finalCaption: z.string().optional(),
+    beats: z.array(demoScriptBeatSchema),
+});
 // AutoRampDemoParams (no `action`) — the standalone autoRampDemo operation.
 const autoRampDemoShape = {
     input: z.string(),
@@ -301,6 +333,21 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
     }),
     z.object({ action: z.literal('auto-ramp'), ...autoRampDemoShape }),
     z.object({ action: z.literal('record-composite'), ...recordCompositeShape }),
+    z.object({
+        action: z.literal('polish-clip'),
+        input: z.string(),
+        clicksJson: demoClicksJsonSchema,
+        caption: z.string().optional(),
+        out: z.string(),
+        fps: z.number().optional(),
+    }),
+    z.object({
+        action: z.literal('polish-script'),
+        input: z.string(),
+        script: demoScriptSchema,
+        out: z.string(),
+        fps: z.number().optional(),
+    }),
 ]);
 // ─── Operation → param-schema registry ─────────────────────────
 //

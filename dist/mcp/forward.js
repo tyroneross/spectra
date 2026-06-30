@@ -91,7 +91,8 @@ function mapSession(args) {
 }
 function mapDemo(args) {
     const action = args.action;
-    if (action !== 'scan' && action !== 'polish' && action !== 'auto-ramp' && action !== 'record-composite') {
+    const knownActions = ['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script'];
+    if (typeof action !== 'string' || !knownActions.includes(action)) {
         throw new ToolMappingError(`spectra_demo: unknown action "${String(action)}"`);
     }
     // demo() is action-discriminated in the contract — forward args verbatim.

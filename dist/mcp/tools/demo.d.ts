@@ -194,6 +194,284 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
     threshold?: number | undefined;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"polish-clip">;
+    input: z.ZodString;
+    clicksJson: z.ZodUnion<[z.ZodString, z.ZodArray<z.ZodObject<{
+        tMs: z.ZodNumber;
+        cx: z.ZodNumber;
+        cy: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        cx: number;
+        cy: number;
+        tMs: number;
+    }, {
+        cx: number;
+        cy: number;
+        tMs: number;
+    }>, "many">, z.ZodObject<{
+        clicks: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            tMs: z.ZodNumber;
+            cx: z.ZodNumber;
+            cy: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }, {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }>, "many">>;
+        cursorPath: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            tMs: z.ZodNumber;
+            cx: z.ZodNumber;
+            cy: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }, {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }>, "many">>;
+    }, "strip", z.ZodTypeAny, {
+        clicks?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+        cursorPath?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+    }, {
+        clicks?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+        cursorPath?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+    }>]>;
+    caption: z.ZodOptional<z.ZodString>;
+    out: z.ZodString;
+    fps: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    action: "polish-clip";
+    input: string;
+    out: string;
+    clicksJson: string | {
+        cx: number;
+        cy: number;
+        tMs: number;
+    }[] | {
+        clicks?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+        cursorPath?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+    };
+    fps?: number | undefined;
+    caption?: string | undefined;
+}, {
+    action: "polish-clip";
+    input: string;
+    out: string;
+    clicksJson: string | {
+        cx: number;
+        cy: number;
+        tMs: number;
+    }[] | {
+        clicks?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+        cursorPath?: {
+            cx: number;
+            cy: number;
+            tMs: number;
+        }[] | undefined;
+    };
+    fps?: number | undefined;
+    caption?: string | undefined;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"polish-script">;
+    input: z.ZodString;
+    script: z.ZodObject<{
+        title: z.ZodOptional<z.ZodString>;
+        finalCaption: z.ZodOptional<z.ZodString>;
+        beats: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            stepLabel: z.ZodOptional<z.ZodString>;
+            stepText: z.ZodOptional<z.ZodString>;
+            startMs: z.ZodNumber;
+            endMs: z.ZodNumber;
+            zoom: z.ZodOptional<z.ZodObject<{
+                cx: z.ZodNumber;
+                cy: z.ZodNumber;
+                scale: z.ZodNumber;
+            }, "strip", z.ZodTypeAny, {
+                cx: number;
+                cy: number;
+                scale: number;
+            }, {
+                cx: number;
+                cy: number;
+                scale: number;
+            }>>;
+            action: z.ZodOptional<z.ZodObject<{
+                kind: z.ZodEnum<["search", "click", "scroll", "navigate", "hold"]>;
+                target: z.ZodOptional<z.ZodString>;
+                value: z.ZodOptional<z.ZodString>;
+            }, "strip", z.ZodTypeAny, {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            }, {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            }>>;
+        }, "strip", z.ZodTypeAny, {
+            id: string;
+            startMs: number;
+            endMs: number;
+            action?: {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            } | undefined;
+            stepLabel?: string | undefined;
+            stepText?: string | undefined;
+            zoom?: {
+                cx: number;
+                cy: number;
+                scale: number;
+            } | undefined;
+        }, {
+            id: string;
+            startMs: number;
+            endMs: number;
+            action?: {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            } | undefined;
+            stepLabel?: string | undefined;
+            stepText?: string | undefined;
+            zoom?: {
+                cx: number;
+                cy: number;
+                scale: number;
+            } | undefined;
+        }>, "many">;
+    }, "strip", z.ZodTypeAny, {
+        beats: {
+            id: string;
+            startMs: number;
+            endMs: number;
+            action?: {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            } | undefined;
+            stepLabel?: string | undefined;
+            stepText?: string | undefined;
+            zoom?: {
+                cx: number;
+                cy: number;
+                scale: number;
+            } | undefined;
+        }[];
+        title?: string | undefined;
+        finalCaption?: string | undefined;
+    }, {
+        beats: {
+            id: string;
+            startMs: number;
+            endMs: number;
+            action?: {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            } | undefined;
+            stepLabel?: string | undefined;
+            stepText?: string | undefined;
+            zoom?: {
+                cx: number;
+                cy: number;
+                scale: number;
+            } | undefined;
+        }[];
+        title?: string | undefined;
+        finalCaption?: string | undefined;
+    }>;
+    out: z.ZodString;
+    fps: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    action: "polish-script";
+    input: string;
+    out: string;
+    script: {
+        beats: {
+            id: string;
+            startMs: number;
+            endMs: number;
+            action?: {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            } | undefined;
+            stepLabel?: string | undefined;
+            stepText?: string | undefined;
+            zoom?: {
+                cx: number;
+                cy: number;
+                scale: number;
+            } | undefined;
+        }[];
+        title?: string | undefined;
+        finalCaption?: string | undefined;
+    };
+    fps?: number | undefined;
+}, {
+    action: "polish-script";
+    input: string;
+    out: string;
+    script: {
+        beats: {
+            id: string;
+            startMs: number;
+            endMs: number;
+            action?: {
+                kind: "click" | "scroll" | "search" | "navigate" | "hold";
+                value?: string | undefined;
+                target?: string | undefined;
+            } | undefined;
+            stepLabel?: string | undefined;
+            stepText?: string | undefined;
+            zoom?: {
+                cx: number;
+                cy: number;
+                scale: number;
+            } | undefined;
+        }[];
+        title?: string | undefined;
+        finalCaption?: string | undefined;
+    };
+    fps?: number | undefined;
 }>]>;
 export declare function handleDemo(params: unknown, _ctx?: ToolContext): Promise<object>;
 //# sourceMappingURL=demo.d.ts.map

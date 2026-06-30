@@ -908,8 +908,78 @@ export interface AutoRampDemoResult {
 export interface DemoRecordCompositeParams extends RecordCompositeParams {
     action: 'record-composite';
 }
-export type DemoParams = DemoScanParams | DemoPolishParams | DemoAutoRampParams | DemoRecordCompositeParams;
-export type DemoResult = DemoScanResult | DemoPolishResult | AutoRampDemoResult | RecordCompositeResult;
+/** Mirrors pipeline/zoom-keyframes.ts ZoomClick. */
+export interface DemoZoomClick {
+    tMs: number;
+    cx: number;
+    cy: number;
+}
+/** Mirrors pipeline/zoom-keyframes.ts CursorPoint. */
+export interface DemoCursorPoint {
+    tMs: number;
+    cx: number;
+    cy: number;
+}
+/** Mirrors pipeline/polish.ts ClicksJsonInput. */
+export type DemoClicksJsonInput = string | DemoZoomClick[] | {
+    clicks?: DemoZoomClick[];
+    cursorPath?: DemoCursorPoint[];
+};
+/** Mirrors pipeline/script.ts Beat['zoom']. */
+export interface DemoScriptZoom {
+    cx: number;
+    cy: number;
+    scale: number;
+}
+/** Mirrors pipeline/script.ts Beat['action']. */
+export interface DemoScriptAction {
+    kind: 'search' | 'click' | 'scroll' | 'navigate' | 'hold';
+    target?: string;
+    value?: string;
+}
+/** Mirrors pipeline/script.ts Beat. */
+export interface DemoScriptBeat {
+    id: string;
+    stepLabel?: string;
+    stepText?: string;
+    startMs: number;
+    endMs: number;
+    zoom?: DemoScriptZoom;
+    action?: DemoScriptAction;
+}
+/** Mirrors pipeline/script.ts DemoScript. */
+export interface DemoScript {
+    title?: string;
+    finalCaption?: string;
+    beats: DemoScriptBeat[];
+}
+export interface DemoPolishClipParams {
+    action: 'polish-clip';
+    input: string;
+    clicksJson: DemoClicksJsonInput;
+    caption?: string;
+    out: string;
+    fps?: number;
+}
+export interface DemoPolishScriptParams {
+    action: 'polish-script';
+    input: string;
+    script: DemoScript;
+    out: string;
+    fps?: number;
+}
+/** Mirrors pipeline/polish.ts PolishClipResult — shared by both polish-clip and polish-script. */
+export interface DemoPolishClipResult {
+    outPath: string;
+    width: number;
+    height: number;
+    fps: number;
+    durationMs: number;
+    frames: number;
+}
+export type DemoPolishScriptResult = DemoPolishClipResult;
+export type DemoParams = DemoScanParams | DemoPolishParams | DemoAutoRampParams | DemoRecordCompositeParams | DemoPolishClipParams | DemoPolishScriptParams;
+export type DemoResult = DemoScanResult | DemoPolishResult | AutoRampDemoResult | DemoPolishClipResult | DemoPolishScriptResult | RecordCompositeResult;
 export interface CoreApi {
     health(params?: HealthParams): Promise<HealthResult>;
     getPermissions(params?: GetPermissionsParams): Promise<PermissionsResult>;
