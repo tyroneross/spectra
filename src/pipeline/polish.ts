@@ -2,9 +2,10 @@ import { spawn } from 'node:child_process'
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { cardsFromScript, timedStepCardsFilter } from './annotations.js'
+import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js'
 import { framingFilter } from './framing.js'
 import { buildScriptZoomTrack, scriptDurationMs, type DemoScript } from './script.js'
+import { renderCaptionPng } from './text-render.js'
 import { buildZoomTrack, type CursorPoint, type ZoomClick } from './zoom-keyframes.js'
 import { zoomFilter } from './zoom-render.js'
 
@@ -51,9 +52,16 @@ interface ParsedClicks {
   cursorPath?: CursorPoint[]
 }
 
+interface CaptionOverlay {
+  path: string
+  filter: string
+  outputLabel: string
+}
+
 const OUTPUT_W = 1920
 const OUTPUT_H = 1080
 const DEFAULT_FPS = 60
+const DEFAULT_FADE_MS = 250
 
 export async function polishClip(options: PolishClipOptions): Promise<PolishClipResult> {
   const fps = options.fps ?? DEFAULT_FPS
@@ -67,23 +75,33 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
   const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
     cursorPath: parsed.cursorPath,
   })
-  const captionMode = options.caption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
+  const captionText = options.caption?.trim()
+  const captionOverlay = captionText
+    ? await buildClipCaptionOverlay(captionText, durationMs, 1, OUTPUT_W, OUTPUT_H)
+    : undefined
+  const fallbackCaption = captionOverlay ? undefined : captionText
+  const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
   const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
   const frame = framingFilter({
     inputLabel: 'zoomed',
-    outputLabel: 'v',
-    caption: options.caption,
+    outputLabel: captionOverlay ? 'framed' : 'v',
+    caption: fallbackCaption,
     captionMode,
     fps,
     outW: OUTPUT_W,
     outH: OUTPUT_H,
   })
-  const filterComplex = `[0:v]fps=${fps},${zoom}[zoomed];${frame}`
+  const filterComplex = [
+    `[0:v]fps=${fps},${zoom}[zoomed]`,
+    frame,
+    ...(captionOverlay ? [captionOverlay.filter] : []),
+  ].join(';')
 
   await mkdir(dirname(options.outPath), { recursive: true })
   await runProcess('ffmpeg', [
     '-y',
     '-i', options.input,
+    ...imageInputArgs(captionOverlay ? [captionOverlay.path] : [], fps),
     '-filter_complex', filterComplex,
     '-map', '[v]',
     '-frames:v', String(Math.max(1, track.length)),
@@ -116,31 +134,50 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
   const durationMs = metadata.durationMs ?? scriptDurationMs(options.script)
   const track = buildScriptZoomTrack(options.script, durationMs, fps)
   const finalCaption = options.script.finalCaption?.trim()
-  const captionMode = finalCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
+  let nextInputIndex = 1
+  const captionOverlay = finalCaption
+    ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
+    : undefined
+  if (captionOverlay) nextInputIndex += 1
+
+  const fallbackCaption = captionOverlay ? undefined : finalCaption
+  const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
   const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
   const frame = framingFilter({
     inputLabel: 'zoomed',
     outputLabel: 'framed',
-    caption: finalCaption,
+    caption: fallbackCaption,
     captionMode,
     fps,
     outW: OUTPUT_W,
     outH: OUTPUT_H,
   })
-  const cards = timedStepCardsFilter({
-    inputLabel: 'framed',
+  const cardInputLabel = captionOverlay?.outputLabel ?? 'framed'
+  const cardPlan = await timedStepCardsOverlayPlan({
+    inputLabel: cardInputLabel,
     outputLabel: 'v',
     cards: cardsFromScript(options.script),
     fps,
     outW: OUTPUT_W,
     outH: OUTPUT_H,
+    inputIndexStart: nextInputIndex,
   })
-  const filterComplex = `[0:v]fps=${fps},${zoom}[zoomed];${frame};${cards}`
+  const imagePaths = [
+    ...(captionOverlay ? [captionOverlay.path] : []),
+    ...cardPlan.imagePaths,
+  ]
+  const filterComplex = [
+    `[0:v]fps=${fps},${zoom}[zoomed]`,
+    frame,
+    ...(captionOverlay ? [captionOverlay.filter] : []),
+    cardPlan.filter,
+  ].join(';')
 
   await mkdir(dirname(options.outPath), { recursive: true })
   await runProcess('ffmpeg', [
     '-y',
     '-i', options.input,
+    ...imageInputArgs(imagePaths, fps),
     '-filter_complex', filterComplex,
     '-map', '[v]',
     '-frames:v', String(Math.max(1, track.length)),
@@ -161,6 +198,102 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     durationMs,
     frames: track.length,
   }
+}
+
+async function buildClipCaptionOverlay(
+  caption: string,
+  durationMs: number,
+  inputIndex: number,
+  outW: number,
+  outH: number,
+): Promise<CaptionOverlay | undefined> {
+  return buildTimedCaptionOverlay(
+    caption,
+    { startMs: 0, endMs: Math.max(0, durationMs) },
+    inputIndex,
+    outW,
+    outH,
+    'framed',
+    'v',
+  )
+}
+
+async function buildCaptionOverlay(
+  script: DemoScript,
+  finalCaption: string,
+  durationMs: number,
+  inputIndex: number,
+  outW: number,
+  outH: number,
+): Promise<CaptionOverlay | undefined> {
+  const window = finalCaptionWindow(script, finalCaption, durationMs)
+  return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned')
+}
+
+async function buildTimedCaptionOverlay(
+  text: string,
+  window: { startMs: number; endMs: number },
+  inputIndex: number,
+  outW: number,
+  outH: number,
+  inputLabel: string,
+  outputLabel: string,
+): Promise<CaptionOverlay | undefined> {
+  const path = await renderCaptionPng({
+    text,
+    outW,
+    outH,
+  })
+  if (!path) return undefined
+
+  const startSec = seconds(window.startMs)
+  const endSec = seconds(window.endMs)
+  const duration = window.endMs - window.startMs
+  const fadeMs = Math.min(DEFAULT_FADE_MS, duration / 2)
+  const fadeSec = seconds(fadeMs)
+  const fadeOutStartSec = seconds(window.endMs - fadeMs)
+  const fade = fadeSec === '0'
+    ? ''
+    : `,fade=t=in:st=${startSec}:d=${fadeSec}:alpha=1,fade=t=out:st=${fadeOutStartSec}:d=${fadeSec}:alpha=1`
+  const assetLabel = 'captionPng'
+  return {
+    path,
+    outputLabel,
+    filter: `${labelRef(`${inputIndex}:v`)}format=rgba${fade}${labelRef(assetLabel)};${labelRef(inputLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,${startSec}\\,${endSec})'${labelRef(outputLabel)}`,
+  }
+}
+
+function finalCaptionWindow(script: DemoScript, finalCaption: string, durationMs: number): { startMs: number; endMs: number } {
+  const validBeats = script.beats
+    .filter((beat) =>
+      Number.isFinite(beat.startMs)
+      && Number.isFinite(beat.endMs)
+      && beat.endMs > beat.startMs
+    )
+  const matchingBeat = [...validBeats].reverse().find((beat) => beat.stepText?.trim() === finalCaption)
+  const beat = matchingBeat ?? validBeats.at(-1)
+  if (!beat) return { startMs: 0, endMs: durationMs }
+  const window = {
+    startMs: Math.max(0, Math.min(durationMs, beat.startMs)),
+    endMs: Math.max(0, Math.min(durationMs, beat.endMs)),
+  }
+  return window.endMs > window.startMs ? window : { startMs: 0, endMs: durationMs }
+}
+
+function imageInputArgs(paths: string[], fps: number): string[] {
+  return paths.flatMap((path) => [
+    '-loop', '1',
+    '-framerate', String(fps),
+    '-i', path,
+  ])
+}
+
+function seconds(ms: number): string {
+  return (ms / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+function labelRef(label: string): string {
+  return label.startsWith('[') && label.endsWith(']') ? label : `[${label}]`
 }
 
 async function probeVideo(input: string): Promise<VideoMetadata> {

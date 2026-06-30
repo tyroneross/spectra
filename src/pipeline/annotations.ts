@@ -1,5 +1,6 @@
 import { bitmapTextLayer, type BitmapTextLayer } from './framing.js'
 import type { DemoScript } from './script.js'
+import { renderStepCardPng } from './text-render.js'
 
 export interface TimedStepCard {
   stepLabel?: string
@@ -19,6 +20,16 @@ export interface TimedStepCardsFilterOptions {
   y?: number
   fadeMs?: number
   fontPixel?: number
+  fontSize?: number
+  cacheDir?: string
+  inputIndexStart?: number
+}
+
+export interface TimedStepCardsFilterPlan {
+  filter: string
+  imagePaths: string[]
+  usedPng: boolean
+  nextInputIndex: number
 }
 
 interface PreparedCard extends TimedStepCard {
@@ -41,6 +52,7 @@ const DEFAULT_OUT_H = 1080
 const DEFAULT_FPS = 60
 const DEFAULT_FADE_MS = 250
 const DEFAULT_FONT_PIXEL = 7
+const DEFAULT_FONT_SIZE = 40
 
 export function cardsFromScript(script: DemoScript): TimedStepCard[] {
   return script.beats
@@ -83,6 +95,80 @@ export function timedStepCardsFilter(opts: TimedStepCardsFilterOptions): string 
 
   filters.push(`${labelRef(currentLabel)}format=yuv420p${outputRef}`)
   return filters.join(';')
+}
+
+export async function timedStepCardsOverlayPlan(opts: TimedStepCardsFilterOptions): Promise<TimedStepCardsFilterPlan> {
+  const pngPlan = await timedStepCardsPngFilter(opts)
+  if (pngPlan) return pngPlan
+
+  const inputIndexStart = positiveInteger(opts.inputIndexStart ?? 1, 'inputIndexStart')
+  return {
+    filter: timedStepCardsFilter(opts),
+    imagePaths: [],
+    usedPng: false,
+    nextInputIndex: inputIndexStart,
+  }
+}
+
+export async function timedStepCardsPngFilter(opts: TimedStepCardsFilterOptions): Promise<TimedStepCardsFilterPlan | undefined> {
+  const outW = positiveInteger(opts.outW ?? DEFAULT_OUT_W, 'outW')
+  const outH = positiveInteger(opts.outH ?? DEFAULT_OUT_H, 'outH')
+  const fps = positiveInteger(opts.fps ?? DEFAULT_FPS, 'fps')
+  const fadeMs = nonNegativeNumber(opts.fadeMs ?? DEFAULT_FADE_MS, 'fadeMs')
+  const x = nonNegativeInteger(opts.x ?? Math.round(outW * 0.045), 'x')
+  const y = nonNegativeInteger(opts.y ?? Math.round(outH * 0.075), 'y')
+  const fontSize = positiveInteger(opts.fontSize ?? DEFAULT_FONT_SIZE, 'fontSize')
+  const inputIndexStart = positiveInteger(opts.inputIndexStart ?? 1, 'inputIndexStart')
+  const inputRef = labelRef(opts.inputLabel ?? '0:v')
+  const outputRef = labelRef(opts.outputLabel ?? 'v')
+  const cards = prepareCards(opts.cards, fadeMs)
+
+  if (cards.length === 0) {
+    return {
+      filter: `${inputRef}format=yuv420p${outputRef}`,
+      imagePaths: [],
+      usedPng: false,
+      nextInputIndex: inputIndexStart,
+    }
+  }
+
+  const imagePaths: string[] = []
+  for (const card of cards) {
+    const path = await renderStepCardPng({
+      stepLabel: card.normalizedLabel,
+      stepText: card.stepText,
+      outW,
+      outH,
+      x,
+      y,
+      fontSize,
+      cacheDir: opts.cacheDir,
+    })
+    if (!path) return undefined
+    imagePaths.push(path)
+  }
+
+  const filters: string[] = []
+  let currentLabel = stripLabel(inputRef)
+  for (let index = 0; index < cards.length; index += 1) {
+    const timedCard = cards[index]
+    const assetLabel = `stepCardPng${index}`
+    filters.push(`${labelRef(`${inputIndexStart + index}:v`)}format=rgba${fadeSuffix(timedCard)}${labelRef(assetLabel)}`)
+
+    const nextLabel = `stepAnnotated${index}`
+    filters.push(
+      `${labelRef(currentLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`,
+    )
+    currentLabel = nextLabel
+  }
+
+  filters.push(`${labelRef(currentLabel)}format=yuv420p${outputRef}`)
+  return {
+    filter: filters.join(';'),
+    imagePaths,
+    usedPng: true,
+    nextInputIndex: inputIndexStart + imagePaths.length,
+  }
 }
 
 export function normalizeStepLabel(label: string | undefined): string | undefined {

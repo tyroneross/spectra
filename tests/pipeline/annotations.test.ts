@@ -1,6 +1,27 @@
-import { describe, expect, it } from 'vitest'
-import { cardsFromScript, normalizeStepLabel, timedStepCardsFilter } from '../../src/pipeline/annotations.js'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cardsFromScript, normalizeStepLabel, timedStepCardsFilter, timedStepCardsOverlayPlan } from '../../src/pipeline/annotations.js'
 import type { DemoScript } from '../../src/pipeline/script.js'
+import { setTextRendererAvailabilityForTests, textRendererAvailability } from '../../src/pipeline/text-render.js'
+
+let workDir: string | null = null
+const pilAvailability = await textRendererAvailability()
+const pilIt = pilAvailability.available ? it : it.skip
+
+async function makeWorkDir(): Promise<string> {
+  workDir = await mkdtemp(join(tmpdir(), 'spectra-annotations-'))
+  return workDir
+}
+
+afterEach(async () => {
+  setTextRendererAvailabilityForTests(undefined)
+  if (workDir) {
+    await rm(workDir, { recursive: true, force: true })
+    workDir = null
+  }
+})
 
 const script: DemoScript = {
   beats: [
@@ -74,5 +95,56 @@ describe('timed step cards', () => {
     expect(filter).toContain('fade=t=out:st=1.1:d=0.1')
     expect(filter).toContain('fade=t=in:st=1.2:d=0.1')
     expect(filter).toContain('[v]')
+  })
+
+  pilIt('uses rendered PNG overlays when Pillow is available', async () => {
+    const cacheDir = await makeWorkDir()
+    const plan = await timedStepCardsOverlayPlan({
+      cards: cardsFromScript(script),
+      inputLabel: 'framed',
+      outputLabel: 'v',
+      inputIndexStart: 1,
+      outW: 320,
+      outH: 180,
+      fps: 30,
+      fadeMs: 100,
+      cacheDir,
+    })
+
+    expect(plan.usedPng).toBe(true)
+    expect(plan.imagePaths).toHaveLength(2)
+    expect(plan.nextInputIndex).toBe(3)
+    expect(plan.filter).toContain('[1:v]format=rgba')
+    expect(plan.filter).toContain('[2:v]format=rgba')
+    expect(plan.filter).not.toContain('drawbox=')
+    expect(plan.filter.match(/enable='between/g)).toHaveLength(2)
+    expect(plan.filter).toContain("enable='between(t\\,0\\,1.2)'")
+    expect(plan.filter).toContain("enable='between(t\\,1.2\\,2.4)'")
+    expect(plan.filter).toContain('fade=t=in:st=0:d=0.1')
+    expect(plan.filter).toContain('fade=t=out:st=1.1:d=0.1')
+  })
+
+  it('falls back to the bitmap card graph when Pillow is unavailable', async () => {
+    setTextRendererAvailabilityForTests({ available: false, reason: 'test override' })
+    const plan = await timedStepCardsOverlayPlan({
+      cards: cardsFromScript(script),
+      inputLabel: 'framed',
+      outputLabel: 'v',
+      inputIndexStart: 1,
+      outW: 320,
+      outH: 180,
+      fps: 30,
+      fontPixel: 4,
+      fadeMs: 100,
+    })
+
+    expect(plan.usedPng).toBe(false)
+    expect(plan.imagePaths).toEqual([])
+    expect(plan.nextInputIndex).toBe(1)
+    expect(plan.filter).toContain('drawbox=')
+    expect(plan.filter.match(/enable='between/g)).toHaveLength(2)
+    expect(plan.filter).toContain("enable='between(t\\,0\\,1.2)'")
+    expect(plan.filter).toContain("enable='between(t\\,1.2\\,2.4)'")
+    expect(plan.filter).toContain('[v]')
   })
 })
