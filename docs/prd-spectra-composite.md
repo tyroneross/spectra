@@ -146,8 +146,21 @@ Update on any recording-engine change, pane-model change, async lifecycle
 change, or demo-scenario/integrity-rule change. Bump `revision`; log pivots
 below.
 
+## Polish Stage (opt-in, sanctioned 2026-06-30)
+
+The "no post-editing" principle governs the **raw capture artifact**: a single real
+run still produces a clean, shareable mp4 with no editing required. Spectra ALSO offers
+an **explicit opt-in polish stage** (`src/pipeline/*`: framing, spotlight, zoom, caption
+banner + numbered step chips, speed) that turns a raw capture into a marketing-grade clip
+reproducing the `demo-candidates/polished/` look. Polish is a deliberate second stage the
+caller asks for — never an automatic requirement to make the raw artifact shareable, so it
+does not regress the North Star. The raw take remains the source of truth; polish is additive.
+
 ## Pivot Log
 
+- 0.3.0 (2026-06-30) - sanctioned the opt-in polish stage as first-class (banner/chip/caption
+  consolidation, spotlight, performance, record→polish wiring, audio passthrough). Raw-capture
+  "no post-editing" principle unchanged; polish is additive and caller-requested.
 - 0.2.0 (2026-06-28) - reconciled with current daemon code: the deleted
   full-display path is not valid; SCK composite and SCK single-window recording
   are the only live recording paths; async composite recording is opt-in.
