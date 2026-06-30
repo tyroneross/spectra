@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildAudioArgs, polishClip, polishScript } from '../../src/pipeline/polish.js'
+import { buildAudioArgs, finalCaptionWindow, polishClip, polishScript } from '../../src/pipeline/polish.js'
 import { ffmpegAvailable, makeTestVideo, probeVideo, runProcess } from './ffmpeg-helpers.js'
 
 let workDir: string | null = null
@@ -235,4 +235,27 @@ describe('polishClip — audio passthrough', () => {
 
     expect(await probeHasAudioStream(outPath)).toBe(false)
   }, 30_000)
+})
+
+describe('finalCaptionWindow (short-input robustness)', () => {
+  const script = {
+    title: 'T', finalCaption: 'The end',
+    beats: [
+      { id: 'a', stepText: 'step one', startMs: 0, endMs: 5000 },
+      { id: 'end', stepText: 'The end', startMs: 42000, endMs: 50000 },
+    ],
+  } as unknown as Parameters<typeof finalCaptionWindow>[0]
+
+  it('places the caption on its matching beat when in range', () => {
+    expect(finalCaptionWindow(script, 'The end', 50000)).toEqual({ startMs: 42000, endMs: 50000 })
+  })
+
+  it('returns null when the placing beat is truncated out of a short input (no full-clip overlap)', () => {
+    expect(finalCaptionWindow(script, 'The end', 15000)).toBeNull()
+  })
+
+  it('shows full-clip for a caption-only script with no beats', () => {
+    const capOnly = { title: 'T', finalCaption: 'Only', beats: [] } as unknown as Parameters<typeof finalCaptionWindow>[0]
+    expect(finalCaptionWindow(capOnly, 'Only', 8000)).toEqual({ startMs: 0, endMs: 8000 })
+  })
 })

@@ -362,6 +362,10 @@ async function buildCaptionOverlay(
   outH: number,
 ): Promise<CaptionOverlay | undefined> {
   const window = finalCaptionWindow(script, finalCaption, durationMs)
+  // No valid placement (e.g. the matched beat is truncated out of a short input):
+  // skip the final caption rather than defaulting it to the whole clip, which would
+  // overlap the per-beat step cards.
+  if (!window) return undefined
   return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned')
 }
 
@@ -398,7 +402,7 @@ async function buildTimedCaptionOverlay(
   }
 }
 
-function finalCaptionWindow(script: DemoScript, finalCaption: string, durationMs: number): { startMs: number; endMs: number } {
+export function finalCaptionWindow(script: DemoScript, finalCaption: string, durationMs: number): { startMs: number; endMs: number } | null {
   const validBeats = script.beats
     .filter((beat) =>
       Number.isFinite(beat.startMs)
@@ -407,12 +411,18 @@ function finalCaptionWindow(script: DemoScript, finalCaption: string, durationMs
     )
   const matchingBeat = [...validBeats].reverse().find((beat) => beat.stepText?.trim() === finalCaption)
   const beat = matchingBeat ?? validBeats.at(-1)
+  // No beats at all: caption-only script — show it for the whole clip.
   if (!beat) return { startMs: 0, endMs: durationMs }
+  // The placing beat starts after the clip ends (input shorter than the script):
+  // the payoff was truncated away, so the final caption should not appear.
+  if (beat.startMs >= durationMs) return null
   const window = {
     startMs: Math.max(0, Math.min(durationMs, beat.startMs)),
     endMs: Math.max(0, Math.min(durationMs, beat.endMs)),
   }
-  return window.endMs > window.startMs ? window : { startMs: 0, endMs: durationMs }
+  // Window collapsed to zero length after clamping: don't fall back to full-clip
+  // (that overlaps the step cards) — skip instead.
+  return window.endMs > window.startMs ? window : null
 }
 
 function imageInputArgs(paths: string[], fps: number): string[] {
