@@ -356,6 +356,7 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
         script: demoScriptSchema,
         out: z.string(),
         fps: z.number().optional(),
+        voiceover: z.string().optional(),
     }),
 ]);
 // ─── Operation → param-schema registry ─────────────────────────

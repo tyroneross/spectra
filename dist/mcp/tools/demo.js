@@ -115,6 +115,7 @@ export const DemoSchema = z.discriminatedUnion('action', [
         script: DemoScriptSchema,
         out: z.string().describe('Output mp4 path'),
         fps: z.number().optional().describe('Output fps (default 60)'),
+        voiceover: z.string().optional().describe('Path to a voiceover audio file — REPLACES input audio, synced to t=0 and padded/trimmed to the video duration'),
     }),
 ]);
 // ─── Handler ──────────────────────────────────────────────────
@@ -149,6 +150,7 @@ export async function handleDemo(params, _ctx) {
             script: parsed.script,
             outPath: parsed.out,
             fps: parsed.fps,
+            voiceover: parsed.voiceover,
         });
     }
     // action === 'polish'

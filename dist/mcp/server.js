@@ -145,6 +145,7 @@ export const spectraDemoInputShape = {
     async: z.boolean().optional().describe('record-composite: return a recordingId immediately and finish via recording.status/artifact.added events'),
     clicksJson: demoClicksJsonShape.optional().describe('polish-clip: click/cursor track driving the zoom — JSON string, inline array of {tMs,cx,cy}, or {clicks?,cursorPath?} object'),
     script: demoScriptShape.optional().describe('polish-script: structured beat script — {title?, finalCaption?, beats:[{id,startMs,endMs,stepLabel?,stepText?,zoom?,action?}]}'),
+    voiceover: z.string().optional().describe('polish-script: path to a voiceover/narration audio file — REPLACES input audio, starts at t=0, padded/trimmed to the video duration (short VO never truncates the video; long VO is cut to video length)'),
 };
 /**
  * Build a coreless Spectra MCP server bound to the given daemon client. The

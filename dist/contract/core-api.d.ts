@@ -978,6 +978,8 @@ export interface DemoPolishScriptParams {
     script: DemoScript;
     out: string;
     fps?: number;
+    /** Path to a voiceover audio file that REPLACES input audio, synced to t=0 and padded/trimmed to the video duration. */
+    voiceover?: string;
 }
 /** Mirrors pipeline/polish.ts PolishClipResult — shared by both polish-clip and polish-script. */
 export interface DemoPolishClipResult {

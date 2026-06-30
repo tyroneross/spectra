@@ -32,6 +32,14 @@ export interface PolishScriptOptions {
     script: DemoScript;
     outPath: string;
     fps?: number;
+    /**
+     * Path to a voiceover/narration audio file. When set, this audio REPLACES
+     * any input audio: it starts at t=0, is padded with silence if shorter than
+     * the video (so a short VO never truncates the video) and trimmed to the
+     * video duration if longer. When absent, behavior is unchanged (input audio
+     * passthrough via buildAudioArgs, or `-an` when the source is silent).
+     */
+    voiceover?: string;
 }
 export interface PolishClipResult {
     outPath: string;
@@ -65,5 +73,20 @@ interface AudioArgs {
  * longer. When there's no audio, behavior is unchanged from before (`-an`).
  */
 export declare function buildAudioArgs(hasAudio: boolean): AudioArgs;
+/**
+ * Builds the audio map + codec ffmpeg args for a SEPARATE voiceover input
+ * (mux a narration track instead of the source's own audio). The source's
+ * audio is NOT mapped, so the voiceover fully REPLACES any input audio. The
+ * voiceover maps from `${voiceoverInputIndex}:a`, starts at t=0, and is pinned
+ * to exactly the video duration via `apad,atrim=end=<videoDurationSec>`:
+ * `apad` pads with trailing silence so a VO SHORTER than the video never
+ * truncates the video, and `atrim=end` cuts a VO LONGER than the video to the
+ * video duration. This is done in the filter graph (deterministic) rather than
+ * via `-shortest`, which does not reliably trim a frames-capped output on
+ * short clips. `voiceoverInputIndex` is the 0-based ffmpeg `-i` index of the
+ * voiceover input, which polishScript appends after the source/mask/overlay
+ * inputs; `videoDurationSec` is the true output video duration (frames / fps).
+ */
+export declare function buildVoiceoverAudioArgs(voiceoverInputIndex: number, videoDurationSec: number): AudioArgs;
 export {};
 //# sourceMappingURL=polish.d.ts.map

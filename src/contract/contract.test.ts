@@ -142,6 +142,17 @@ describe('demoParamsSchema — rich polish pipeline actions (src/pipeline/polish
     expect(result.success).toBe(true)
   })
 
+  it('accepts a polish-script action with an optional voiceover audio path', () => {
+    const result = demoParamsSchema.safeParse({
+      action: 'polish-script',
+      input: '/tmp/input.mp4',
+      script: { finalCaption: 'Done', beats: [{ id: 'a', stepText: 'x', startMs: 0, endMs: 250 }] },
+      out: '/tmp/out.mp4',
+      voiceover: '/tmp/vo.m4a',
+    })
+    expect(result.success).toBe(true)
+  })
+
   it('rejects polish-clip missing required fields', () => {
     const result = demoParamsSchema.safeParse({ action: 'polish-clip', input: '/tmp/input.mp4' })
     expect(result.success).toBe(false)

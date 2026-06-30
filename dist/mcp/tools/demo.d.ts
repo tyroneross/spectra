@@ -483,6 +483,7 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     }>;
     out: z.ZodString;
     fps: z.ZodOptional<z.ZodNumber>;
+    voiceover: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     action: "polish-script";
     input: string;
@@ -509,6 +510,7 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    voiceover?: string | undefined;
 }, {
     action: "polish-script";
     input: string;
@@ -535,6 +537,7 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    voiceover?: string | undefined;
 }>]>;
 export declare function handleDemo(params: unknown, _ctx?: ToolContext): Promise<object>;
 //# sourceMappingURL=demo.d.ts.map

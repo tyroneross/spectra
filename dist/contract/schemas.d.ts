@@ -1461,6 +1461,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     }>;
     out: z.ZodString;
     fps: z.ZodOptional<z.ZodNumber>;
+    voiceover: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     action: "polish-script";
     input: string;
@@ -1487,6 +1488,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    voiceover?: string | undefined;
 }, {
     action: "polish-script";
     input: string;
@@ -1513,6 +1515,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    voiceover?: string | undefined;
 }>]>;
 export declare const operationParamSchemas: {
     health: z.ZodObject<{
@@ -2827,6 +2830,7 @@ export declare const operationParamSchemas: {
         }>;
         out: z.ZodString;
         fps: z.ZodOptional<z.ZodNumber>;
+        voiceover: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         action: "polish-script";
         input: string;
@@ -2853,6 +2857,7 @@ export declare const operationParamSchemas: {
             finalCaption?: string | undefined;
         };
         fps?: number | undefined;
+        voiceover?: string | undefined;
     }, {
         action: "polish-script";
         input: string;
@@ -2879,6 +2884,7 @@ export declare const operationParamSchemas: {
             finalCaption?: string | undefined;
         };
         fps?: number | undefined;
+        voiceover?: string | undefined;
     }>]>;
     autoRampDemo: z.ZodObject<{
         input: z.ZodString;

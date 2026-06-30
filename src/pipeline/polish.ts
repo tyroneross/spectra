@@ -51,6 +51,14 @@ export interface PolishScriptOptions {
   script: DemoScript
   outPath: string
   fps?: number
+  /**
+   * Path to a voiceover/narration audio file. When set, this audio REPLACES
+   * any input audio: it starts at t=0, is padded with silence if shorter than
+   * the video (so a short VO never truncates the video) and trimmed to the
+   * video duration if longer. When absent, behavior is unchanged (input audio
+   * passthrough via buildAudioArgs, or `-an` when the source is silent).
+   */
+  voiceover?: string
 }
 
 export interface PolishClipResult {
@@ -247,13 +255,21 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     cardPlan.filter,
   ].join(';')
 
-  const audio = buildAudioArgs(hasAudio)
+  // Input order is load-bearing for the filter graph: 0 = source video, 1 =
+  // chrome mask, then the looped overlay images. A voiceover, when present, is
+  // appended LAST so its input index is deterministic and the existing
+  // [0:v]/mask/image indices are undisturbed.
+  const voiceoverIndex = 2 + imagePaths.length // 0=video, 1=mask, 2..=images
+  const audio = options.voiceover
+    ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps)
+    : buildAudioArgs(hasAudio)
   await mkdir(dirname(options.outPath), { recursive: true })
   await runProcess('ffmpeg', [
     '-y',
     '-i', options.input,
     ...chrome.maskInputArgs,
     ...imageInputArgs(imagePaths, fps),
+    ...(options.voiceover ? ['-i', options.voiceover] : []),
     '-filter_complex', filterComplex,
     '-map', '[v]',
     ...audio.mapArgs,
@@ -513,6 +529,28 @@ export function buildAudioArgs(hasAudio: boolean): AudioArgs {
   return hasAudio
     ? { mapArgs: ['-map', '0:a?'], codecArgs: ['-c:a', 'aac', '-af', 'apad', '-shortest'] }
     : { mapArgs: [], codecArgs: ['-an'] }
+}
+
+/**
+ * Builds the audio map + codec ffmpeg args for a SEPARATE voiceover input
+ * (mux a narration track instead of the source's own audio). The source's
+ * audio is NOT mapped, so the voiceover fully REPLACES any input audio. The
+ * voiceover maps from `${voiceoverInputIndex}:a`, starts at t=0, and is pinned
+ * to exactly the video duration via `apad,atrim=end=<videoDurationSec>`:
+ * `apad` pads with trailing silence so a VO SHORTER than the video never
+ * truncates the video, and `atrim=end` cuts a VO LONGER than the video to the
+ * video duration. This is done in the filter graph (deterministic) rather than
+ * via `-shortest`, which does not reliably trim a frames-capped output on
+ * short clips. `voiceoverInputIndex` is the 0-based ffmpeg `-i` index of the
+ * voiceover input, which polishScript appends after the source/mask/overlay
+ * inputs; `videoDurationSec` is the true output video duration (frames / fps).
+ */
+export function buildVoiceoverAudioArgs(voiceoverInputIndex: number, videoDurationSec: number): AudioArgs {
+  const end = videoDurationSec.toFixed(6)
+  return {
+    mapArgs: ['-map', `${voiceoverInputIndex}:a`],
+    codecArgs: ['-c:a', 'aac', '-af', `apad,atrim=end=${end}`],
+  }
 }
 
 async function parseClicksJson(input: ClicksJsonInput): Promise<ParsedClicks> {

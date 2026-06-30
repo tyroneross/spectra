@@ -345,6 +345,7 @@ export declare const spectraDemoInputShape: {
         title?: string | undefined;
         finalCaption?: string | undefined;
     }>>;
+    voiceover: z.ZodOptional<z.ZodString>;
 };
 /**
  * Build a coreless Spectra MCP server bound to the given daemon client. The
