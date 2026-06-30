@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js';
+import { deriveZoomTrackFromActivity } from './auto-zoom.js';
 import { frameChromeRenderPlan, framingFilter } from './framing.js';
 import { scriptDurationMs, scriptZoomWindows } from './script.js';
 import { cleanupSpotlightPrePass, renderSpotlightPrePass } from './spotlight.js';
@@ -43,7 +44,15 @@ export async function polishClip(options) {
     try {
         const parsed = await parseClicksJson(options.clicksJson);
         const durationMs = metadata.durationMs ?? inferDurationMs(parsed);
-        const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
+        // No hand-authored clicks or cursor path: auto-derive a zoom track from
+        // scene-change activity (see auto-zoom.ts) so the clip still zooms during
+        // active stretches. Explicit clicksJson (or a cursorPath) is always
+        // honored as-is — this is fill-only for the empty case, and falls back
+        // to the prior static (no-zoom) behavior when no activity is detected.
+        const effectiveClicks = parsed.clicks.length === 0 && !parsed.cursorPath?.length
+            ? await deriveZoomTrackFromActivity(options.input, durationMs)
+            : parsed.clicks;
+        const track = buildZoomTrack(effectiveClicks, durationMs, fps, {
             cursorPath: parsed.cursorPath,
         });
         let nextInputIndex = 1;
