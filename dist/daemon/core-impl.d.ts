@@ -23,10 +23,12 @@ interface NativeStartRecordingInput {
     recordingId: string;
     sessionId: string;
     app: string;
+    title?: string;
     outPath: string;
     fps: number;
     codec: string;
     bitrate: string;
+    captureAudio: boolean;
     maxDurationSeconds: number;
 }
 interface NativeStartRecordingOutput {

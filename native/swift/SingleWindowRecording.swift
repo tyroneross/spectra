@@ -68,6 +68,7 @@ final class SingleWindowRecordingStore {
         let codec = params["codec"]?.stringValue ?? "h264"
         let bitrate = params["bitrate"]?.stringValue ?? "8M"
         let maxDuration = max(0.5, params["maxDuration"]?.doubleValue ?? params["duration"]?.doubleValue ?? 300)
+        let captureAudio = params["captureAudio"]?.boolValue ?? false
         let sessionId = params["sessionId"]?.stringValue
 
         let content = try await singleWindowShareableContent(timeoutSeconds: 15)
@@ -87,7 +88,8 @@ final class SingleWindowRecordingStore {
             fps: fps,
             codec: codec,
             bitrate: bitrate,
-            maxDuration: maxDuration
+            maxDuration: maxDuration,
+            captureAudio: captureAudio
         )
         sessions[recordingId] = session
         do {
@@ -176,7 +178,8 @@ final class SingleWindowRecordingSession {
         fps: Int,
         codec: String,
         bitrate: String,
-        maxDuration: Double
+        maxDuration: Double,
+        captureAudio: Bool
     ) {
         self.recordingId = recordingId
         self.sessionId = sessionId
@@ -191,7 +194,8 @@ final class SingleWindowRecordingSession {
             fps: fps,
             codec: codec,
             bitrate: bitrate,
-            maxDuration: maxDuration
+            maxDuration: maxDuration,
+            captureAudio: captureAudio
         )
     }
 
@@ -353,6 +357,7 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
     private let codec: String
     private let bitrate: String
     private let maxDuration: Double
+    private let captureAudio: Bool
     private let size: (width: Int, height: Int)
     private let sampleQueue = DispatchQueue(label: "spectra.single-window.capture.sample")
     private let frameLock = NSLock()
@@ -360,9 +365,11 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
 
     private var writer: AVAssetWriter?
     private var input: AVAssetWriterInput?
+    private var audioInput: AVAssetWriterInput?
     private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var frameCount = 0
     private var sourceFrameCount = 0
+    private var audioBaseTime: CMTime?
     private var latestPixelBuffer: CVPixelBuffer?
     private var streamError: Error?
     private var activeStream: SCStream?
@@ -375,7 +382,8 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         fps: Int,
         codec: String,
         bitrate: String,
-        maxDuration: Double
+        maxDuration: Double,
+        captureAudio: Bool
     ) {
         self.window = window
         self.displays = displays
@@ -384,6 +392,7 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         self.codec = codec
         self.bitrate = bitrate
         self.maxDuration = maxDuration
+        self.captureAudio = captureAudio
         self.size = singleWindowOutputSize(for: window, displays: displays)
     }
 
@@ -419,6 +428,24 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         }
         writer.add(input)
 
+        let audioInput: AVAssetWriterInput?
+        if captureAudio {
+            let candidate = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 128_000
+            ])
+            candidate.expectsMediaDataInRealTime = true
+            guard writer.canAdd(candidate) else {
+                throw SingleWindowRecordingError(description: "AVAssetWriter cannot add audio input for \(outputURL.path)")
+            }
+            writer.add(candidate)
+            audioInput = candidate
+        } else {
+            audioInput = nil
+        }
+
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: input,
             sourcePixelBufferAttributes: [
@@ -431,7 +458,9 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
 
         self.writer = writer
         self.input = input
+        self.audioInput = audioInput
         self.adaptor = adaptor
+        self.audioBaseTime = nil
 
         let configuration = SCStreamConfiguration()
         configuration.width = size.width
@@ -440,6 +469,7 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.scalesToFit = true
         configuration.showsCursor = true
+        configuration.capturesAudio = captureAudio
         configuration.queueDepth = 8
         if #available(macOS 14.0, *) {
             configuration.preservesAspectRatio = true
@@ -452,6 +482,9 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         setActiveStream(stream)
         defer { setActiveStream(nil) }
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
+        if captureAudio {
+            try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: sampleQueue)
+        }
 
         let preStartSeed = await singleWindowSeedPixelBuffer(
             windowID: window.windowID,
@@ -540,6 +573,7 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         }
 
         input.markAsFinished()
+        audioInput?.markAsFinished()
         let didFinish = await singleWindowFinish(writer, timeoutSeconds: 10)
         guard didFinish else {
             writer.cancelWriting()
@@ -569,8 +603,20 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen,
-              CMSampleBufferIsValid(sampleBuffer),
+        switch type {
+        case .screen:
+            handleScreenSampleBuffer(sampleBuffer)
+        case .audio:
+            appendAudioSampleBuffer(sampleBuffer)
+        case .microphone:
+            return
+        @unknown default:
+            return
+        }
+    }
+
+    private func handleScreenSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        guard CMSampleBufferIsValid(sampleBuffer),
               let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
               singleWindowUsableFrame(sampleBuffer) else {
             return
@@ -642,6 +688,93 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
         } else {
             throw writer?.error ?? SingleWindowRecordingError(description: "Failed to append CFR frame")
         }
+    }
+
+    private func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        guard captureAudio,
+              CMSampleBufferIsValid(sampleBuffer),
+              CMSampleBufferDataIsReady(sampleBuffer),
+              let audioInput,
+              writer?.status == .writing else {
+            return
+        }
+        guard audioInput.isReadyForMoreMediaData else {
+            return
+        }
+        guard let retimed = retimedAudioSampleBuffer(sampleBuffer) else {
+            return
+        }
+        if !audioInput.append(retimed), let error = writer?.error {
+            streamError = error
+        }
+    }
+
+    private func retimedAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) -> CMSampleBuffer? {
+        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        guard presentationTime.isValid else {
+            return nil
+        }
+        if audioBaseTime == nil {
+            audioBaseTime = presentationTime
+        }
+        guard let baseTime = audioBaseTime else {
+            return nil
+        }
+
+        var entriesNeeded: CMItemCount = 0
+        let countStatus = CMSampleBufferGetSampleTimingInfoArray(
+            sampleBuffer,
+            entryCount: 0,
+            arrayToFill: nil,
+            entriesNeededOut: &entriesNeeded
+        )
+        guard countStatus == noErr, entriesNeeded > 0 else {
+            return nil
+        }
+
+        var timing = Array(
+            repeating: CMSampleTimingInfo(
+                duration: .invalid,
+                presentationTimeStamp: .invalid,
+                decodeTimeStamp: .invalid
+            ),
+            count: entriesNeeded
+        )
+        let readStatus = timing.withUnsafeMutableBufferPointer { buffer in
+            CMSampleBufferGetSampleTimingInfoArray(
+                sampleBuffer,
+                entryCount: entriesNeeded,
+                arrayToFill: buffer.baseAddress,
+                entriesNeededOut: &entriesNeeded
+            )
+        }
+        guard readStatus == noErr else {
+            return nil
+        }
+
+        for index in timing.indices {
+            if timing[index].presentationTimeStamp.isValid {
+                timing[index].presentationTimeStamp = CMTimeSubtract(timing[index].presentationTimeStamp, baseTime)
+            }
+            if timing[index].decodeTimeStamp.isValid {
+                timing[index].decodeTimeStamp = CMTimeSubtract(timing[index].decodeTimeStamp, baseTime)
+            }
+        }
+
+        var retimed: CMSampleBuffer?
+        let copyStatus = timing.withUnsafeBufferPointer { buffer in
+            CMSampleBufferCreateCopyWithNewTiming(
+                allocator: kCFAllocatorDefault,
+                sampleBuffer: sampleBuffer,
+                sampleTimingEntryCount: buffer.count,
+                sampleTimingArray: buffer.baseAddress,
+                sampleBufferOut: &retimed
+            )
+        }
+        guard copyStatus == noErr else {
+            return nil
+        }
+        return retimed
     }
 
     private func setActiveStream(_ stream: SCStream?) {

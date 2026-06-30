@@ -188,7 +188,7 @@ class CoreApiImplementation {
         if (this.recordings.forSession(params.sessionId)) {
             throw new DaemonApiError('conflict', `Session ${params.sessionId} already has an active recording.`, { status: 409, retryable: false });
         }
-        const target = await this.resolveRecordingTarget(session.target.appName);
+        const target = await this.resolveRecordingTarget(session.target.appName, session.name);
         const recordingId = `recording-${randomUUID().slice(0, 8)}`;
         const sessionDir = this.ctx.sessions.sessionDir(params.sessionId);
         await mkdir(sessionDir, { recursive: true });
@@ -197,6 +197,7 @@ class CoreApiImplementation {
         const fps = params.fps ?? 60;
         const codec = params.codec ?? 'h264';
         const bitrate = params.bitrate ?? '8M';
+        const captureAudio = params.captureAudio ?? false;
         await this.keepAwake.recordingStarted(recordingId);
         let handle;
         try {
@@ -204,10 +205,12 @@ class CoreApiImplementation {
                 recordingId,
                 sessionId: params.sessionId,
                 app: session.target.appName,
+                title: session.name,
                 outPath,
                 fps,
                 codec,
                 bitrate,
+                captureAudio,
                 maxDurationSeconds: 300,
             });
         }
@@ -691,10 +694,10 @@ class CoreApiImplementation {
             data: artifact,
         });
     }
-    async resolveRecordingTarget(app) {
+    async resolveRecordingTarget(app, titleHint) {
         const appNeedle = app.toLowerCase();
         const windows = await this.windowListProvider();
-        const candidates = windows.filter((window) => {
+        let candidates = windows.filter((window) => {
             const appName = window.appName.toLowerCase();
             const bundle = window.bundleIdentifier?.toLowerCase() ?? '';
             return window.onScreen
@@ -705,6 +708,14 @@ class CoreApiImplementation {
         });
         if (candidates.length === 0) {
             throw new DaemonApiError('recording_failed', `No on-screen ScreenCaptureKit window found for app ${app}`, { status: 404, retryable: false });
+        }
+        // A title hint (the session name) disambiguates when several windows of the
+        // same app are open — record the window whose title matches, not the largest.
+        if (titleHint && titleHint.trim().length > 0) {
+            const needle = titleHint.toLowerCase();
+            const titled = candidates.filter((window) => window.title.toLowerCase().includes(needle));
+            if (titled.length > 0)
+                candidates = titled;
         }
         return candidates.sort((left, right) => {
             const leftTitled = left.title.length > 0;
@@ -838,10 +849,12 @@ class NativeRecordingProcess {
             recordingId: this.input.recordingId,
             sessionId: this.input.sessionId,
             app: this.input.app,
+            title: this.input.title,
             outPath: this.input.outPath,
             fps: this.input.fps,
             codec: this.input.codec,
             bitrate: this.input.bitrate,
+            captureAudio: this.input.captureAudio,
             maxDuration: this.input.maxDurationSeconds,
         }, 15_000);
         return this;

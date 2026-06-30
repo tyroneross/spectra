@@ -471,6 +471,7 @@ export interface StartRecordingParams {
     codec?: VideoCodec;
     bitrate?: VideoBitrate;
     hardware?: boolean;
+    captureAudio?: boolean;
     composite?: RecordingCompositeOptions;
 }
 export interface StartRecordingResult {

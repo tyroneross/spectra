@@ -82,6 +82,7 @@ describe('contract freeze — drift gate', () => {
     expect(live.operationParams).toEqual(snapshot.operationParams)
     expect(snapshot.operations).toContain('getRecording')
     expect(snapshot.operationParams.getRecording).toEqual(['recordingId'])
+    expect(snapshot.operationParams.startRecording).toContain('captureAudio')
     expect(snapshot.operationParams.recordComposite).toContain('async')
     expect(snapshot.operationParams.recordComposite).toContain('caption')
   })

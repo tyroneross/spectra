@@ -307,7 +307,7 @@ class CoreApiImplementation implements CoreApi {
       )
     }
 
-    const target = await this.resolveRecordingTarget(session.target.appName)
+    const target = await this.resolveRecordingTarget(session.target.appName, session.name)
     const recordingId = `recording-${randomUUID().slice(0, 8)}`
     const sessionDir = this.ctx.sessions.sessionDir(params.sessionId)
     await mkdir(sessionDir, { recursive: true })
@@ -316,6 +316,7 @@ class CoreApiImplementation implements CoreApi {
     const fps = params.fps ?? 60
     const codec = params.codec ?? 'h264'
     const bitrate = params.bitrate ?? '8M'
+    const captureAudio = params.captureAudio ?? false
 
     await this.keepAwake.recordingStarted(recordingId)
     let handle: NativeRecordingHandle
@@ -324,10 +325,12 @@ class CoreApiImplementation implements CoreApi {
         recordingId,
         sessionId: params.sessionId,
         app: session.target.appName,
+        title: session.name,
         outPath,
         fps,
         codec,
         bitrate,
+        captureAudio,
         maxDurationSeconds: 300,
       })
     } catch (error) {
@@ -846,10 +849,10 @@ class CoreApiImplementation implements CoreApi {
     })
   }
 
-  private async resolveRecordingTarget(app: string): Promise<WindowRecord> {
+  private async resolveRecordingTarget(app: string, titleHint?: string): Promise<WindowRecord> {
     const appNeedle = app.toLowerCase()
     const windows = await this.windowListProvider()
-    const candidates = windows.filter((window) => {
+    let candidates = windows.filter((window) => {
       const appName = window.appName.toLowerCase()
       const bundle = window.bundleIdentifier?.toLowerCase() ?? ''
       return window.onScreen
@@ -865,6 +868,13 @@ class CoreApiImplementation implements CoreApi {
         { status: 404, retryable: false },
       )
     }
+    // A title hint (the session name) disambiguates when several windows of the
+    // same app are open — record the window whose title matches, not the largest.
+    if (titleHint && titleHint.trim().length > 0) {
+      const needle = titleHint.toLowerCase()
+      const titled = candidates.filter((window) => window.title.toLowerCase().includes(needle))
+      if (titled.length > 0) candidates = titled
+    }
     return candidates.sort((left, right) => {
       const leftTitled = left.title.length > 0
       const rightTitled = right.title.length > 0
@@ -879,10 +889,12 @@ interface NativeStartRecordingInput {
   recordingId: string
   sessionId: string
   app: string
+  title?: string
   outPath: string
   fps: number
   codec: string
   bitrate: string
+  captureAudio: boolean
   maxDurationSeconds: number
 }
 
@@ -1076,10 +1088,12 @@ class NativeRecordingProcess implements NativeRecordingHandle {
       recordingId: this.input.recordingId,
       sessionId: this.input.sessionId,
       app: this.input.app,
+      title: this.input.title,
       outPath: this.input.outPath,
       fps: this.input.fps,
       codec: this.input.codec,
       bitrate: this.input.bitrate,
+      captureAudio: this.input.captureAudio,
       maxDuration: this.input.maxDurationSeconds,
     }, 15_000)
     return this

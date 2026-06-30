@@ -192,6 +192,7 @@ export const startRecordingParamsSchema = z.object({
   codec: videoCodecSchema.optional(),
   bitrate: videoBitrateSchema.optional(),
   hardware: z.boolean().optional(),
+  captureAudio: z.boolean().optional(),
   composite: recordingCompositeOptionsSchema.optional(),
 })
 

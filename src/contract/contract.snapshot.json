@@ -218,6 +218,7 @@
     ],
     "startRecording": [
       "bitrate",
+      "captureAudio",
       "codec",
       "composite",
       "fps",

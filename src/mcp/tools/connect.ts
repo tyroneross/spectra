@@ -95,6 +95,28 @@ export async function handleConnect(
     }
   }
 
+  // Record-only macOS sessions skip the Accessibility-gated AX snapshot. Recording
+  // resolves the target window AND captures it via ScreenCaptureKit (Screen Recording
+  // permission) — it never touches the AX element inventory. Coupling capture to the
+  // snapshot forced an Accessibility grant the recording path doesn't use (root-caused
+  // 2026-06-29). With `record: true` we register the session (target.appName is already
+  // set above) and return without the AX call, so startRecording works with only the
+  // Screen Recording grant.
+  if (params.record === true && platform === 'macos') {
+    return {
+      sessionId: session.id,
+      platform,
+      elementCount: 0,
+      snapshot: '',
+      launched: launchHandle ? {
+        kind: launchHandle.kind,
+        pid: launchHandle.pid,
+        url: launchHandle.url,
+        appName: launchHandle.appName,
+      } : undefined,
+    }
+  }
+
   const driver = createDriver
     ? createDriver()
     : driverType === 'cdp' ? new CdpDriver()
