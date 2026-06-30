@@ -52,6 +52,100 @@ async function forward(client, toolName, args) {
         return formatError(err, toolName);
     }
 }
+// ─── spectra_demo: polish-clip / polish-script wire shapes ─────────────────
+// Mirrors src/contract/schemas.ts (demoClicksJsonSchema / demoScriptSchema /
+// demoSpotlightSchema) so the MCP boundary accepts the same payload shapes
+// the rich polish pipeline (src/pipeline/polish.ts) expects. This is the
+// PUBLIC MCP input gate — the SDK rejects anything not described here before
+// forward()/handleDemo ever run, so these must stay in lockstep with
+// contract/schemas.ts and pipeline/polish.ts's option types.
+const demoZoomClickShape = z.object({ tMs: z.number(), cx: z.number(), cy: z.number() });
+const demoCursorPointShape = z.object({ tMs: z.number(), cx: z.number(), cy: z.number() });
+const demoClicksJsonShape = z.union([
+    z.string(),
+    z.array(demoZoomClickShape),
+    z.object({
+        clicks: z.array(demoZoomClickShape).optional(),
+        cursorPath: z.array(demoCursorPointShape).optional(),
+    }),
+]);
+const demoScriptBeatActionShape = z.object({
+    kind: z.enum(['search', 'click', 'scroll', 'navigate', 'hold']),
+    target: z.string().optional(),
+    value: z.string().optional(),
+});
+const demoScriptBeatShape = z.object({
+    id: z.string(),
+    stepLabel: z.string().optional(),
+    stepText: z.string().optional(),
+    startMs: z.number(),
+    endMs: z.number(),
+    zoom: z.object({ cx: z.number(), cy: z.number(), scale: z.number() }).optional(),
+    action: demoScriptBeatActionShape.optional(),
+});
+const demoScriptShape = z.object({
+    title: z.string().optional(),
+    finalCaption: z.string().optional(),
+    beats: z.array(demoScriptBeatShape),
+});
+const demoSpotlightFocalShape = z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() });
+const demoSpotlightObjectShape = z.object({
+    focal: demoSpotlightFocalShape,
+    dim: z.number().optional(),
+    blur: z.number().optional(),
+    feather: z.number().optional(),
+});
+/**
+ * Flat ZodRawShape for the `spectra_demo` tool input — exported (rather than
+ * inlined into the `server.tool(...)` call) so tests can validate the EXACT
+ * shape the MCP SDK enforces at the public boundary, instead of only
+ * exercising the daemon-side handleDemo handler (which a prior pass did,
+ * masking the fact that the SDK rejected polish-clip/polish-script before
+ * forward() ever ran). Keep this a flat object of zod fields (not a
+ * discriminatedUnion) — that's what server.tool()'s SDK signature requires.
+ */
+export const spectraDemoInputShape = {
+    action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP | polish-clip: render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional spotlight) from a clicks/cursor track | polish-script: render the rich pipeline from a structured beat script'),
+    input: z.string().optional().describe('scan/auto-ramp/polish-clip/polish-script: path to the source video file'),
+    threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
+    deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
+    minDeadSec: z.number().optional().describe('auto-ramp: min gap length to ramp, seconds (default 1.5)'),
+    maxWidth: z.number().optional().describe('auto-ramp: lanczos-downscale max width (default 1600)'),
+    crf: z.number().optional().describe('auto-ramp: x264 quality (default 20)'),
+    fps: z.number().optional().describe('auto-ramp: output fps (default 60) | polish-clip/polish-script: output fps (default 60)'),
+    spec: z.object({
+        canvas: z.object({ w: z.number(), h: z.number() }).describe('Output canvas dimensions (pixels)'),
+        fps: z.number().optional().describe('Target frame rate (informational)'),
+        segments: z.array(z.object({
+            input: z.string().describe('Path to the source recording for this segment'),
+            startSec: z.number().describe('Start offset in seconds'),
+            durationSec: z.number().describe('Segment duration in seconds'),
+            focal: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).describe('Focal region in source pixels'),
+            caption: z.string().optional().describe('Lower-third caption text'),
+            captionPngPath: z.string().optional().describe('PNG overlay fallback when drawtext is unavailable'),
+        })).describe('Ordered segments to render and merge'),
+        speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
+    }).optional().describe('polish: segment specification'),
+    out: z.string().optional().describe('polish/auto-ramp/polish-clip/polish-script: output mp4 path'),
+    appA: z.string().optional().describe('record-composite: app name / bundle substring for the LEFT pane'),
+    titleA: z.string().optional().describe('record-composite: optional window-title substring for the left pane'),
+    labelA: z.string().optional().describe('record-composite: optional label for the left pane'),
+    appB: z.string().optional().describe('record-composite: app name / bundle substring for the RIGHT pane'),
+    titleB: z.string().optional().describe('record-composite: optional window-title substring for the right pane'),
+    labelB: z.string().optional().describe('record-composite: optional label for the right pane'),
+    durationSeconds: z.number().optional().describe('record-composite: capture duration in seconds (default 5)'),
+    caption: z.string().optional().describe('record-composite: optional lower-third caption strip text | polish-clip: optional caption banner text'),
+    spotlight: z.union([
+        z.enum(['none', 'a', 'b']),
+        demoSpotlightObjectShape,
+    ]).optional().describe('record-composite: dim+blur the non-focal pane — none | a (left) | b (right), default none || polish-clip: whole-clip dark-crush spotlight pre-pass — {focal:{x,y,w,h}, dim?, blur?, feather?}'),
+    cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
+    outPath: z.string().optional().describe('record-composite: composite MP4 output path'),
+    sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
+    async: z.boolean().optional().describe('record-composite: return a recordingId immediately and finish via recording.status/artifact.added events'),
+    clicksJson: demoClicksJsonShape.optional().describe('polish-clip: click/cursor track driving the zoom — JSON string, inline array of {tMs,cx,cy}, or {clicks?,cursorPath?} object'),
+    script: demoScriptShape.optional().describe('polish-script: structured beat script — {title?, finalCaption?, beats:[{id,startMs,endMs,stepLabel?,stepText?,zoom?,action?}]}'),
+};
 /**
  * Build a coreless Spectra MCP server bound to the given daemon client. The
  * client is injectable so tests can point it at a mock daemon.
@@ -204,43 +298,7 @@ export function createSpectraServer(client) {
         manifest: z.boolean().optional(),
         showcasePath: z.string().optional().describe('Path to a legacy .showcase/ directory'),
     }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_library', args));
-    server.tool('spectra_demo', 'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence, or action=record-composite to drive the WINDOW-ISOLATED composite recorder (two app windows side-by-side via ScreenCaptureKit, caffeinate-wrapped so the display never sleeps, with a post-capture black-frame guard). Audio is always stripped.', {
-        action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP'),
-        input: z.string().optional().describe('scan/auto-ramp: path to the source video file'),
-        threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
-        deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
-        minDeadSec: z.number().optional().describe('auto-ramp: min gap length to ramp, seconds (default 1.5)'),
-        maxWidth: z.number().optional().describe('auto-ramp: lanczos-downscale max width (default 1600)'),
-        crf: z.number().optional().describe('auto-ramp: x264 quality (default 20)'),
-        fps: z.number().optional().describe('auto-ramp: output fps (default 60)'),
-        spec: z.object({
-            canvas: z.object({ w: z.number(), h: z.number() }).describe('Output canvas dimensions (pixels)'),
-            fps: z.number().optional().describe('Target frame rate (informational)'),
-            segments: z.array(z.object({
-                input: z.string().describe('Path to the source recording for this segment'),
-                startSec: z.number().describe('Start offset in seconds'),
-                durationSec: z.number().describe('Segment duration in seconds'),
-                focal: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).describe('Focal region in source pixels'),
-                caption: z.string().optional().describe('Lower-third caption text'),
-                captionPngPath: z.string().optional().describe('PNG overlay fallback when drawtext is unavailable'),
-            })).describe('Ordered segments to render and merge'),
-            speed: z.number().optional().describe('Speed multiplier applied to all segments (e.g. 1.5 = 50% faster)'),
-        }).optional().describe('polish: segment specification'),
-        out: z.string().optional().describe('polish/auto-ramp: output mp4 path'),
-        appA: z.string().optional().describe('record-composite: app name / bundle substring for the LEFT pane'),
-        titleA: z.string().optional().describe('record-composite: optional window-title substring for the left pane'),
-        labelA: z.string().optional().describe('record-composite: optional label for the left pane'),
-        appB: z.string().optional().describe('record-composite: app name / bundle substring for the RIGHT pane'),
-        titleB: z.string().optional().describe('record-composite: optional window-title substring for the right pane'),
-        labelB: z.string().optional().describe('record-composite: optional label for the right pane'),
-        durationSeconds: z.number().optional().describe('record-composite: capture duration in seconds (default 5)'),
-        caption: z.string().optional().describe('record-composite: optional lower-third caption strip text'),
-        spotlight: z.enum(['none', 'a', 'b']).optional().describe('record-composite: dim+blur the non-focal pane — none | a (left) | b (right). Default none'),
-        cursor: z.boolean().optional().describe('record-composite: composite a smoothed cursor sprite (default true)'),
-        outPath: z.string().optional().describe('record-composite: composite MP4 output path'),
-        sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
-        async: z.boolean().optional().describe('record-composite: return a recordingId immediately and finish via recording.status/artifact.added events'),
-    }, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_demo', args));
+    server.tool('spectra_demo', 'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence, action=record-composite to drive the WINDOW-ISOLATED composite recorder (two app windows side-by-side via ScreenCaptureKit, caffeinate-wrapped so the display never sleeps, with a post-capture black-frame guard), or action=polish-clip / action=polish-script to render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional dark-crush spotlight) from a click track or a structured beat script. Audio is preserved when the source has an audio track; stripped otherwise.', spectraDemoInputShape, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_demo', args));
     // ─── Prompts (unchanged) ───────────────────────────────────
     server.prompt('walkthrough', 'Walk through a UI flow and capture screenshots at each step', {
         url: z.string().describe('URL to connect to'),

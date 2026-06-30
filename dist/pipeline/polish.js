@@ -354,14 +354,17 @@ async function probeHasAudio(input) {
 /**
  * Builds the audio map + codec ffmpeg args. When the input has an audio
  * stream, it's preserved (re-encoded to AAC, since the rest of the pipeline
- * only ever re-encodes video) and trimmed to the video's length via
- * `-shortest` so a longer source audio track doesn't trail past the
- * `-frames:v`-limited video output. When there's no audio, behavior is
- * unchanged from before (`-an`).
+ * only ever re-encodes video). The audio is first padded with silence via
+ * `-af apad` so it's never SHORTER than the `-frames:v`-limited video output
+ * — without this, a source audio track shorter than the video would let
+ * `-shortest` cut the video early too, truncating the final captioned
+ * payoff. `-shortest` then trims the (now-padded) audio at the video's end,
+ * so video duration always wins regardless of which track was originally
+ * longer. When there's no audio, behavior is unchanged from before (`-an`).
  */
 export function buildAudioArgs(hasAudio) {
     return hasAudio
-        ? { mapArgs: ['-map', '0:a?'], codecArgs: ['-c:a', 'aac', '-shortest'] }
+        ? { mapArgs: ['-map', '0:a?'], codecArgs: ['-c:a', 'aac', '-af', 'apad', '-shortest'] }
         : { mapArgs: [], codecArgs: ['-an'] };
 }
 async function parseClicksJson(input) {
