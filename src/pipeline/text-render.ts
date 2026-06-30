@@ -83,7 +83,7 @@ type RenderRequest =
     cornerRadius: number
   }
 
-const CACHE_VERSION = 1
+const CACHE_VERSION = 2
 const DEFAULT_OUT_W = 1920
 const DEFAULT_OUT_H = 1080
 const DEFAULT_STEP_X = 120
@@ -93,6 +93,34 @@ const DEFAULT_CAPTION_FONT_SIZE = 48
 const DEFAULT_FONT_PATH = '/System/Library/Fonts/Helvetica.ttc'
 const DEFAULT_FONT_INDEX = 1
 const DEFAULT_CACHE_DIR = join(tmpdir(), 'spectra-text-render')
+
+/**
+ * Canonical caption banner / step-chip / caption-text spec, measured from the
+ * reference clip demo-candidates/polished/rally__personas-two-agents__MERGED_CAPTIONED.mp4
+ * (1600x900). Ratios are canonical; pixel values scale with outW/outH.
+ * Shared by text-render.ts (Pillow), framing.ts, and annotations.ts (ffmpeg) so
+ * all three renderers agree on one look.
+ */
+export const CAPTION_BANNER_SPEC = {
+  /** Banner height as a fraction of frame height. */
+  bannerHeightRatio: 0.12,
+  /** Banner background color, #050709. */
+  bannerBackground: { r: 5, g: 7, b: 9 },
+  /** Banner background opacity. */
+  bannerBackgroundAlpha: 0.92,
+  /** Numbered chip side length as a fraction of frame height. */
+  chipSideRatio: 0.06,
+  /** Chip corner radius as a fraction of the chip side. */
+  chipCornerRadiusRatio: 0.2,
+  /** Chip fill color, #27AFE8. */
+  chipColor: { r: 39, g: 175, b: 232 },
+  /** Chip inset from the left edge as a fraction of frame width. */
+  chipInsetXRatio: 0.0325,
+  /** Caption text color, #F8FAFC. */
+  captionTextColor: { r: 248, g: 250, b: 252 },
+  /** Gap between the chip's right edge and the caption text as a fraction of frame width. */
+  captionGapRatio: 0.015,
+} as const
 
 let availabilityPromise: Promise<TextRendererAvailability> | undefined
 let availabilityOverride: TextRendererAvailability | undefined
@@ -268,56 +296,74 @@ def draw_centered_text(draw, x, center_y, text, font, fill):
     y = center_y - (height / 2) - box[1]
     draw.text((x, y), text, font=font, fill=fill)
 
+BANNER_HEIGHT_RATIO = ${CAPTION_BANNER_SPEC.bannerHeightRatio}
+BANNER_BG = (${CAPTION_BANNER_SPEC.bannerBackground.r}, ${CAPTION_BANNER_SPEC.bannerBackground.g}, ${CAPTION_BANNER_SPEC.bannerBackground.b}, ${Math.round(255 * CAPTION_BANNER_SPEC.bannerBackgroundAlpha)})
+CHIP_SIDE_RATIO = ${CAPTION_BANNER_SPEC.chipSideRatio}
+CHIP_RADIUS_RATIO = ${CAPTION_BANNER_SPEC.chipCornerRadiusRatio}
+CHIP_COLOR = (${CAPTION_BANNER_SPEC.chipColor.r}, ${CAPTION_BANNER_SPEC.chipColor.g}, ${CAPTION_BANNER_SPEC.chipColor.b}, 255)
+CHIP_INSET_X_RATIO = ${CAPTION_BANNER_SPEC.chipInsetXRatio}
+CAPTION_TEXT_COLOR = (${CAPTION_BANNER_SPEC.captionTextColor.r}, ${CAPTION_BANNER_SPEC.captionTextColor.g}, ${CAPTION_BANNER_SPEC.captionTextColor.b}, 255)
+CAPTION_GAP_RATIO = ${CAPTION_BANNER_SPEC.captionGapRatio}
+
 def render_step_card(request, draw, image):
+    # Bottom-anchored, full-width caption banner with an optional numbered
+    # squircle chip. x/y from the request are no longer used for layout
+    # (kept in the request shape for cache-key/back-compat purposes only) --
+    # the banner is always full width, flush to the bottom of the frame.
     out_w = int(request['outW'])
-    x = int(request['x'])
-    y = int(request['y'])
+    out_h = int(request['outH'])
     font_size = int(request['fontSize'])
     text = request['stepText']
     label = request.get('stepLabel')
-    font = fit_font(draw, request['fontPath'], font_size, request['fontIndex'], text, int(out_w * 0.68), 28)
-    label_font = load_font(request['fontPath'], max(24, int(font_size * 0.72)), request['fontIndex'])
-    text_box, text_w, text_h = text_size(draw, text, font)
 
-    pad_x = 34
-    pad_y = 24
-    gap = 24 if label else 0
-    pill = max(56, int(font_size * 1.38)) if label else 0
-    card_w = pad_x * 2 + pill + gap + text_w
-    card_h = max(82, pad_y * 2 + max(text_h, pill))
-    radius = 18
+    banner_h = max(1, round(out_h * BANNER_HEIGHT_RATIO))
+    banner_y = out_h - banner_h
+    draw.rectangle((0, banner_y, out_w, out_h), fill=BANNER_BG)
+    center_y = banner_y + banner_h / 2
 
-    draw.rounded_rectangle(
-        (x, y, x + card_w, y + card_h),
-        radius=radius,
-        fill=(10, 12, 18, 210),
-        outline=(255, 255, 255, 32),
-        width=1,
-    )
+    chip_inset_x = round(out_w * CHIP_INSET_X_RATIO)
+    text_start_x = chip_inset_x
 
-    text_x = x + pad_x
-    center_y = y + card_h / 2
     if label:
-        pill_x = x + pad_x
-        pill_y = y + (card_h - pill) / 2
-        draw.ellipse((pill_x, pill_y, pill_x + pill, pill_y + pill), fill=(59, 130, 246, 255))
+        chip_side = max(1, round(out_h * CHIP_SIDE_RATIO))
+        chip_radius = max(1, round(chip_side * CHIP_RADIUS_RATIO))
+        chip_x = chip_inset_x
+        chip_y = banner_y + (banner_h - chip_side) / 2
+        draw.rounded_rectangle(
+            (chip_x, chip_y, chip_x + chip_side, chip_y + chip_side),
+            radius=chip_radius,
+            fill=CHIP_COLOR,
+        )
+        label_font = load_font(request['fontPath'], max(10, round(chip_side * 0.62)), request['fontIndex'])
         label_box, label_w, label_h = text_size(draw, label, label_font)
-        label_x = pill_x + (pill - label_w) / 2 - label_box[0]
-        label_y = pill_y + (pill - label_h) / 2 - label_box[1]
+        label_x = chip_x + (chip_side - label_w) / 2 - label_box[0]
+        label_y = chip_y + (chip_side - label_h) / 2 - label_box[1]
         draw.text((label_x, label_y), label, font=label_font, fill=(255, 255, 255, 255))
-        text_x += pill + gap
+        text_start_x = chip_x + chip_side + round(out_w * CAPTION_GAP_RATIO)
 
-    draw_centered_text(draw, text_x - text_box[0], center_y, text, font, (255, 255, 255, 255))
+    max_text_width = max(20, out_w - text_start_x - chip_inset_x)
+    font = fit_font(draw, request['fontPath'], font_size, request['fontIndex'], text, max_text_width, 20)
+    text_box, _, _ = text_size(draw, text, font)
+    draw_centered_text(draw, text_start_x - text_box[0], center_y, text, font, CAPTION_TEXT_COLOR)
 
 def render_caption(request, draw, image):
+    # Bottom-anchored, full-width caption banner. No step chip (no label is
+    # available on this code path) -- text stays horizontally centered.
     out_w = int(request['outW'])
     out_h = int(request['outH'])
     text = request['text']
-    font = fit_font(draw, request['fontPath'], int(request['fontSize']), request['fontIndex'], text, int(out_w * 0.86), 32)
+
+    banner_h = max(1, round(out_h * BANNER_HEIGHT_RATIO))
+    banner_y = out_h - banner_h
+    draw.rectangle((0, banner_y, out_w, out_h), fill=BANNER_BG)
+    center_y = banner_y + banner_h / 2
+
+    inset_x = round(out_w * CHIP_INSET_X_RATIO)
+    max_text_width = max(20, out_w - inset_x * 2)
+    font = fit_font(draw, request['fontPath'], int(request['fontSize']), request['fontIndex'], text, max_text_width, 32)
     box, text_w, _ = text_size(draw, text, font)
     x = (out_w - text_w) / 2 - box[0]
-    y = out_h - int(out_h * 0.13) - box[1]
-    draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+    draw_centered_text(draw, x, center_y, text, font, CAPTION_TEXT_COLOR)
 
 request = json.load(sys.stdin)
 image = Image.new('RGBA', (int(request['outW']), int(request['outH'])), (0, 0, 0, 0))

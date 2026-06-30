@@ -1,3 +1,5 @@
+import { CAPTION_BANNER_SPEC } from './text-render.js'
+
 export interface FramingFilterOptions {
   inputLabel?: string
   outputLabel?: string
@@ -71,8 +73,9 @@ export function framingFilter(opts: FramingFilterOptions = {}): string {
   const maskExpr = roundedRectMaskExpression(contentW, contentH, Math.min(radius, Math.floor(Math.min(contentW, contentH) / 2)))
   const caption = opts.caption?.trim()
   const fontSize = positiveInteger(opts.fontSize ?? 46, 'fontSize')
+  const bannerH = Math.round(outH * CAPTION_BANNER_SPEC.bannerHeightRatio)
   const finalFilter = caption && (opts.captionMode ?? 'drawtext') === 'drawtext'
-    ? `[framed]drawtext=fontfile=${escapeFilterValue(opts.fontFile ?? DEFAULT_FONT)}:text='${escapeDrawtext(caption)}':fontcolor=white:fontsize=${fontSize}:x=(w-text_w)/2:y=h-${Math.round(outH * 0.12)}${captionBox(opts.captionPill ?? true)},format=yuv420p${outRef}`
+    ? `[framed]${captionBannerPrefix(opts.captionPill ?? true, bannerH)}drawtext=fontfile=${escapeFilterValue(opts.fontFile ?? DEFAULT_FONT)}:text='${escapeDrawtext(caption)}':fontcolor=${hexColor(CAPTION_BANNER_SPEC.captionTextColor)}:fontsize=${fontSize}:x=(w-text_w)/2:y=h-${(bannerH / 2).toFixed(2)}-(text_h/2),format=yuv420p${outRef}`
     : bitmapCaptionGraph('framed', caption, outW, outH, fps, fontSize, opts.captionPill ?? true, outRef)
 
   return [
@@ -113,25 +116,23 @@ function bitmapCaptionGraph(
     metrics = bitmapMetrics(text, pixel)
   }
 
+  const bannerH = Math.round(outH * CAPTION_BANNER_SPEC.bannerHeightRatio)
+  const bannerY = outH - bannerH
   const textX = Math.round((outW - metrics.width) / 2)
-  const textY = outH - Math.round(outH * 0.12)
+  const textY = Math.round(bannerY + (bannerH - metrics.height) / 2)
   const rects = bitmapTextRects(text, pixel)
-  const padX = Math.round(pixel * 4)
-  const padY = Math.round(pixel * 3)
-  const pillX = textX - padX
-  const pillY = textY - padY
-  const pillW = metrics.width + padX * 2
-  const pillH = metrics.height + padY * 2
+  const captionTextColor = hexColor(CAPTION_BANNER_SPEC.captionTextColor)
   const textBoxes = rects.map((rect) =>
-    `drawbox=x=${rect.x}:y=${rect.y}:w=${rect.w}:h=${rect.h}:color=white@1:t=fill:replace=1`
+    `drawbox=x=${rect.x}:y=${rect.y}:w=${rect.w}:h=${rect.h}:color=${captionTextColor}@1:t=fill:replace=1`
   )
   const filters: string[] = [
     `color=c=white@0:s=${metrics.width}x${metrics.height}:r=${fps},format=rgba${textBoxes.length > 0 ? `,${textBoxes.join(',')}` : ''}[captionText]`,
   ]
 
   if (pill) {
-    filters.unshift(`color=c=0x0b0d12@0.58:s=${pillW}x${pillH}:r=${fps},format=rgba[captionPill]`)
-    filters.push(`${inputRef}[captionPill]overlay=x=${pillX}:y=${pillY}:shortest=1[captionBase]`)
+    const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground)
+    filters.unshift(`color=c=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:s=${outW}x${bannerH}:r=${fps},format=rgba[captionPill]`)
+    filters.push(`${inputRef}[captionPill]overlay=x=0:y=${bannerY}:shortest=1[captionBase]`)
     filters.push('[captionBase][captionText]overlay=x=' + textX + ':y=' + textY + `:shortest=1,format=yuv420p${outRef}`)
   } else {
     filters.push(`${inputRef}[captionText]overlay=x=${textX}:y=${textY}:shortest=1,format=yuv420p${outRef}`)
@@ -237,10 +238,15 @@ function roundedRectMaskExpression(width: number, height: number, radius: number
   return `255*min(1\\,${centerX}+${centerY}+${topLeft}+${topRight}+${bottomLeft}+${bottomRight})`
 }
 
-function captionBox(enabled: boolean): string {
-  return enabled
-    ? ':box=1:boxcolor=0x0b0d12@0.58:boxborderw=22'
-    : ''
+function captionBannerPrefix(enabled: boolean, bannerH: number): string {
+  if (!enabled) return ''
+  const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground)
+  return `drawbox=x=0:y=h-${bannerH}:w=iw:h=${bannerH}:color=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:t=fill,`
+}
+
+export function hexColor(rgb: { r: number; g: number; b: number }): string {
+  const channel = (value: number): string => value.toString(16).padStart(2, '0')
+  return `0x${channel(rgb.r)}${channel(rgb.g)}${channel(rgb.b)}`
 }
 
 function labelRef(label: string): string {

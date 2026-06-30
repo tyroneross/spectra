@@ -1,6 +1,6 @@
-import { bitmapTextLayer, type BitmapTextLayer } from './framing.js'
+import { bitmapTextLayer, hexColor, type BitmapTextLayer } from './framing.js'
 import type { DemoScript } from './script.js'
-import { renderStepCardPng } from './text-render.js'
+import { CAPTION_BANNER_SPEC, renderStepCardPng } from './text-render.js'
 
 export interface TimedStepCard {
   stepLabel?: string
@@ -70,8 +70,9 @@ export function timedStepCardsFilter(opts: TimedStepCardsFilterOptions): string 
   const outH = positiveInteger(opts.outH ?? DEFAULT_OUT_H, 'outH')
   const fps = positiveInteger(opts.fps ?? DEFAULT_FPS, 'fps')
   const fadeMs = nonNegativeNumber(opts.fadeMs ?? DEFAULT_FADE_MS, 'fadeMs')
-  const x = nonNegativeInteger(opts.x ?? Math.round(outW * 0.045), 'x')
-  const y = nonNegativeInteger(opts.y ?? Math.round(outH * 0.075), 'y')
+  const bannerH = Math.round(outH * CAPTION_BANNER_SPEC.bannerHeightRatio)
+  const x = nonNegativeInteger(opts.x ?? 0, 'x')
+  const y = nonNegativeInteger(opts.y ?? (outH - bannerH), 'y')
   const fontPixel = positiveInteger(opts.fontPixel ?? DEFAULT_FONT_PIXEL, 'fontPixel')
   const inputRef = labelRef(opts.inputLabel ?? '0:v')
   const outputRef = labelRef(opts.outputLabel ?? 'v')
@@ -83,7 +84,7 @@ export function timedStepCardsFilter(opts: TimedStepCardsFilterOptions): string 
   let currentLabel = stripLabel(inputRef)
   for (let index = 0; index < cards.length; index += 1) {
     const timedCard = cards[index]
-    const cardGraph = buildCardGraph(timedCard, index, outW, fps, fontPixel)
+    const cardGraph = buildCardGraph(timedCard, index, outW, outH, fps, fontPixel)
     filters.push(...cardGraph.filters)
 
     const nextLabel = `stepAnnotated${index}`
@@ -203,64 +204,67 @@ function prepareCards(cards: TimedStepCard[], fadeMs: number): PreparedCard[] {
     })
 }
 
-function buildCardGraph(card: PreparedCard, index: number, outW: number, fps: number, fontPixel: number): CardGraph {
+function buildCardGraph(card: PreparedCard, index: number, outW: number, outH: number, fps: number, fontPixel: number): CardGraph {
+  // Bottom-anchored, full-width caption banner with an optional numbered
+  // chip -- the bitmap-font fallback used when Pillow rendering (text-render.ts)
+  // is unavailable. A true rounded "squircle" corner isn't achievable with
+  // plain ffmpeg drawbox rectangles; color and geometry otherwise follow
+  // CAPTION_BANNER_SPEC.
+  const bannerH = Math.round(outH * CAPTION_BANNER_SPEC.bannerHeightRatio)
+  const chipSide = Math.round(outH * CAPTION_BANNER_SPEC.chipSideRatio)
+  const chipInsetX = Math.round(outW * CAPTION_BANNER_SPEC.chipInsetXRatio)
+  const gap = Math.round(outW * CAPTION_BANNER_SPEC.captionGapRatio)
+  const captionTextColor = `${hexColor(CAPTION_BANNER_SPEC.captionTextColor)}@1`
+
   const maxTextWidth = Math.round(outW * 0.68)
-  const text = fitTextLayer(`stepCardText${index}`, card.stepText, fontPixel, maxTextWidth, fps)
+  const text = fitTextLayer(`stepCardText${index}`, card.stepText, fontPixel, maxTextWidth, fps, captionTextColor)
   const label = card.normalizedLabel
-    ? fitTextLayer(`stepCardLabel${index}`, card.normalizedLabel, Math.max(3, fontPixel - 1), Math.round(outW * 0.12), fps)
+    ? fitTextLayer(`stepCardLabel${index}`, card.normalizedLabel, Math.max(3, Math.round(fontPixel * 0.85)), chipSide, fps)
     : undefined
-  const padX = Math.round(fontPixel * 5)
-  const padY = Math.round(fontPixel * 4)
-  const gap = label ? Math.round(fontPixel * 3) : 0
-  const labelPadX = Math.round(fontPixel * 2.5)
-  const labelPadY = Math.round(fontPixel * 1.8)
-  const labelPillW = label ? Math.max(label.width + labelPadX * 2, label.height + labelPadY * 2) : 0
-  const labelPillH = label ? label.height + labelPadY * 2 : 0
-  const contentH = Math.max(text.height, labelPillH)
-  const cardW = padX * 2 + labelPillW + gap + text.width
-  const cardH = padY * 2 + contentH
-  const textX = padX + labelPillW + gap
-  const textY = Math.round((cardH - text.height) / 2)
+
+  const textX = chipInsetX + (label ? chipSide + gap : 0)
+  const textY = Math.round((bannerH - text.height) / 2)
   const cardBase = `stepCardBase${index}`
   const cardBody = `stepCardBody${index}`
   const cardWithLabel = `stepCardWithLabel${index}`
   const cardLabel = `stepCard${index}`
+  const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground)
   const filters = [
     text.filter,
-    `color=c=0x0b0d12@0.78:s=${cardW}x${cardH}:r=${fps},format=rgba,drawbox=x=0:y=0:w=${cardW}:h=2:color=0xffffff@0.16:t=fill${labelRef(cardBase)}`,
+    `color=c=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:s=${outW}x${bannerH}:r=${fps},format=rgba${labelRef(cardBase)}`,
   ]
 
   if (label) {
-    const pillX = padX
-    const pillY = Math.round((cardH - labelPillH) / 2)
-    const labelX = pillX + Math.round((labelPillW - label.width) / 2)
-    const labelY = pillY + Math.round((labelPillH - label.height) / 2)
+    const chipColor = hexColor(CAPTION_BANNER_SPEC.chipColor)
+    const chipY = Math.round((bannerH - chipSide) / 2)
+    const labelX = chipInsetX + Math.round((chipSide - label.width) / 2)
+    const labelY = chipY + Math.round((chipSide - label.height) / 2)
     filters.unshift(label.filter)
     filters.push(
-      `${labelRef(cardBase)}drawbox=x=${pillX}:y=${pillY}:w=${labelPillW}:h=${labelPillH}:color=0xe8f0ff@0.18:t=fill${labelRef(cardBody)}`,
+      `${labelRef(cardBase)}drawbox=x=${chipInsetX}:y=${chipY}:w=${chipSide}:h=${chipSide}:color=${chipColor}:t=fill${labelRef(cardBody)}`,
       `${labelRef(cardBody)}${labelRef(`stepCardLabel${index}`)}overlay=x=${labelX}:y=${labelY}:shortest=1${labelRef(cardWithLabel)}`,
       `${labelRef(cardWithLabel)}${labelRef(`stepCardText${index}`)}overlay=x=${textX}:y=${textY}:shortest=1${fadeSuffix(card)}${labelRef(cardLabel)}`,
     )
   } else {
     filters.push(
-      `${labelRef(cardBase)}${labelRef(`stepCardText${index}`)}overlay=x=${padX}:y=${textY}:shortest=1${fadeSuffix(card)}${labelRef(cardLabel)}`,
+      `${labelRef(cardBase)}${labelRef(`stepCardText${index}`)}overlay=x=${textX}:y=${textY}:shortest=1${fadeSuffix(card)}${labelRef(cardLabel)}`,
     )
   }
 
   return {
     filters,
     label: cardLabel,
-    width: cardW,
-    height: cardH,
+    width: outW,
+    height: bannerH,
   }
 }
 
-function fitTextLayer(label: string, text: string, preferredPixel: number, maxWidth: number, fps: number): BitmapTextLayer {
+function fitTextLayer(label: string, text: string, preferredPixel: number, maxWidth: number, fps: number, color?: string): BitmapTextLayer {
   let pixel = preferredPixel
-  let layer = bitmapTextLayer(label, text, pixel, fps)
+  let layer = bitmapTextLayer(label, text, pixel, fps, color)
   while (layer.width > maxWidth && pixel > 2) {
     pixel -= 1
-    layer = bitmapTextLayer(label, text, pixel, fps)
+    layer = bitmapTextLayer(label, text, pixel, fps, color)
   }
   return layer
 }
