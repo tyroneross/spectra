@@ -25,6 +25,7 @@ import {
   API_VERSION,
   apiOperations,
   contractSurface,
+  demoParamsSchema,
   operationParamSchemas,
   type ContractSurface,
 } from './schemas.js'
@@ -85,5 +86,74 @@ describe('contract freeze — drift gate', () => {
     expect(snapshot.operationParams.startRecording).toContain('captureAudio')
     expect(snapshot.operationParams.recordComposite).toContain('async')
     expect(snapshot.operationParams.recordComposite).toContain('caption')
+  })
+
+  // The `demo` operation params are a discriminated union (not a ZodObject), so
+  // its top-level operationParams entry is intentionally `[]` and doesn't drift
+  // when actions are added/removed here — covered directly instead.
+  it('demo operation param shape is the discriminated union (empty top-level key set)', () => {
+    expect(snapshot.operationParams.demo).toEqual([])
+  })
+})
+
+describe('demoParamsSchema — rich polish pipeline actions (src/pipeline/polish.ts)', () => {
+  it('accepts a polish-clip action with an inline click array', () => {
+    const result = demoParamsSchema.safeParse({
+      action: 'polish-clip',
+      input: '/tmp/input.mp4',
+      clicksJson: [{ tMs: 100, cx: 0.5, cy: 0.5 }],
+      caption: 'Hello',
+      out: '/tmp/out.mp4',
+      fps: 30,
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a polish-clip action with a clicksJson path string and no caption/fps', () => {
+    const result = demoParamsSchema.safeParse({
+      action: 'polish-clip',
+      input: '/tmp/input.mp4',
+      clicksJson: '/tmp/clicks.json',
+      out: '/tmp/out.mp4',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a polish-script action with a multi-beat DemoScript', () => {
+    const result = demoParamsSchema.safeParse({
+      action: 'polish-script',
+      input: '/tmp/input.mp4',
+      script: {
+        finalCaption: 'Done',
+        beats: [
+          {
+            id: 'intro',
+            stepLabel: '1',
+            stepText: 'Search fast',
+            startMs: 0,
+            endMs: 250,
+            zoom: { cx: 0.35, cy: 0.45, scale: 1.25 },
+            action: { kind: 'search', value: 'demo' },
+          },
+        ],
+      },
+      out: '/tmp/out.mp4',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects polish-clip missing required fields', () => {
+    const result = demoParamsSchema.safeParse({ action: 'polish-clip', input: '/tmp/input.mp4' })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects polish-script with a malformed beat', () => {
+    const result = demoParamsSchema.safeParse({
+      action: 'polish-script',
+      input: '/tmp/input.mp4',
+      script: { beats: [{ id: 'bad' }] },
+      out: '/tmp/out.mp4',
+    })
+    expect(result.success).toBe(false)
   })
 })

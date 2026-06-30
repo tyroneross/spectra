@@ -2,8 +2,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { polishClip, polishScript } from '../../src/pipeline/polish.js'
-import { ffmpegAvailable, makeTestVideo, probeVideo } from './ffmpeg-helpers.js'
+import { buildAudioArgs, polishClip, polishScript } from '../../src/pipeline/polish.js'
+import { ffmpegAvailable, makeTestVideo, probeVideo, runProcess } from './ffmpeg-helpers.js'
 
 let workDir: string | null = null
 const ffmpegIt = ffmpegAvailable ? it : it.skip
@@ -11,6 +11,32 @@ const ffmpegIt = ffmpegAvailable ? it : it.skip
 async function makeWorkDir(): Promise<string> {
   workDir = await mkdtemp(join(tmpdir(), 'spectra-polish-'))
   return workDir
+}
+
+async function makeTestVideoWithAudio(path: string, width = 64, height = 36, durationSeconds = 0.5): Promise<void> {
+  await runProcess('ffmpeg', [
+    '-v', 'error',
+    '-f', 'lavfi',
+    '-i', `testsrc2=size=${width}x${height}:rate=60:duration=${durationSeconds}`,
+    '-f', 'lavfi',
+    '-i', `sine=frequency=440:duration=${durationSeconds}`,
+    '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-y',
+    path,
+  ])
+}
+
+async function probeHasAudioStream(path: string): Promise<boolean> {
+  const stdout = await runProcess('ffprobe', [
+    '-v', 'error',
+    '-select_streams', 'a:0',
+    '-show_entries', 'stream=index',
+    '-of', 'csv=p=0',
+    path,
+  ]).catch(() => '')
+  return stdout.trim().length > 0
 }
 
 afterEach(async () => {
@@ -111,5 +137,57 @@ describe('polishClip', () => {
       height: 1080,
       fps: 30,
     })
+  }, 30_000)
+})
+
+describe('buildAudioArgs — arg-building branch (no ffmpeg needed)', () => {
+  it('maps and preserves audio (AAC, trimmed to video length) when the input has audio', () => {
+    expect(buildAudioArgs(true)).toEqual({
+      mapArgs: ['-map', '0:a?'],
+      codecArgs: ['-c:a', 'aac', '-shortest'],
+    })
+  })
+
+  it('strips audio (-an) when the input has no audio, same as the prior unconditional behavior', () => {
+    expect(buildAudioArgs(false)).toEqual({
+      mapArgs: [],
+      codecArgs: ['-an'],
+    })
+  })
+})
+
+describe('polishClip — audio passthrough', () => {
+  ffmpegIt('preserves an audio stream when the input has one', async () => {
+    const root = await makeWorkDir()
+    const input = join(root, 'input-with-audio.mp4')
+    const outPath = join(root, 'polished-with-audio.mp4')
+    await makeTestVideoWithAudio(input, 64, 36, 0.5)
+    expect(await probeHasAudioStream(input)).toBe(true)
+
+    await polishClip({
+      input,
+      clicksJson: JSON.stringify([{ tMs: 80, cx: 0.35, cy: 0.45 }]),
+      caption: 'With audio',
+      outPath,
+    })
+
+    expect(await probeHasAudioStream(outPath)).toBe(true)
+  }, 30_000)
+
+  ffmpegIt('produces no audio stream when the input has none (unchanged behavior)', async () => {
+    const root = await makeWorkDir()
+    const input = join(root, 'input-silent.mp4')
+    const outPath = join(root, 'polished-silent.mp4')
+    await makeTestVideo(input, 64, 36, 0.25)
+    expect(await probeHasAudioStream(input)).toBe(false)
+
+    await polishClip({
+      input,
+      clicksJson: JSON.stringify([{ tMs: 80, cx: 0.35, cy: 0.45 }]),
+      caption: 'No audio',
+      outPath,
+    })
+
+    expect(await probeHasAudioStream(outPath)).toBe(false)
   }, 30_000)
 })

@@ -79,7 +79,10 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     throw new Error('fps must be a positive integer')
   }
 
-  const metadata = await probeVideo(options.input)
+  const [metadata, hasAudio] = await Promise.all([
+    probeVideo(options.input),
+    probeHasAudio(options.input),
+  ])
   const parsed = await parseClicksJson(options.clicksJson)
   const durationMs = metadata.durationMs ?? inferDurationMs(parsed)
   const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
@@ -112,6 +115,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     ...(captionOverlay ? [captionOverlay.filter] : []),
   ].join(';')
 
+  const audio = buildAudioArgs(hasAudio)
   await mkdir(dirname(options.outPath), { recursive: true })
   await runProcess('ffmpeg', [
     '-y',
@@ -120,8 +124,9 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     ...imageInputArgs(captionOverlay ? [captionOverlay.path] : [], fps),
     '-filter_complex', filterComplex,
     '-map', '[v]',
+    ...audio.mapArgs,
     '-frames:v', String(Math.max(1, track.length)),
-    '-an',
+    ...audio.codecArgs,
     '-r', String(fps),
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',
@@ -146,7 +151,10 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     throw new Error('fps must be a positive integer')
   }
 
-  const metadata = await probeVideo(options.input)
+  const [metadata, hasAudio] = await Promise.all([
+    probeVideo(options.input),
+    probeHasAudio(options.input),
+  ])
   const durationMs = metadata.durationMs ?? scriptDurationMs(options.script)
   const frames = frameCount(durationMs, fps)
   const finalCaption = options.script.finalCaption?.trim()
@@ -192,6 +200,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     cardPlan.filter,
   ].join(';')
 
+  const audio = buildAudioArgs(hasAudio)
   await mkdir(dirname(options.outPath), { recursive: true })
   await runProcess('ffmpeg', [
     '-y',
@@ -200,8 +209,9 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     ...imageInputArgs(imagePaths, fps),
     '-filter_complex', filterComplex,
     '-map', '[v]',
+    ...audio.mapArgs,
     '-frames:v', String(Math.max(1, frames)),
-    '-an',
+    ...audio.codecArgs,
     '-r', String(fps),
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',
@@ -406,6 +416,43 @@ async function probeVideo(input: string): Promise<VideoMetadata> {
     height: stream.height,
     durationMs: durationSeconds === undefined ? undefined : Math.round(durationSeconds * 1000),
   }
+}
+
+/**
+ * Probes whether the input has an audio stream. Used so polishClip/
+ * polishScript can preserve audio when it exists instead of unconditionally
+ * stripping it with `-an`.
+ */
+async function probeHasAudio(input: string): Promise<boolean> {
+  const stdout = await runProcess('ffprobe', [
+    '-v', 'error',
+    '-select_streams', 'a:0',
+    '-show_entries', 'stream=index',
+    '-of', 'csv=p=0',
+    input,
+  ]).catch(() => '')
+  return stdout.trim().length > 0
+}
+
+interface AudioArgs {
+  /** Spliced in right after `-map [v]`. */
+  mapArgs: string[]
+  /** Spliced in right after `-frames:v`, alongside the video codec args. */
+  codecArgs: string[]
+}
+
+/**
+ * Builds the audio map + codec ffmpeg args. When the input has an audio
+ * stream, it's preserved (re-encoded to AAC, since the rest of the pipeline
+ * only ever re-encodes video) and trimmed to the video's length via
+ * `-shortest` so a longer source audio track doesn't trail past the
+ * `-frames:v`-limited video output. When there's no audio, behavior is
+ * unchanged from before (`-an`).
+ */
+export function buildAudioArgs(hasAudio: boolean): AudioArgs {
+  return hasAudio
+    ? { mapArgs: ['-map', '0:a?'], codecArgs: ['-c:a', 'aac', '-shortest'] }
+    : { mapArgs: [], codecArgs: ['-an'] }
 }
 
 async function parseClicksJson(input: ClicksJsonInput): Promise<ParsedClicks> {
