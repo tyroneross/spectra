@@ -186,11 +186,20 @@ describe('polishClip', () => {
 })
 
 describe('buildAudioArgs — arg-building branch (no ffmpeg needed)', () => {
-  it('maps and preserves audio (AAC, trimmed to video length) when the input has audio', () => {
+  it('maps and preserves audio (AAC, padded with -af apad, trimmed to video length) when the input has audio', () => {
     expect(buildAudioArgs(true)).toEqual({
       mapArgs: ['-map', '0:a?'],
-      codecArgs: ['-c:a', 'aac', '-shortest'],
+      codecArgs: ['-c:a', 'aac', '-af', 'apad', '-shortest'],
     })
+  })
+
+  it('pads audio (-af apad) before -shortest so a short source audio track never truncates the video', () => {
+    const { codecArgs } = buildAudioArgs(true)
+    const apadIdx = codecArgs.indexOf('-af')
+    const shortestIdx = codecArgs.indexOf('-shortest')
+    expect(apadIdx).toBeGreaterThan(-1)
+    expect(codecArgs[apadIdx + 1]).toBe('apad')
+    expect(apadIdx).toBeLessThan(shortestIdx)
   })
 
   it('strips audio (-an) when the input has no audio, same as the prior unconditional behavior', () => {

@@ -73,30 +73,38 @@ export async function renderSpotlightPrePass(opts: SpotlightPrePassOptions): Pro
   const filter = buildDarkSpotlightFilter(opts)
   const audioArgs = opts.hasAudio ? ['-map', '0:a?', '-c:a', 'copy'] : ['-an']
 
-  await new Promise<void>((resolveProcess, reject) => {
-    const proc = spawn(ffmpeg, [
-      '-y',
-      '-i', opts.input,
-      '-filter_complex', filter,
-      '-map', '[out]',
-      ...audioArgs,
-      '-c:v', 'libx264',
-      '-pix_fmt', 'yuv420p',
-      '-crf', '18',
-      outPath,
-    ], { stdio: 'pipe' })
-    const stderrChunks: Buffer[] = []
-    proc.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(Buffer.from(chunk)))
-    proc.on('error', reject)
-    proc.on('close', (code) => {
-      if (code === 0) {
-        resolveProcess()
-        return
-      }
-      const stderr = Buffer.concat(stderrChunks).toString('utf-8').trim()
-      reject(new Error(`ffmpeg exited with code ${code}${stderr ? `\n${stderr}` : ''}`))
+  try {
+    await new Promise<void>((resolveProcess, reject) => {
+      const proc = spawn(ffmpeg, [
+        '-y',
+        '-i', opts.input,
+        '-filter_complex', filter,
+        '-map', '[out]',
+        ...audioArgs,
+        '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p',
+        '-crf', '18',
+        outPath,
+      ], { stdio: 'pipe' })
+      const stderrChunks: Buffer[] = []
+      proc.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(Buffer.from(chunk)))
+      proc.on('error', reject)
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolveProcess()
+          return
+        }
+        const stderr = Buffer.concat(stderrChunks).toString('utf-8').trim()
+        reject(new Error(`ffmpeg exited with code ${code}${stderr ? `\n${stderr}` : ''}`))
+      })
     })
-  })
+  } catch (err) {
+    // The ffmpeg pass rejected — remove whatever partial output it wrote
+    // before rethrowing, so callers never see a `path` that resolved but
+    // whose file is an orphaned partial temp (rm swallows missing-file).
+    await rm(outPath, { force: true }).catch(() => {})
+    throw err
+  }
 
   return outPath
 }
