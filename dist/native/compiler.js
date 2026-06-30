@@ -11,6 +11,8 @@ const COMPOSITE_BINARY_PATH = join(BIN_DIR, 'spectra-composite-capture');
 const COMPOSITE_HASH_PATH = join(BIN_DIR, '.composite-source-hash');
 const SCREEN_RECORDING_PREFLIGHT_PATH = join(BIN_DIR, 'spectra-screen-recording-preflight');
 const SCREEN_RECORDING_PREFLIGHT_HASH_PATH = join(BIN_DIR, '.screen-recording-preflight-source-hash');
+const CURSOR_SAMPLER_BINARY_PATH = join(BIN_DIR, 'spectra-cursor-sampler');
+const CURSOR_SAMPLER_HASH_PATH = join(BIN_DIR, '.cursor-sampler-source-hash');
 const DAEMON_LAUNCHER_PATH = join(BIN_DIR, 'spectra-daemon-launcher');
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app');
 const DEFAULT_CODESIGN_IDENTITY = 'Apple Development: tyrone.ross@icloud.com (7AK2KDLAVP)';
@@ -44,6 +46,13 @@ function findDaemonLauncherSource() {
     const swiftDir = join(findSwiftSource(), 'daemon-launcher');
     if (!existsSync(swiftDir)) {
         throw new Error(`Daemon launcher Swift source not found at ${swiftDir}`);
+    }
+    return swiftDir;
+}
+function findCursorSamplerSource() {
+    const swiftDir = join(findSwiftSource(), 'cursor-sampler');
+    if (!existsSync(swiftDir)) {
+        throw new Error(`Cursor sampler Swift source not found at ${swiftDir}`);
     }
     return swiftDir;
 }
@@ -155,6 +164,19 @@ export function isScreenRecordingPreflightStale() {
     const files = getSwiftFiles(swiftDir);
     const currentHash = computeSourceHash(files);
     const storedHash = readFileSync(SCREEN_RECORDING_PREFLIGHT_HASH_PATH, 'utf-8').trim();
+    return currentHash !== storedHash;
+}
+export function isCursorSamplerStale() {
+    if (!existsSync(CURSOR_SAMPLER_BINARY_PATH))
+        return true;
+    if (!existsSync(CURSOR_SAMPLER_HASH_PATH))
+        return true;
+    if (!hasExpectedSignature(CURSOR_SAMPLER_BINARY_PATH))
+        return true;
+    const swiftDir = findCursorSamplerSource();
+    const files = getSwiftFiles(swiftDir);
+    const currentHash = computeSourceHash(files);
+    const storedHash = readFileSync(CURSOR_SAMPLER_HASH_PATH, 'utf-8').trim();
     return currentHash !== storedHash;
 }
 export function compile() {
@@ -273,6 +295,30 @@ export function compileDaemonLauncher() {
     signNativeBinary(DAEMON_LAUNCHER_PATH);
     return DAEMON_LAUNCHER_PATH;
 }
+export function compileCursorSampler() {
+    const swiftDir = findCursorSamplerSource();
+    const files = getSwiftFiles(swiftDir);
+    mkdirSync(BIN_DIR, { recursive: true });
+    const cmd = [
+        'swiftc', ...files,
+        '-framework', 'Foundation',
+        '-framework', 'ApplicationServices',
+        '-framework', 'AppKit',
+        '-framework', 'CoreGraphics',
+        '-o', CURSOR_SAMPLER_BINARY_PATH,
+    ].join(' ');
+    try {
+        execSync(cmd, { stdio: 'pipe' });
+    }
+    catch (err) {
+        const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);
+        throw new Error(`Cursor sampler Swift compilation failed:\n${msg}`);
+    }
+    signNativeBinary(CURSOR_SAMPLER_BINARY_PATH);
+    const hash = computeSourceHash(files);
+    writeFileSync(CURSOR_SAMPLER_HASH_PATH, hash);
+    return CURSOR_SAMPLER_BINARY_PATH;
+}
 export function ensureBinary() {
     if (isStale()) {
         withCompileLock('native', () => {
@@ -299,6 +345,15 @@ export function ensureScreenRecordingPreflightBinary() {
         });
     }
     return SCREEN_RECORDING_PREFLIGHT_PATH;
+}
+export function ensureCursorSamplerBinary() {
+    if (isCursorSamplerStale()) {
+        withCompileLock('cursor-sampler', () => {
+            if (isCursorSamplerStale())
+                compileCursorSampler();
+        });
+    }
+    return CURSOR_SAMPLER_BINARY_PATH;
 }
 function withCompileLock(name, fn) {
     mkdirSync(BIN_DIR, { recursive: true });
@@ -374,5 +429,5 @@ export function compileTestApp() {
     execSync(cmd, { stdio: 'pipe' });
     return TEST_APP_PATH;
 }
-export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, };
+export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, };
 //# sourceMappingURL=compiler.js.map

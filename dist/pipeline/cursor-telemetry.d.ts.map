@@ -1,0 +1,1 @@
+{"version":3,"file":"cursor-telemetry.d.ts","sourceRoot":"","sources":["../../src/pipeline/cursor-telemetry.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,WAAW,EAAE,SAAS,EAAE,MAAM,qBAAqB,CAAA;AAEjE,MAAM,WAAW,eAAe;IAC9B,MAAM,EAAE,SAAS,EAAE,CAAA;IACnB,UAAU,EAAE,WAAW,EAAE,CAAA;CAC1B;AAQD,wBAAsB,mBAAmB,CAAC,QAAQ,EAAE,MAAM,GAAG,OAAO,CAAC,eAAe,CAAC,CAYpF"}
