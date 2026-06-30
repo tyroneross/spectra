@@ -953,6 +953,16 @@ export interface DemoScript {
     finalCaption?: string;
     beats: DemoScriptBeat[];
 }
+/**
+ * Mirrors pipeline/polish.ts PolishClipSpotlightOptions — an optional
+ * whole-clip spotlight pre-pass applied before zoom/framing/caption.
+ */
+export interface DemoSpotlightOptions {
+    focal: FocalRect;
+    dim?: number;
+    blur?: number;
+    feather?: number;
+}
 export interface DemoPolishClipParams {
     action: 'polish-clip';
     input: string;
@@ -960,6 +970,7 @@ export interface DemoPolishClipParams {
     caption?: string;
     out: string;
     fps?: number;
+    spotlight?: DemoSpotlightOptions;
 }
 export interface DemoPolishScriptParams {
     action: 'polish-script';

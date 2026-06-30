@@ -307,6 +307,14 @@ const demoScriptSchema = z.object({
     finalCaption: z.string().optional(),
     beats: z.array(demoScriptBeatSchema),
 });
+// Mirrors pipeline/polish.ts PolishClipSpotlightOptions — an optional
+// whole-clip dark-crush spotlight pre-pass for polish-clip.
+const demoSpotlightSchema = z.object({
+    focal: focalRectSchema,
+    dim: z.number().optional(),
+    blur: z.number().optional(),
+    feather: z.number().optional(),
+});
 // AutoRampDemoParams (no `action`) — the standalone autoRampDemo operation.
 const autoRampDemoShape = {
     input: z.string(),
@@ -340,6 +348,7 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
         caption: z.string().optional(),
         out: z.string(),
         fps: z.number().optional(),
+        spotlight: demoSpotlightSchema.optional(),
     }),
     z.object({
         action: z.literal('polish-script'),

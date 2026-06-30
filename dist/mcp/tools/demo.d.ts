@@ -262,6 +262,47 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     caption: z.ZodOptional<z.ZodString>;
     out: z.ZodString;
     fps: z.ZodOptional<z.ZodNumber>;
+    spotlight: z.ZodOptional<z.ZodObject<{
+        focal: z.ZodObject<{
+            x: z.ZodNumber;
+            y: z.ZodNumber;
+            w: z.ZodNumber;
+            h: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        }, {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        }>;
+        dim: z.ZodOptional<z.ZodNumber>;
+        blur: z.ZodOptional<z.ZodNumber>;
+        feather: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    }, {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    }>>;
 }, "strip", z.ZodTypeAny, {
     action: "polish-clip";
     input: string;
@@ -284,6 +325,17 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     };
     fps?: number | undefined;
     caption?: string | undefined;
+    spotlight?: {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    } | undefined;
 }, {
     action: "polish-clip";
     input: string;
@@ -306,6 +358,17 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     };
     fps?: number | undefined;
     caption?: string | undefined;
+    spotlight?: {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    } | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"polish-script">;
     input: z.ZodString;

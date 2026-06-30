@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js';
 import { frameChromeRenderPlan, framingFilter } from './framing.js';
 import { scriptDurationMs, scriptZoomWindows } from './script.js';
+import { cleanupSpotlightPrePass, renderSpotlightPrePass } from './spotlight.js';
 import { renderCaptionPng } from './text-render.js';
 import { buildZoomTrack } from './zoom-keyframes.js';
 import { timedZoomFilter, zoomFilter } from './zoom-render.js';
@@ -25,65 +26,85 @@ export async function polishClip(options) {
         probeVideo(options.input),
         probeHasAudio(options.input),
     ]);
-    const parsed = await parseClicksJson(options.clicksJson);
-    const durationMs = metadata.durationMs ?? inferDurationMs(parsed);
-    const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
-        cursorPath: parsed.cursorPath,
-    });
-    let nextInputIndex = 1;
-    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
-    nextInputIndex += 1;
-    const captionText = options.caption?.trim();
-    const captionOverlay = captionText
-        ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
-        : undefined;
-    if (captionOverlay)
+    let renderInput = options.input;
+    let spotlightTempPath;
+    if (options.spotlight) {
+        spotlightTempPath = await renderSpotlightPrePass({
+            input: options.input,
+            canvas: { w: metadata.width, h: metadata.height },
+            focal: options.spotlight.focal,
+            dim: options.spotlight.dim,
+            blur: options.spotlight.blur,
+            feather: options.spotlight.feather,
+            hasAudio,
+        });
+        renderInput = spotlightTempPath;
+    }
+    try {
+        const parsed = await parseClicksJson(options.clicksJson);
+        const durationMs = metadata.durationMs ?? inferDurationMs(parsed);
+        const track = buildZoomTrack(parsed.clicks, durationMs, fps, {
+            cursorPath: parsed.cursorPath,
+        });
+        let nextInputIndex = 1;
+        const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
         nextInputIndex += 1;
-    const fallbackCaption = captionOverlay ? undefined : captionText;
-    const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext';
-    const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
-    const frame = framingFilter({
-        inputLabel: 'zoomed',
-        outputLabel: captionOverlay ? 'framed' : 'v',
-        caption: fallbackCaption,
-        captionMode,
-        fps,
-        outW: OUTPUT_W,
-        outH: OUTPUT_H,
-        chromeAssets: chrome.chromeAssets,
-    });
-    const filterComplex = [
-        `[0:v]fps=${fps},${zoom}[zoomed]`,
-        frame,
-        ...(captionOverlay ? [captionOverlay.filter] : []),
-    ].join(';');
-    const audio = buildAudioArgs(hasAudio);
-    await mkdir(dirname(options.outPath), { recursive: true });
-    await runProcess('ffmpeg', [
-        '-y',
-        '-i', options.input,
-        ...chrome.maskInputArgs,
-        ...imageInputArgs(captionOverlay ? [captionOverlay.path] : [], fps),
-        '-filter_complex', filterComplex,
-        '-map', '[v]',
-        ...audio.mapArgs,
-        '-frames:v', String(Math.max(1, track.length)),
-        ...audio.codecArgs,
-        '-r', String(fps),
-        '-c:v', 'libx264',
-        '-pix_fmt', 'yuv420p',
-        '-crf', '18',
-        '-movflags', '+faststart',
-        options.outPath,
-    ]);
-    return {
-        outPath: options.outPath,
-        width: OUTPUT_W,
-        height: OUTPUT_H,
-        fps,
-        durationMs,
-        frames: track.length,
-    };
+        const captionText = options.caption?.trim();
+        const captionOverlay = captionText
+            ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
+            : undefined;
+        if (captionOverlay)
+            nextInputIndex += 1;
+        const fallbackCaption = captionOverlay ? undefined : captionText;
+        const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext';
+        const zoom = zoomFilter(track, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
+        const frame = framingFilter({
+            inputLabel: 'zoomed',
+            outputLabel: captionOverlay ? 'framed' : 'v',
+            caption: fallbackCaption,
+            captionMode,
+            fps,
+            outW: OUTPUT_W,
+            outH: OUTPUT_H,
+            chromeAssets: chrome.chromeAssets,
+        });
+        const filterComplex = [
+            `[0:v]fps=${fps},${zoom}[zoomed]`,
+            frame,
+            ...(captionOverlay ? [captionOverlay.filter] : []),
+        ].join(';');
+        const audio = buildAudioArgs(hasAudio);
+        await mkdir(dirname(options.outPath), { recursive: true });
+        await runProcess('ffmpeg', [
+            '-y',
+            '-i', renderInput,
+            ...chrome.maskInputArgs,
+            ...imageInputArgs(captionOverlay ? [captionOverlay.path] : [], fps),
+            '-filter_complex', filterComplex,
+            '-map', '[v]',
+            ...audio.mapArgs,
+            '-frames:v', String(Math.max(1, track.length)),
+            ...audio.codecArgs,
+            '-r', String(fps),
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-crf', '18',
+            '-movflags', '+faststart',
+            options.outPath,
+        ]);
+        return {
+            outPath: options.outPath,
+            width: OUTPUT_W,
+            height: OUTPUT_H,
+            fps,
+            durationMs,
+            frames: track.length,
+        };
+    }
+    finally {
+        if (spotlightTempPath)
+            await cleanupSpotlightPrePass(spotlightTempPath);
+    }
 }
 export async function polishScript(options) {
     const fps = options.fps ?? DEFAULT_FPS;
@@ -229,6 +250,11 @@ async function buildClipCaptionOverlay(caption, durationMs, inputIndex, outW, ou
 }
 async function buildCaptionOverlay(script, finalCaption, durationMs, inputIndex, outW, outH) {
     const window = finalCaptionWindow(script, finalCaption, durationMs);
+    // No valid placement (e.g. the matched beat is truncated out of a short input):
+    // skip the final caption rather than defaulting it to the whole clip, which would
+    // overlap the per-beat step cards.
+    if (!window)
+        return undefined;
     return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned');
 }
 async function buildTimedCaptionOverlay(text, window, inputIndex, outW, outH, inputLabel, outputLabel) {
@@ -255,20 +281,27 @@ async function buildTimedCaptionOverlay(text, window, inputIndex, outW, outH, in
         filter: `${labelRef(`${inputIndex}:v`)}format=rgba${fade}${labelRef(assetLabel)};${labelRef(inputLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,${startSec}\\,${endSec})'${labelRef(outputLabel)}`,
     };
 }
-function finalCaptionWindow(script, finalCaption, durationMs) {
+export function finalCaptionWindow(script, finalCaption, durationMs) {
     const validBeats = script.beats
         .filter((beat) => Number.isFinite(beat.startMs)
         && Number.isFinite(beat.endMs)
         && beat.endMs > beat.startMs);
     const matchingBeat = [...validBeats].reverse().find((beat) => beat.stepText?.trim() === finalCaption);
     const beat = matchingBeat ?? validBeats.at(-1);
+    // No beats at all: caption-only script — show it for the whole clip.
     if (!beat)
         return { startMs: 0, endMs: durationMs };
+    // The placing beat starts after the clip ends (input shorter than the script):
+    // the payoff was truncated away, so the final caption should not appear.
+    if (beat.startMs >= durationMs)
+        return null;
     const window = {
         startMs: Math.max(0, Math.min(durationMs, beat.startMs)),
         endMs: Math.max(0, Math.min(durationMs, beat.endMs)),
     };
-    return window.endMs > window.startMs ? window : { startMs: 0, endMs: durationMs };
+    // Window collapsed to zero length after clamping: don't fall back to full-clip
+    // (that overlaps the step cards) — skip instead.
+    return window.endMs > window.startMs ? window : null;
 }
 function imageInputArgs(paths, fps) {
     return paths.flatMap((path) => [
