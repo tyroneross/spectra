@@ -2,7 +2,7 @@
 id: SPEC-PIPELINE-kwcy6g3x6zzf5
 schema_version: 1
 title: "CDP script-runner: execute DemoScript beat actions (search/click/navigate/scroll) via CDP"
-status: open
+status: done
 priority: P1
 type: feature
 area: pipeline
@@ -28,3 +28,6 @@ The driving that reliably navigated search+graph+categories is an ad-hoc /tmp CD
 
 ## Notes
 <additional detail>
+
+## Resolution (2026-06-30)
+CDP DemoScript runner shipped (5cfa529) via 3-model A/B/C; Opus won (robust fallbacks, minimal footprint). Live Chrome integration proven.

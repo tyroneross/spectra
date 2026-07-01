@@ -2,7 +2,7 @@
 id: SPEC-ZOOM-TELEMETRY-c5spectra01
 schema_version: 1
 title: Emit click/cursor telemetry at record time to feed the zoom pipeline
-status: in_progress
+status: done
 priority: P2
 type: feature
 area: recording
@@ -49,3 +49,6 @@ This is the last gap for a fully-automatic record→polish flow.
 - A recording produces a clicks/cursor JSON the polish pipeline consumes with zero hand-editing,
   OR auto-zoom windows derived from scene-detect when click data is absent.
 - Verified on a real capture (MCP/codex-rally), frames show zoom landing on activity.
+
+## Resolution (2026-06-30)
+Step 2b wiring shipped (f817801) via 3-model A/B/C; Codex won (only MCP-reachable arm). captureCursor opt-in, zero-regression. REMAINING: live cursor-during-recording capture verification in a GUI session (daemon restart + real recording).
