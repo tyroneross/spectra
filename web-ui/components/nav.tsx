@@ -33,10 +33,10 @@ export function Nav() {
               href={tab.href}
               aria-current={isActive ? 'page' : undefined}
               className={[
-                'relative flex shrink-0 items-center rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60',
+                'relative flex h-14 shrink-0 items-center border-b-2 px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60',
                 isActive
-                  ? 'h-10 self-center bg-indigo-400/10 font-medium text-indigo-300'
-                  : 'h-14 text-zinc-400 hover:text-zinc-200',
+                  ? 'border-indigo-400 font-medium text-zinc-50'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200',
               ].join(' ')}
             >
               {tab.label}

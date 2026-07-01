@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Check, Play } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ImageOff, Play } from 'lucide-react'
 import type { Capture } from '@/lib/types'
 import { relativeTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardProps) {
   const isVideo = capture.type === 'video'
+  const [mediaFailed, setMediaFailed] = useState(false)
 
   const toggle = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -44,12 +46,18 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
       >
         {/* Thumbnail — matte frame gives dark screenshots contrast against the card */}
         <div className="relative aspect-[16/10] overflow-hidden border-b border-white/[0.06] bg-black/50">
-          {isVideo ? (
+          {mediaFailed ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-zinc-600">
+              <ImageOff className="size-6" aria-hidden="true" />
+              <span className="text-[11px] text-zinc-500">Preview unavailable</span>
+            </div>
+          ) : isVideo ? (
             <video
               src={`/api/media/${capture.path}`}
               className="h-full w-full object-cover"
               preload="metadata"
               muted
+              onError={() => setMediaFailed(true)}
             />
           ) : (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -58,6 +66,7 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
               alt={capture.filename}
               className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
               loading="lazy"
+              onError={() => setMediaFailed(true)}
             />
           )}
 
@@ -65,7 +74,7 @@ export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardPr
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 opacity-70" />
 
           {/* Video play affordance */}
-          {isVideo && (
+          {isVideo && !mediaFailed && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="flex size-11 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all duration-200 group-hover:scale-105 group-hover:border-indigo-300/50 group-hover:bg-indigo-500/30">
                 <Play className="ml-0.5 size-4 text-white" fill="currentColor" aria-hidden="true" />

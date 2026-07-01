@@ -27,16 +27,14 @@ export default async function GuidancePage() {
           Guidance
           <span className="ml-2 text-sm font-normal text-zinc-500">{playbooks.length}</span>
         </h1>
-        <Link href="/guidance/new">
-          <Button size="sm" className="bg-indigo-500 hover:bg-indigo-400 text-white border-0">
-            New Playbook
-          </Button>
-        </Link>
+        <Button asChild size="sm" className="bg-indigo-500 hover:bg-indigo-400 text-white border-0">
+          <Link href="/guidance/new">New Playbook</Link>
+        </Button>
       </div>
 
       <PlaybookRecommendations recommendations={recommendations} />
 
-      {playbooks.length === 0 ? (
+      {playbooks.length === 0 && recommendations.length === 0 ? (
         <EmptyState
           icon={
             <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24">
@@ -46,11 +44,9 @@ export default async function GuidancePage() {
           title="No playbooks yet"
           description="Create your first capture playbook to automate screenshot flows."
           action={
-            <Link href="/guidance/new">
-              <Button className="bg-indigo-500 hover:bg-indigo-400 text-white border-0">
-                Create Playbook
-              </Button>
-            </Link>
+            <Button asChild className="bg-indigo-500 hover:bg-indigo-400 text-white border-0">
+              <Link href="/guidance/new">Create Playbook</Link>
+            </Button>
           }
         />
       ) : (

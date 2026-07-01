@@ -1,10 +1,31 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+
+/**
+ * Tracks whether the viewport is desktop (md+). Defaults to `true` so SSR and
+ * the client's first paint agree (no hydration mismatch), then corrects after
+ * mount. Used to MOUNT exactly one filter surface — the desktop rail or the
+ * mobile disclosure — so interactive filter controls are never left in a
+ * `display:none` subtree (which reads as an invisible-but-clickable 0x0 target).
+ */
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = useState(true)
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 768px)')
+    const update = () => setIsDesktop(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  return isDesktop
+}
 
 interface ProjectOption {
   name: string
@@ -99,7 +120,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
             aria-pressed={!currentProject}
             className={cn(
               'flex w-full items-center justify-between px-3 text-sm transition-colors',
-              isCompact ? 'min-h-9' : 'min-h-11 sm:min-h-8',
+              isCompact ? 'min-h-11' : 'min-h-11 sm:min-h-8',
               !currentProject
                 ? 'bg-indigo-400/10 text-indigo-300 font-medium'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
@@ -115,7 +136,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               aria-pressed={currentProject === project.name}
               className={cn(
                 'flex w-full items-center justify-between border-t border-white/[0.08] px-3 text-sm transition-colors',
-                isCompact ? 'min-h-9' : 'min-h-11 sm:min-h-8',
+                isCompact ? 'min-h-11' : 'min-h-11 sm:min-h-8',
                 currentProject === project.name
                   ? 'bg-indigo-400/10 text-indigo-300 font-medium'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
@@ -147,7 +168,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               className={cn(
                 'px-2 text-xs transition-colors',
                 isCompact
-                  ? cn('min-h-9', index > 0 && 'border-l border-white/[0.08]')
+                  ? cn('min-h-11', index > 0 && 'border-l border-white/[0.08]')
                   : 'min-h-11 odd:border-r odd:border-white/[0.08] [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-white/[0.08] sm:min-h-8',
                 currentPlatform === p
                   ? 'bg-indigo-400/10 text-indigo-300 font-medium'
@@ -173,7 +194,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               aria-pressed={currentType === t}
               className={cn(
                 'px-2 text-xs capitalize transition-colors first:border-r first:border-white/[0.08]',
-                isCompact ? 'min-h-9' : 'min-h-11 sm:min-h-8',
+                isCompact ? 'min-h-11' : 'min-h-11 sm:min-h-8',
                 currentType === t
                   ? 'bg-indigo-400/10 text-indigo-300 font-medium'
                   : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-300'
@@ -205,7 +226,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
                 'min-h-11 w-full px-3 text-sm transition-colors sm:min-h-8',
                 isCompact
                   ? cn(
-                      'min-h-9 text-center text-xs',
+                      'min-h-11 text-center text-xs',
                       index > 0 && 'border-l border-white/[0.08]',
                       index > 1 && 'border-t border-white/[0.08] sm:border-t-0'
                     )
@@ -226,18 +247,22 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
 
 export function FilterPanel({ projects, className, display = 'both' }: FilterPanelProps) {
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const isDesktop = useIsDesktop()
   const mobilePanelId = 'capture-mobile-filters'
+
+  const showDesktop = (display === 'desktop' || display === 'both') && isDesktop
+  const showMobile = (display === 'mobile' || display === 'both') && !isDesktop
 
   return (
     <>
-      {(display === 'desktop' || display === 'both') && (
-        <aside className={cn('hidden md:block w-60 shrink-0 pr-6', className)}>
+      {showDesktop && (
+        <aside className={cn('w-60 shrink-0 pr-6', className)}>
           <FilterContent projects={projects} />
         </aside>
       )}
 
-      {(display === 'mobile' || display === 'both') && (
-        <div className="md:hidden space-y-3">
+      {showMobile && (
+        <div className="space-y-3">
           <Button
             type="button"
             variant="outline"
