@@ -20,6 +20,21 @@ export interface PolishClipSpotlightOptions {
     blur?: number;
     feather?: number;
 }
+/**
+ * Auto-detects the focal window instead of requiring a hand-specified
+ * `spotlight.focal` rect -- for captures showing multiple windows / desktop
+ * clutter, where the frontmost/target window should be spotlighted
+ * automatically. `true` auto-detects the frontmost application's window; an
+ * object filters by app name and/or window title substring (see
+ * `resolveFocalRect` in window-focus.ts). Ignored when an explicit
+ * `spotlight` is already given. If the underlying native helper can't
+ * resolve a window (missing binary, no GUI session, no match), auto-focus is
+ * silently skipped -- it never fails the render.
+ */
+export type AutoFocusOption = boolean | {
+    app?: string;
+    title?: string;
+};
 export interface PolishClipOptions {
     input: string;
     clicksJson: ClicksJsonInput;
@@ -27,6 +42,8 @@ export interface PolishClipOptions {
     outPath: string;
     fps?: number;
     spotlight?: PolishClipSpotlightOptions;
+    /** See `AutoFocusOption`. */
+    autoFocus?: AutoFocusOption;
     /**
      * Caption banner style preset ('cool' | 'warm' | 'bold', or a custom
      * CaptionBannerStyle object). Threaded down into the step-card/caption PNG
@@ -50,6 +67,8 @@ export interface PolishScriptOptions {
     voiceover?: string;
     /** Same whole-clip dark-crush spotlight pre-pass as PolishClipOptions.spotlight. */
     spotlight?: PolishClipSpotlightOptions;
+    /** Same auto-focal-window detection as PolishClipOptions.autoFocus. */
+    autoFocus?: AutoFocusOption;
     /** Same caption banner style preset as PolishClipOptions.style. */
     style?: CaptionBannerStyle | CaptionBannerStyleName;
 }

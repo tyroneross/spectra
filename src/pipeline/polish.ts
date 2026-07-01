@@ -11,6 +11,7 @@ import { frameChromeRenderPlan, framingFilter, type FrameChromeAssets } from './
 import { scriptDurationMs, scriptZoomWindows, type DemoScript } from './script.js'
 import { cleanupSpotlightPrePass, defaultBoldSpotlightFocal, renderSpotlightPrePass } from './spotlight.js'
 import { renderCaptionPng, type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js'
+import { resolveFocalRect } from './window-focus.js'
 import { buildZoomTrack, type CursorPoint, type ZoomClick } from './zoom-keyframes.js'
 import { timedZoomFilter, zoomFilter } from './zoom-render.js'
 
@@ -37,6 +38,19 @@ export interface PolishClipSpotlightOptions {
   feather?: number
 }
 
+/**
+ * Auto-detects the focal window instead of requiring a hand-specified
+ * `spotlight.focal` rect -- for captures showing multiple windows / desktop
+ * clutter, where the frontmost/target window should be spotlighted
+ * automatically. `true` auto-detects the frontmost application's window; an
+ * object filters by app name and/or window title substring (see
+ * `resolveFocalRect` in window-focus.ts). Ignored when an explicit
+ * `spotlight` is already given. If the underlying native helper can't
+ * resolve a window (missing binary, no GUI session, no match), auto-focus is
+ * silently skipped -- it never fails the render.
+ */
+export type AutoFocusOption = boolean | { app?: string; title?: string }
+
 export interface PolishClipOptions {
   input: string
   clicksJson: ClicksJsonInput
@@ -44,6 +58,8 @@ export interface PolishClipOptions {
   outPath: string
   fps?: number
   spotlight?: PolishClipSpotlightOptions
+  /** See `AutoFocusOption`. */
+  autoFocus?: AutoFocusOption
   /**
    * Caption banner style preset ('cool' | 'warm' | 'bold', or a custom
    * CaptionBannerStyle object). Threaded down into the step-card/caption PNG
@@ -68,23 +84,39 @@ export interface PolishScriptOptions {
   voiceover?: string
   /** Same whole-clip dark-crush spotlight pre-pass as PolishClipOptions.spotlight. */
   spotlight?: PolishClipSpotlightOptions
+  /** Same auto-focal-window detection as PolishClipOptions.autoFocus. */
+  autoFocus?: AutoFocusOption
   /** Same caption banner style preset as PolishClipOptions.style. */
   style?: CaptionBannerStyle | CaptionBannerStyleName
 }
 
 /**
- * Resolves the effective spotlight pre-pass options: honors an explicit
- * `spotlight` as-is, otherwise turns it on with a sensible default focal rect
- * when style is the 'bold' preset (bold = cinematic dark-crush by default).
- * Only the string preset name 'bold' triggers this -- a custom style object
- * isn't assumed to want the spotlight look.
+ * Resolves the effective spotlight pre-pass options, in priority order:
+ * 1. An explicit `spotlight` (with its own `focal`) is always honored as-is.
+ * 2. Otherwise, if `autoFocus` is set, resolve a focal rect via the
+ *    window-bounds native helper (`resolveFocalRect`). A successful
+ *    resolution wins; a `undefined` result (binary missing, no GUI session,
+ *    no matching window) falls through to (3) rather than failing.
+ * 3. Otherwise, turn the spotlight on with a sensible default focal rect
+ *    when style is the 'bold' preset (bold = cinematic dark-crush by
+ *    default). Only the string preset name 'bold' triggers this -- a custom
+ *    style object isn't assumed to want the spotlight look.
+ * 4. Otherwise, no spotlight -- unchanged behavior.
  */
-function resolveSpotlightOptions(
+async function resolveSpotlightOptions(
   requested: PolishClipSpotlightOptions | undefined,
   style: CaptionBannerStyle | CaptionBannerStyleName | undefined,
   canvas: CanvasSize,
-): PolishClipSpotlightOptions | undefined {
+  autoFocus: AutoFocusOption | undefined,
+): Promise<PolishClipSpotlightOptions | undefined> {
   if (requested) return requested
+
+  if (autoFocus) {
+    const filters = typeof autoFocus === 'object' ? autoFocus : {}
+    const focal = await resolveFocalRect({ app: filters.app, title: filters.title, canvas })
+    if (focal) return { focal }
+  }
+
   if (style !== 'bold') return undefined
   return { focal: defaultBoldSpotlightFocal(canvas) }
 }
@@ -139,7 +171,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     probeHasAudio(options.input),
   ])
 
-  const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height })
+  const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus)
   let renderInput = options.input
   let spotlightTempPath: string | undefined
   if (spotlight) {
@@ -240,7 +272,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     probeHasAudio(options.input),
   ])
 
-  const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height })
+  const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus)
   let renderInput = options.input
   let spotlightTempPath: string | undefined
   if (spotlight) {

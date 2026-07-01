@@ -10,18 +10,31 @@ import { frameChromeRenderPlan, framingFilter } from './framing.js';
 import { scriptDurationMs, scriptZoomWindows } from './script.js';
 import { cleanupSpotlightPrePass, defaultBoldSpotlightFocal, renderSpotlightPrePass } from './spotlight.js';
 import { renderCaptionPng } from './text-render.js';
+import { resolveFocalRect } from './window-focus.js';
 import { buildZoomTrack } from './zoom-keyframes.js';
 import { timedZoomFilter, zoomFilter } from './zoom-render.js';
 /**
- * Resolves the effective spotlight pre-pass options: honors an explicit
- * `spotlight` as-is, otherwise turns it on with a sensible default focal rect
- * when style is the 'bold' preset (bold = cinematic dark-crush by default).
- * Only the string preset name 'bold' triggers this -- a custom style object
- * isn't assumed to want the spotlight look.
+ * Resolves the effective spotlight pre-pass options, in priority order:
+ * 1. An explicit `spotlight` (with its own `focal`) is always honored as-is.
+ * 2. Otherwise, if `autoFocus` is set, resolve a focal rect via the
+ *    window-bounds native helper (`resolveFocalRect`). A successful
+ *    resolution wins; a `undefined` result (binary missing, no GUI session,
+ *    no matching window) falls through to (3) rather than failing.
+ * 3. Otherwise, turn the spotlight on with a sensible default focal rect
+ *    when style is the 'bold' preset (bold = cinematic dark-crush by
+ *    default). Only the string preset name 'bold' triggers this -- a custom
+ *    style object isn't assumed to want the spotlight look.
+ * 4. Otherwise, no spotlight -- unchanged behavior.
  */
-function resolveSpotlightOptions(requested, style, canvas) {
+async function resolveSpotlightOptions(requested, style, canvas, autoFocus) {
     if (requested)
         return requested;
+    if (autoFocus) {
+        const filters = typeof autoFocus === 'object' ? autoFocus : {};
+        const focal = await resolveFocalRect({ app: filters.app, title: filters.title, canvas });
+        if (focal)
+            return { focal };
+    }
     if (style !== 'bold')
         return undefined;
     return { focal: defaultBoldSpotlightFocal(canvas) };
@@ -41,7 +54,7 @@ export async function polishClip(options) {
         probeVideo(options.input),
         probeHasAudio(options.input),
     ]);
-    const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height });
+    const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus);
     let renderInput = options.input;
     let spotlightTempPath;
     if (spotlight) {
@@ -139,7 +152,7 @@ export async function polishScript(options) {
         probeVideo(options.input),
         probeHasAudio(options.input),
     ]);
-    const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height });
+    const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus);
     let renderInput = options.input;
     let spotlightTempPath;
     if (spotlight) {
