@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Check } from 'lucide-react'
+import { Check, Play } from 'lucide-react'
 import type { Capture } from '@/lib/types'
 import { relativeTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -21,123 +21,103 @@ const PLATFORM_LABELS: Record<string, string> = {
 }
 
 export function MediaCard({ capture, bulkMode, selected, onSelect }: MediaCardProps) {
-  const handleCheckbox = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation()
-    onSelect?.(capture.id, e.target.checked)
-  }
+  const isVideo = capture.type === 'video'
 
-  const handleCheckboxClick = (e: React.MouseEvent) => {
+  const toggle = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     onSelect?.(capture.id, !selected)
   }
 
   return (
-    <Link href={`/captures/${capture.id}`} className="group block bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+    <Link
+      href={`/captures/${capture.id}`}
+      className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+    >
       <div
         className={cn(
-          'overflow-hidden transition-all',
+          'overflow-hidden rounded-xl border transition-all duration-200 ease-out',
           selected
-            ? 'ring-2 ring-inset ring-zinc-300'
-            : 'hover:bg-zinc-800/60'
+            ? 'border-indigo-400/70 bg-indigo-400/[0.04] ring-1 ring-indigo-400/40'
+            : 'border-white/[0.06] bg-white/[0.025] hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-white/[0.045] hover:shadow-xl hover:shadow-black/50',
         )}
       >
-        {/* Thumbnail — 16:10 aspect ratio */}
-        <div className="relative" style={{ aspectRatio: '16/10' }}>
-          {capture.type === 'video' ? (
+        {/* Thumbnail — matte frame gives dark screenshots contrast against the card */}
+        <div className="relative aspect-[16/10] overflow-hidden border-b border-white/[0.06] bg-black/50">
+          {isVideo ? (
             <video
               src={`/api/media/${capture.path}`}
-              className="w-full h-full object-cover bg-zinc-950"
+              className="h-full w-full object-cover"
               preload="metadata"
               muted
             />
           ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={`/api/media/${capture.path}`}
               alt={capture.filename}
-              className="w-full h-full object-cover bg-zinc-950"
+              className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
               loading="lazy"
             />
           )}
 
-          {/* Video indicator */}
-          {capture.type === 'video' && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-8 h-8 rounded-full bg-black/60 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 8 10">
-                  <path d="M0 0l8 5-8 5V0z" />
-                </svg>
+          {/* subtle scrim so overlay chips stay legible over any screenshot */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 opacity-70" />
+
+          {/* Video play affordance */}
+          {isVideo && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="flex size-11 items-center justify-center rounded-full border border-white/20 bg-black/40 backdrop-blur-md transition-all duration-200 group-hover:scale-105 group-hover:border-indigo-300/50 group-hover:bg-indigo-500/30">
+                <Play className="ml-0.5 size-4 text-white" fill="currentColor" aria-hidden="true" />
               </div>
             </div>
           )}
 
-          {/* Bulk checkbox */}
-          {(bulkMode || selected) && (
-            <div
-              className="absolute top-2 left-2 z-10"
-              onClick={handleCheckboxClick}
-            >
-              <input
-                type="checkbox"
-                checked={selected ?? false}
-                onChange={handleCheckbox}
-                aria-label={`Select ${capture.filename}`}
-                className="min-h-6 min-w-6 rounded accent-white cursor-pointer"
-              />
-            </div>
-          )}
+          {/* Selection control — reveals on hover, persistent in bulk/selected */}
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={selected ? `Deselect ${capture.filename}` : `Select ${capture.filename}`}
+            aria-pressed={selected ?? false}
+            className={cn(
+              'absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-md border backdrop-blur-md transition-all',
+              selected
+                ? 'border-indigo-300/60 bg-indigo-500/80 text-white'
+                : 'border-white/20 bg-black/40 text-transparent hover:border-white/40 hover:text-white/70',
+              bulkMode || selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+            )}
+          >
+            <Check className="size-3.5" aria-hidden="true" />
+          </button>
 
-          {/* Hover checkbox in non-bulk mode */}
-          {!bulkMode && (
-            <div
-              className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={handleCheckboxClick}
-            >
-              <input
-                type="checkbox"
-                checked={false}
-                onChange={handleCheckbox}
-                aria-label={`Select ${capture.filename}`}
-                className="min-h-6 min-w-6 rounded accent-white cursor-pointer"
-              />
-            </div>
-          )}
-          {selected && (
-            <div className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-zinc-50 text-zinc-950">
-              <Check className="size-4" aria-hidden="true" />
-            </div>
-          )}
-
-          {/* Session badge — bottom left */}
-          {capture.sessionName && (
-            <div className="absolute bottom-2 left-2">
-              <span className="block max-w-[120px] truncate bg-black/70 px-1.5 py-0.5 text-xs text-zinc-200">
+          {/* Overlay chips — glass, legible over media */}
+          <div className="absolute inset-x-2 bottom-2 flex items-end justify-between gap-2">
+            {capture.sessionName ? (
+              <span className="max-w-[60%] truncate rounded-md border border-white/10 bg-black/45 px-1.5 py-0.5 text-[11px] text-zinc-200 backdrop-blur-md">
                 {capture.sessionName}
               </span>
-            </div>
-          )}
-
-          {/* Platform badge — bottom right */}
-          {capture.platform && (
-            <div className="absolute bottom-2 right-2">
-              <span className="bg-black/70 px-1.5 py-0.5 text-xs text-zinc-300">
+            ) : (
+              <span />
+            )}
+            {capture.platform && (
+              <span className="shrink-0 rounded-md border border-white/10 bg-black/45 px-1.5 py-0.5 text-[11px] font-medium text-zinc-300 backdrop-blur-md">
                 {PLATFORM_LABELS[capture.platform] ?? capture.platform}
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Card footer */}
-        <div className="min-h-[4.75rem] px-3 py-2">
-          <p className="text-xs font-mono text-zinc-300 truncate" title={capture.filename}>
+        {/* Footer — three-line hierarchy: name → (guide) → time */}
+        <div className="px-3 py-2.5">
+          <p className="truncate text-[13px] font-medium text-zinc-100" title={capture.filename}>
             {capture.filename}
           </p>
           {capture.guide && (
-            <p className="mt-1 truncate text-xs text-zinc-400" title={capture.guide}>
+            <p className="mt-0.5 truncate text-[11px] text-zinc-400" title={capture.guide}>
               {capture.guide}
             </p>
           )}
-          <p className="text-xs text-zinc-500 mt-0.5">{relativeTime(capture.timestamp)}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{relativeTime(capture.timestamp)}</p>
         </div>
       </div>
     </Link>

@@ -14,15 +14,17 @@ interface MediaGridProps {
 
 function SkeletonCard() {
   return (
-    <div className="overflow-hidden bg-zinc-900 animate-pulse">
-      <div style={{ aspectRatio: '16/10' }} className="bg-zinc-800" />
-      <div className="px-3 py-2 space-y-1.5">
-        <div className="h-3 bg-zinc-800 rounded w-3/4" />
-        <div className="h-2.5 bg-zinc-800 rounded w-1/3" />
+    <div className="animate-pulse overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.025]">
+      <div style={{ aspectRatio: '16/10' }} className="bg-white/[0.04]" />
+      <div className="space-y-1.5 px-3 py-2.5">
+        <div className="h-3 w-3/4 rounded bg-white/[0.06]" />
+        <div className="h-2.5 w-1/3 rounded bg-white/[0.04]" />
       </div>
     </div>
   )
 }
+
+const GRID_CLASS = 'grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
 
 export function MediaGrid({
   captures,
@@ -33,12 +35,10 @@ export function MediaGrid({
 }: MediaGridProps) {
   if (loading) {
     return (
-      <div className="overflow-hidden rounded-lg border border-zinc-800">
-        <div className="grid grid-cols-2 gap-px bg-zinc-800 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+      <div className={GRID_CLASS}>
+        {Array.from({ length: 10 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
       </div>
     )
   }
@@ -66,18 +66,16 @@ export function MediaGrid({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-800">
-      <div className="grid grid-cols-2 gap-px bg-zinc-800 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {captures.map((capture) => (
-          <MediaCard
-            key={capture.id}
-            capture={capture}
-            bulkMode={bulkMode}
-            selected={selectedIds?.has(capture.id)}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
+    <div className={GRID_CLASS}>
+      {captures.map((capture) => (
+        <MediaCard
+          key={capture.id}
+          capture={capture}
+          bulkMode={bulkMode}
+          selected={selectedIds?.has(capture.id)}
+          onSelect={onSelect}
+        />
+      ))}
     </div>
   )
 }
