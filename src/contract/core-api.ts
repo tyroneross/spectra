@@ -1188,6 +1188,8 @@ export type DemoResult =
 export type ComputerUseAxStatus = 'ok' | 'empty' | 'no-window'
 
 export interface ComputerUseNode {
+  /** Optional — absent means 'ax' (mirrors src/computer-use/types.ts AxNode.source). */
+  source?: 'ax' | 'vision'
   role: string
   label: string
   value: string | null
@@ -1196,6 +1198,7 @@ export interface ComputerUseNode {
   actions: string[]
   bounds: Bounds
   path: number[]
+  confidence?: number
 }
 
 export type ComputerUseActionInput =

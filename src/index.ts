@@ -45,14 +45,18 @@ export { NativeDriver } from './native/driver.js'
 export { SimDriver } from './native/sim.js'
 
 // ─── Computer Use (AX-first, focused-window scoped) ─────────
-export { ComputerUse, NativeAxBridgePort, StubVisionFallback } from './computer-use/index.js'
+export { ComputerUse, NativeAxBridgePort, NativeVisionFallback, StubVisionFallback } from './computer-use/index.js'
 export type {
   ComputerUseOptions,
   AxBridgePort,
   RawAxSnapshot,
   RawActRequest,
   RawActResult,
+  RawClickAtRequest,
   RawKeyRequest,
+  RawTypeTextRequest,
+  RawVisionAvailability,
+  RawVisionGrounding,
   VisionFallback,
   VisionContext,
   AxNode,

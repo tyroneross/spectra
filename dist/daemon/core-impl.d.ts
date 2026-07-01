@@ -1,6 +1,8 @@
 import { type ChildProcess } from 'node:child_process';
 import type { AnalyzeParams, AnalyzeResult, AutoRampDemoParams, AutoRampDemoResult, CloseAllSessionsResult, CloseSessionResult, CoreApi, CreateSessionParams, CreateSessionResult, DemoParams, DemoResult, DiscoverParams, DiscoverResult, GetPermissionsParams, GetRunResult, GetSessionResult, HealthParams, HealthResult, LibraryParams, LibraryResult, ListSessionsParams, ListSessionsResult, ListWindowsParams, ListWindowsResult, PermissionStatus, GetRecordingParams, GetRecordingResult, RecordCompositeParams, RecordCompositeResult, RecordLlmUsageParams, RecordLlmUsageResult, RequestPermissionsParams, RequestPermissionsResult, ScreenshotParams, ScreenshotResult, SessionByIdParams, StartRecordingParams, StartRecordingResult, StopRecordingParams, StopRecordingResult, WindowRecord, SnapshotParams, SnapshotResult, ObserveParams, ObserveResult, ActParams, ActResult, StepParams, StepResult, LlmStepParams, LlmStepResult, WalkthroughParams, WalkthroughResult, TerminalRecordParams, TerminalRecordResult, TerminalReplayParams, TerminalReplayResult, ComputerUseParams, ComputerUseResult } from '../contract/core-api.js';
 import type { AxBridgePort } from '../computer-use/port.js';
+import type { VisionFallback } from '../computer-use/vision-fallback.js';
+import type { AxTarget } from '../computer-use/types.js';
 import type { DaemonEvent } from '../contract/wire.js';
 import { type ToolContext } from '../mcp/context.js';
 import { recordCompositeWithWorker } from './composite-worker.js';
@@ -90,6 +92,8 @@ export declare class CoreApiImplementation implements CoreApi {
     computerUse(params: ComputerUseParams): Promise<ComputerUseResult>;
     /** Overridable seam so tests can inject a fake AX bridge without a GUI session. */
     protected createAxBridgePort(): AxBridgePort;
+    /** Overridable seam so tests can inject or suppress the native vision fallback. */
+    protected createVisionFallback(port: AxBridgePort, target: AxTarget): Promise<VisionFallback | undefined>;
     /**
      * Returns the persistent ComputerUse for `target`, constructing it lazily
      * on first use. Reusing the instance across calls is what lets `act`'s

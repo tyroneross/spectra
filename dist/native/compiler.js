@@ -197,6 +197,7 @@ export function compile() {
         '-framework', 'ApplicationServices',
         '-framework', 'AppKit',
         '-framework', 'CoreGraphics',
+        '-framework', 'Vision',
         '-framework', 'ScreenCaptureKit',
         '-framework', 'AVFoundation',
         '-framework', 'CoreMedia',

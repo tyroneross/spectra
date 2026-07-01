@@ -17,6 +17,9 @@ function targetParams(target) {
         params.app = target.app;
     return params;
 }
+function normalizeNativeNode(node) {
+    return { ...node, source: node.source ?? 'ax' };
+}
 export class NativeAxBridgePort {
     bridge;
     constructor(bridge = getSharedBridge()) {
@@ -35,7 +38,7 @@ export class NativeAxBridgePort {
         }
         return {
             window: res.window ? { title: res.window.title, bounds: res.window.bounds } : null,
-            elements: Array.isArray(res.elements) ? res.elements : [],
+            elements: Array.isArray(res.elements) ? res.elements.map(normalizeNativeNode) : [],
             nodeCount: res.nodeCount ?? 0,
             axStatus: res.axStatus ?? 'empty',
             focusedWindowTitle: res.focusedWindowTitle ?? '',
@@ -55,6 +58,26 @@ export class NativeAxBridgePort {
             ...targetParams(req.target),
             key: req.key,
         });
+    }
+    async clickAt(req) {
+        return this.bridge.send('cuClickAt', {
+            ...targetParams(req.target),
+            x: req.x,
+            y: req.y,
+        });
+    }
+    async typeText(req) {
+        return this.bridge.send('cuTypeText', {
+            ...targetParams(req.target),
+            text: req.text,
+        });
+    }
+    async visionAvailable(target) {
+        return this.bridge.send('cuVisionAvailable', targetParams(target));
+    }
+    async visionGround(target) {
+        const res = await this.bridge.send('cuVisionGround', targetParams(target));
+        return Array.isArray(res.elements) ? res.elements : [];
     }
     async preflight() {
         return this.bridge.send('cuPreflight');

@@ -69,6 +69,18 @@ func handleRequest(_ request: Request) {
     case "cuKey":
         handleCuKey(request)
 
+    case "cuClickAt":
+        handleCuClickAt(request)
+
+    case "cuTypeText":
+        handleCuTypeText(request)
+
+    case "cuVisionAvailable":
+        handleCuVisionAvailable(request)
+
+    case "cuVisionGround":
+        handleCuVisionGround(request)
+
     case "cuPreflight":
         sendResult(id: request.id, AnyCodableValue.from(computerUsePreflight()))
 
@@ -216,6 +228,70 @@ func handleCuKey(_ req: Request) {
             sendResult(id: req.id, .dictionary(["success": .bool(true)]))
         case .failure(let err):
             sendResult(id: req.id, .dictionary(["success": .bool(false), "error": .string(err.message)]))
+        }
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
+}
+
+func handleCuClickAt(_ req: Request) {
+    guard let params = req.params,
+          let x = params["x"]?.doubleValue,
+          let y = params["y"]?.doubleValue else {
+        sendError(id: req.id, code: -1, message: "Missing x or y")
+        return
+    }
+    switch resolveComputerUsePid(from: params) {
+    case .success(let pid):
+        switch computerUseClickAt(pid: pid, x: x, y: y) {
+        case .success:
+            sendResult(id: req.id, .dictionary(["success": .bool(true)]))
+        case .failure(let err):
+            sendResult(id: req.id, .dictionary(["success": .bool(false), "error": .string(err.message)]))
+        }
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
+}
+
+func handleCuTypeText(_ req: Request) {
+    guard let params = req.params,
+          let text = params["text"]?.stringValue else {
+        sendError(id: req.id, code: -1, message: "Missing text")
+        return
+    }
+    switch resolveComputerUsePid(from: params) {
+    case .success(let pid):
+        switch computerUseTypeText(pid: pid, text: text) {
+        case .success:
+            sendResult(id: req.id, .dictionary(["success": .bool(true)]))
+        case .failure(let err):
+            sendResult(id: req.id, .dictionary(["success": .bool(false), "error": .string(err.message)]))
+        }
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
+}
+
+func handleCuVisionAvailable(_ req: Request) {
+    switch resolveComputerUsePid(from: req.params) {
+    case .success(let pid):
+        sendResult(id: req.id, AnyCodableValue.from(visionGrounderAvailable(pid: pid)))
+    case .failure(let err):
+        sendResult(id: req.id, AnyCodableValue.from(VisionAvailabilityResult(available: false, reason: err.message)))
+    }
+}
+
+func handleCuVisionGround(_ req: Request) {
+    switch resolveComputerUsePid(from: req.params) {
+    case .success(let pid):
+        Task {
+            switch await groundFocusedWindowWithVision(pid: pid) {
+            case .success(let result):
+                sendResult(id: req.id, AnyCodableValue.from(result))
+            case .failure(let err):
+                sendError(id: req.id, code: -1, message: err.message)
+            }
         }
     case .failure(let err):
         sendError(id: req.id, code: -1, message: err.message)

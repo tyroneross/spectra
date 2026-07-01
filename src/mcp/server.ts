@@ -435,7 +435,7 @@ export function createSpectraServer(client: DaemonClient): McpServer {
 
   server.tool(
     'spectra_computer_use',
-    'AX-first, focused-window macOS computer use. action=snapshot returns the scoped Accessibility tree of the focused window (semantic role/label, ~30-80ms, no screenshot); action=act runs one action (click-by-role-label, set-value, or key) against a resolved AX node; action=fill-form resolves a {label:value} map against editable AX nodes, sets each via AX, and VERIFIES each by read-back. Omit app/pid to target the frontmost app. Drives via the Accessibility API (not coordinate clicks); when the AX tree is empty/thin it returns a needsVisionFallback signal instead of failing.',
+    'AX-first, focused-window macOS computer use. action=snapshot returns the scoped Accessibility tree of the focused window (semantic role/label, ~30-80ms, no screenshot) and can fall back to native Vision OCR for AX-empty apps; action=act runs one action (click-by-role-label, set-value, or key) against a resolved node; action=fill-form resolves a {label:value} map against editable nodes, sets AX fields with read-back verification, and uses coordinate click/type for vision-grounded fields without faking verification. Omit app/pid to target the frontmost app.',
     spectraComputerUseInputShape,
     { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
     async (args) => forward(client, 'spectra_computer_use', args),

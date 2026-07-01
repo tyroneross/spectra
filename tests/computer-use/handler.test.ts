@@ -26,12 +26,14 @@
 import { describe, expect, it } from 'vitest'
 import { CoreApiImplementation } from '../../src/daemon/core-impl.js'
 import { DaemonApiError } from '../../src/daemon/errors.js'
-import { AxPermissionError, type AxBridgePort, type RawActRequest, type RawActResult, type RawAxSnapshot } from '../../src/computer-use/port.js'
+import { AxPermissionError, type AxBridgePort, type RawActRequest, type RawActResult, type RawAxSnapshot, type RawClickAtRequest, type RawTypeTextRequest, type RawVisionAvailability, type RawVisionGrounding } from '../../src/computer-use/port.js'
+import { NativeVisionFallback, type VisionFallback } from '../../src/computer-use/vision-fallback.js'
 import type { AxNode } from '../../src/computer-use/types.js'
 import type { ComputerUseActResult, ComputerUseSnapshotResult } from '../../src/contract/core-api.js'
 
 function mkNode(label: string, path: number[] = [0]): AxNode {
   return {
+    source: 'ax',
     role: 'AXButton',
     label,
     value: null,
@@ -46,7 +48,11 @@ function mkNode(label: string, path: number[] = [0]): AxNode {
 /** Fake AX bridge: returns a fixed snapshot (2 nodes, axStatus 'ok') or throws. */
 class FakeAxBridgePort implements AxBridgePort {
   acts: RawActRequest[] = []
+  clicks: RawClickAtRequest[] = []
+  typed: RawTypeTextRequest[] = []
   snapshotCalls = 0
+  visionAvailability: RawVisionAvailability = { available: false }
+  visionGroundings: RawVisionGrounding[] = []
 
   constructor(
     private readonly snapshot?: RawAxSnapshot,
@@ -68,6 +74,24 @@ class FakeAxBridgePort implements AxBridgePort {
     return { success: true }
   }
 
+  async clickAt(req: RawClickAtRequest): Promise<{ success: boolean }> {
+    this.clicks.push(req)
+    return { success: true }
+  }
+
+  async typeText(req: RawTypeTextRequest): Promise<{ success: boolean }> {
+    this.typed.push(req)
+    return { success: true }
+  }
+
+  async visionAvailable(): Promise<RawVisionAvailability> {
+    return this.visionAvailability
+  }
+
+  async visionGround(): Promise<RawVisionGrounding[]> {
+    return this.visionGroundings
+  }
+
   async preflight(): Promise<{ trusted: boolean }> {
     return { trusted: true }
   }
@@ -83,6 +107,24 @@ class HandlerTestCore extends CoreApiImplementation {
   protected override createAxBridgePort(): AxBridgePort {
     return this.port
   }
+
+  protected override async createVisionFallback(): Promise<VisionFallback | undefined> {
+    return undefined
+  }
+}
+
+class HandlerVisionTestCore extends CoreApiImplementation {
+  constructor(private readonly port: AxBridgePort) {
+    super()
+  }
+
+  protected override createAxBridgePort(): AxBridgePort {
+    return this.port
+  }
+
+  protected override async createVisionFallback(port: AxBridgePort): Promise<VisionFallback | undefined> {
+    return new NativeVisionFallback(port, { available: true })
+  }
 }
 
 describe('CoreApiImplementation#computerUse (daemon handler)', () => {
@@ -92,6 +134,14 @@ describe('CoreApiImplementation#computerUse (daemon handler)', () => {
     nodeCount: 2,
     axStatus: 'ok',
     focusedWindowTitle: 'Test Window',
+  }
+
+  const emptySnapshot: RawAxSnapshot = {
+    window: { title: 'Canvas', bounds: [0, 0, 800, 600] },
+    elements: [],
+    nodeCount: 0,
+    axStatus: 'empty',
+    focusedWindowTitle: 'Canvas',
   }
 
   it('maps params.threshold onto the ComputerUse vision-fallback gate (regression: silent no-op)', async () => {
@@ -143,6 +193,21 @@ describe('CoreApiImplementation#computerUse (daemon handler)', () => {
     expect(port.acts[0]?.elementPath).toEqual([0, 0])
     // Exactly one native snapshot round trip — the lazy self-snapshot, not zero.
     expect(port.snapshotCalls).toBe(1)
+  })
+
+  it('constructs and invokes the real NativeVisionFallback when AX is empty', async () => {
+    const port = new FakeAxBridgePort(emptySnapshot)
+    port.visionGroundings = [{ label: 'Play', bounds: [10, 20, 40, 20], confidence: 0.88 }]
+    const core = new HandlerVisionTestCore(port)
+
+    const result = (await core.computerUse({ action: 'snapshot' })) as ComputerUseSnapshotResult
+
+    expect(result.axStatus).toBe('ok')
+    expect(result.needsVisionFallback).toBe(false)
+    expect(result.fallbackReason).toBe('vision-fallback-applied')
+    expect(result.nodes).toMatchObject([
+      { source: 'vision', role: 'AXButton', label: 'Play', bounds: [10, 20, 40, 20], confidence: 0.88 },
+    ])
   })
 
   it('maps an AX permission error to the daemon permission_denied/403 path', async () => {

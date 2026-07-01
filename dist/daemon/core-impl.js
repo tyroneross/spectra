@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { ComputerUse } from '../computer-use/computer-use.js';
 import { NativeAxBridgePort } from '../computer-use/native-port.js';
 import { AxPermissionError } from '../computer-use/port.js';
+import { NativeVisionFallback } from '../computer-use/vision-fallback.js';
 import { detectFfmpeg } from '../media/ffmpeg.js';
 import { probeVideo } from '../media/pipeline.js';
 import { createContext } from '../mcp/context.js';
@@ -689,7 +690,7 @@ export class CoreApiImplementation {
         else if (params.app !== undefined)
             target.app = params.app;
         const threshold = params.action === 'snapshot' ? params.threshold : undefined;
-        const cu = this.getOrCreateComputerUse(target);
+        const cu = await this.getOrCreateComputerUse(target);
         try {
             switch (params.action) {
                 case 'snapshot': {
@@ -729,6 +730,10 @@ export class CoreApiImplementation {
     createAxBridgePort() {
         return new NativeAxBridgePort();
     }
+    /** Overridable seam so tests can inject or suppress the native vision fallback. */
+    async createVisionFallback(port, target) {
+        return NativeVisionFallback.create(port, target);
+    }
     /**
      * Returns the persistent ComputerUse for `target`, constructing it lazily
      * on first use. Reusing the instance across calls is what lets `act`'s
@@ -736,11 +741,13 @@ export class CoreApiImplementation {
      * later act/click/setValue calls in the same target benefit from — a
      * fresh-per-call instance (the pre-fix behavior) never accumulated state.
      */
-    getOrCreateComputerUse(target) {
+    async getOrCreateComputerUse(target) {
         const key = target.pid !== undefined ? `pid:${target.pid}` : target.app !== undefined ? `app:${target.app}` : 'focused';
         let cu = this.computerUseInstances.get(key);
         if (!cu) {
-            cu = new ComputerUse(this.createAxBridgePort(), { target });
+            const port = this.createAxBridgePort();
+            const visionFallback = await this.createVisionFallback(port, target);
+            cu = new ComputerUse(port, { target, visionFallback });
             this.computerUseInstances.set(key, cu);
         }
         return cu;

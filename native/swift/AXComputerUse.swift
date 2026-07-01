@@ -198,6 +198,13 @@ func computerUseAct(pid: pid_t, path: [Int], action: String, value: String?) -> 
 
 // ─── Key (CGEvent) ────────────────────────────────────────
 
+func activateComputerUseTarget(pid: pid_t) {
+    if let running = NSRunningApplication(processIdentifier: pid) {
+        let activate = { _ = running.activate(options: []) }
+        if Thread.isMainThread { activate() } else { DispatchQueue.main.sync(execute: activate) }
+    }
+}
+
 private let keyCodeMap: [String: CGKeyCode] = [
     "return": 36, "enter": 36, "tab": 48, "space": 49, "delete": 51,
     "escape": 53, "esc": 53, "left": 123, "right": 124, "down": 125, "up": 126,
@@ -208,16 +215,52 @@ func computerUseKey(pid: pid_t, key: String) -> Result<Bool, AXBridgeError> {
         return .failure(AXBridgeError(message: "Unsupported key '\(key)'. Supported: \(keyCodeMap.keys.sorted().joined(separator: ", "))"))
     }
     // Bring the target app frontmost so the key lands in the focused window.
-    if let running = NSRunningApplication(processIdentifier: pid) {
-        let activate = { _ = running.activate(options: []) }
-        if Thread.isMainThread { activate() } else { DispatchQueue.main.sync(execute: activate) }
-    }
+    activateComputerUseTarget(pid: pid)
     guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
           let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else {
         return .failure(AXBridgeError(message: "Failed to create key event"))
     }
     down.post(tap: .cghidEventTap)
     up.post(tap: .cghidEventTap)
+    return .success(true)
+}
+
+func computerUseClickAt(pid: pid_t, x: Double, y: Double) -> Result<Bool, AXBridgeError> {
+    activateComputerUseTarget(pid: pid)
+    let point = CGPoint(x: x, y: y)
+    guard let move = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left),
+          let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
+          let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
+        return .failure(AXBridgeError(message: "Failed to create mouse events"))
+    }
+    move.post(tap: .cghidEventTap)
+    down.post(tap: .cghidEventTap)
+    usleep(20_000)
+    up.post(tap: .cghidEventTap)
+    return .success(true)
+}
+
+func computerUseTypeText(pid: pid_t, text: String) -> Result<Bool, AXBridgeError> {
+    activateComputerUseTarget(pid: pid)
+    let units = Array(text.utf16)
+    if units.isEmpty { return .success(true) }
+
+    func postTextEvent(keyDown: Bool) -> Bool {
+        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: keyDown) else {
+            return false
+        }
+        units.withUnsafeBufferPointer { buffer in
+            if let base = buffer.baseAddress {
+                event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: base)
+            }
+        }
+        event.post(tap: .cghidEventTap)
+        return true
+    }
+
+    guard postTextEvent(keyDown: true), postTextEvent(keyDown: false) else {
+        return .failure(AXBridgeError(message: "Failed to create text events"))
+    }
     return .success(true)
 }
 

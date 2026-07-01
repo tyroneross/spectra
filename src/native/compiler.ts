@@ -214,6 +214,7 @@ export function compile(): void {
     '-framework', 'ApplicationServices',
     '-framework', 'AppKit',
     '-framework', 'CoreGraphics',
+    '-framework', 'Vision',
     '-framework', 'ScreenCaptureKit',
     '-framework', 'AVFoundation',
     '-framework', 'CoreMedia',

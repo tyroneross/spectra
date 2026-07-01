@@ -6,5 +6,5 @@
 export { ComputerUse } from './computer-use.js';
 export { NativeAxBridgePort } from './native-port.js';
 export { AxPermissionError, isPermissionMessage, } from './port.js';
-export { StubVisionFallback, VisionFallbackUnavailableError, } from './vision-fallback.js';
+export { NativeVisionFallback, StubVisionFallback, VisionFallbackUnavailableError, } from './vision-fallback.js';
 //# sourceMappingURL=index.js.map

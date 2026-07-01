@@ -16,9 +16,14 @@ export type {
   RawAxSnapshot,
   RawActRequest,
   RawActResult,
+  RawClickAtRequest,
   RawKeyRequest,
+  RawTypeTextRequest,
+  RawVisionAvailability,
+  RawVisionGrounding,
 } from './port.js'
 export {
+  NativeVisionFallback,
   StubVisionFallback,
   VisionFallbackUnavailableError,
 } from './vision-fallback.js'

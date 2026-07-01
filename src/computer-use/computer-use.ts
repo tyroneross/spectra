@@ -52,6 +52,15 @@ function isEditable(node: AxNode): boolean {
   return node.actions.includes('setValue') || EDITABLE_ROLES.has(node.role)
 }
 
+function isVisionNode(node: AxNode): boolean {
+  return node.source === 'vision'
+}
+
+function nodeCenter(node: AxNode): { x: number; y: number } {
+  const [x, y, width, height] = node.bounds
+  return { x: x + width / 2, y: y + height / 2 }
+}
+
 export class ComputerUse {
   private readonly port: AxBridgePort
   private readonly opts: ComputerUseOptions
@@ -200,6 +209,7 @@ export class ComputerUse {
       prefer: (n) => n.actions.includes('press'),
     })
     if (!node) return this.unresolved(action)
+    if (isVisionNode(node)) return this.clickVisionNode(action, node)
 
     const res = await this.port.act({ target: this.opts.target, elementPath: node.path, action: 'press' })
     this.invalidate() // a click may mutate the window arbitrarily
@@ -217,6 +227,7 @@ export class ComputerUse {
     if (!this.cache) await this.snapshotFocusedWindow()
     const node = this.resolveEditable(label)
     if (!node) return this.unresolved(action)
+    if (isVisionNode(node)) return this.setVisionValue(label, value, action, node)
 
     const res = await this.port.act({
       target: this.opts.target,
@@ -248,6 +259,52 @@ export class ComputerUse {
     const res = await this.port.key({ target: this.opts.target, key: action.key })
     this.invalidate()
     return { action, success: res.success, matched: true, error: res.error }
+  }
+
+  private async clickVisionNode(action: ComputerUseAction, node: AxNode): Promise<ActOutcome> {
+    const point = nodeCenter(node)
+    const res = await this.port.clickAt({ target: this.opts.target, ...point })
+    this.invalidate()
+    return {
+      action,
+      success: res.success,
+      matched: true,
+      matchedNode: node,
+      error: res.error,
+    }
+  }
+
+  private async setVisionValue(
+    _label: string,
+    value: string,
+    action: ComputerUseAction,
+    node: AxNode,
+  ): Promise<ActOutcome> {
+    const point = nodeCenter(node)
+    const click = await this.port.clickAt({ target: this.opts.target, ...point })
+    if (!click.success) {
+      this.invalidate()
+      return {
+        action,
+        success: false,
+        matched: true,
+        verified: false,
+        matchedNode: node,
+        actualValue: null,
+        error: click.error,
+      }
+    }
+    const typed = await this.port.typeText({ target: this.opts.target, text: value })
+    this.invalidate()
+    return {
+      action,
+      success: typed.success,
+      matched: true,
+      verified: false,
+      matchedNode: node,
+      actualValue: null,
+      error: typed.error,
+    }
   }
 
   // ─── Resolution ─────────────────────────────────────────

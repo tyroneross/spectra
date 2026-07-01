@@ -9,12 +9,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { NativeBridge, getSharedBridge } from '../native/bridge.js'
-import { AxPermissionError, isPermissionMessage, type AxBridgePort, type RawAxSnapshot, type RawActRequest, type RawActResult, type RawKeyRequest } from './port.js'
+import { AxPermissionError, isPermissionMessage, type AxBridgePort, type RawAxSnapshot, type RawActRequest, type RawActResult, type RawClickAtRequest, type RawKeyRequest, type RawTypeTextRequest, type RawVisionAvailability, type RawVisionGrounding } from './port.js'
 import type { AxNode, AxStatus, AxTarget } from './types.js'
+
+type NativeAxNode = Omit<AxNode, 'source'> & { source?: 'ax' | 'vision' }
 
 interface NativeFocusedSnapshot {
   window: { id: number; title: string; bounds: [number, number, number, number] } | null
-  elements: AxNode[]
+  elements: NativeAxNode[]
   nodeCount: number
   axStatus: AxStatus
   focusedWindowTitle: string
@@ -31,6 +33,10 @@ function targetParams(target?: AxTarget): Record<string, unknown> {
   if (target?.pid !== undefined) params.pid = target.pid
   else if (target?.app !== undefined) params.app = target.app
   return params
+}
+
+function normalizeNativeNode(node: NativeAxNode): AxNode {
+  return { ...node, source: node.source ?? 'ax' }
 }
 
 export class NativeAxBridgePort implements AxBridgePort {
@@ -51,7 +57,7 @@ export class NativeAxBridgePort implements AxBridgePort {
     }
     return {
       window: res.window ? { title: res.window.title, bounds: res.window.bounds } : null,
-      elements: Array.isArray(res.elements) ? res.elements : [],
+      elements: Array.isArray(res.elements) ? res.elements.map(normalizeNativeNode) : [],
       nodeCount: res.nodeCount ?? 0,
       axStatus: res.axStatus ?? 'empty',
       focusedWindowTitle: res.focusedWindowTitle ?? '',
@@ -73,6 +79,30 @@ export class NativeAxBridgePort implements AxBridgePort {
       ...targetParams(req.target),
       key: req.key,
     })
+  }
+
+  async clickAt(req: RawClickAtRequest): Promise<{ success: boolean; error?: string }> {
+    return this.bridge.send<{ success: boolean; error?: string }>('cuClickAt', {
+      ...targetParams(req.target),
+      x: req.x,
+      y: req.y,
+    })
+  }
+
+  async typeText(req: RawTypeTextRequest): Promise<{ success: boolean; error?: string }> {
+    return this.bridge.send<{ success: boolean; error?: string }>('cuTypeText', {
+      ...targetParams(req.target),
+      text: req.text,
+    })
+  }
+
+  async visionAvailable(target?: AxTarget): Promise<RawVisionAvailability> {
+    return this.bridge.send<RawVisionAvailability>('cuVisionAvailable', targetParams(target))
+  }
+
+  async visionGround(target?: AxTarget): Promise<RawVisionGrounding[]> {
+    const res = await this.bridge.send<{ elements: RawVisionGrounding[] }>('cuVisionGround', targetParams(target))
+    return Array.isArray(res.elements) ? res.elements : []
   }
 
   async preflight(): Promise<{ trusted: boolean }> {

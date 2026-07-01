@@ -26,6 +26,24 @@ export interface RawKeyRequest {
     target?: AxTarget;
     key: string;
 }
+export interface RawClickAtRequest {
+    target?: AxTarget;
+    x: number;
+    y: number;
+}
+export interface RawTypeTextRequest {
+    target?: AxTarget;
+    text: string;
+}
+export interface RawVisionAvailability {
+    available: boolean;
+    reason?: string;
+}
+export interface RawVisionGrounding {
+    label: string;
+    bounds: [number, number, number, number];
+    confidence: number;
+}
 export interface AxBridgePort {
     /** Snapshot the focused window of the target (or frontmost app). */
     snapshotFocused(target?: AxTarget): Promise<RawAxSnapshot>;
@@ -34,6 +52,16 @@ export interface AxBridgePort {
         success: boolean;
         error?: string;
     }>;
+    clickAt(req: RawClickAtRequest): Promise<{
+        success: boolean;
+        error?: string;
+    }>;
+    typeText(req: RawTypeTextRequest): Promise<{
+        success: boolean;
+        error?: string;
+    }>;
+    visionAvailable(target?: AxTarget): Promise<RawVisionAvailability>;
+    visionGround(target?: AxTarget): Promise<RawVisionGrounding[]>;
     preflight(): Promise<{
         trusted: boolean;
     }>;

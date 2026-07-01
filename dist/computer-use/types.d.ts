@@ -1,6 +1,11 @@
 /** A single Accessibility node, scoped to the focused window. `path` is a
  * child-index path RELATIVE to that window — the act() navigation key. */
 export interface AxNode {
+    /** `ax` nodes resolve through Accessibility paths; `vision` nodes resolve by
+     * screen coordinates from the focused-window OCR fallback. Optional —
+     * absent/undefined means 'ax' (the default perception path); only vision
+     * grounding needs to tag itself explicitly. */
+    source?: 'ax' | 'vision';
     role: string;
     label: string;
     value: string | null;
@@ -9,6 +14,8 @@ export interface AxNode {
     actions: string[];
     bounds: [number, number, number, number];
     path: number[];
+    /** OCR confidence for vision-grounded nodes, when provided by the native grounder. */
+    confidence?: number;
 }
 export interface AxWindow {
     title: string;

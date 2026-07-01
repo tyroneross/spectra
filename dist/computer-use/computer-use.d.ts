@@ -42,6 +42,8 @@ export declare class ComputerUse {
     private click;
     private setValue;
     private key;
+    private clickVisionNode;
+    private setVisionValue;
     private resolveEditable;
     private resolveByLabel;
     /** Unresolved target: not a crash. Signals a vision fallback when the tree is thin. */

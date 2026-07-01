@@ -80,6 +80,8 @@ import { ComputerUse } from '../computer-use/computer-use.js'
 import { NativeAxBridgePort } from '../computer-use/native-port.js'
 import { AxPermissionError } from '../computer-use/port.js'
 import type { AxBridgePort } from '../computer-use/port.js'
+import { NativeVisionFallback } from '../computer-use/vision-fallback.js'
+import type { VisionFallback } from '../computer-use/vision-fallback.js'
 import type { AxTarget } from '../computer-use/types.js'
 import type { DaemonEvent } from '../contract/wire.js'
 import { detectFfmpeg } from '../media/ffmpeg.js'
@@ -846,7 +848,7 @@ export class CoreApiImplementation implements CoreApi {
     else if (params.app !== undefined) target.app = params.app
 
     const threshold = params.action === 'snapshot' ? params.threshold : undefined
-    const cu = this.getOrCreateComputerUse(target)
+    const cu = await this.getOrCreateComputerUse(target)
     try {
       switch (params.action) {
         case 'snapshot': {
@@ -889,6 +891,11 @@ export class CoreApiImplementation implements CoreApi {
     return new NativeAxBridgePort()
   }
 
+  /** Overridable seam so tests can inject or suppress the native vision fallback. */
+  protected async createVisionFallback(port: AxBridgePort, target: AxTarget): Promise<VisionFallback | undefined> {
+    return NativeVisionFallback.create(port, target)
+  }
+
   /**
    * Returns the persistent ComputerUse for `target`, constructing it lazily
    * on first use. Reusing the instance across calls is what lets `act`'s
@@ -896,11 +903,13 @@ export class CoreApiImplementation implements CoreApi {
    * later act/click/setValue calls in the same target benefit from — a
    * fresh-per-call instance (the pre-fix behavior) never accumulated state.
    */
-  private getOrCreateComputerUse(target: AxTarget): ComputerUse {
+  private async getOrCreateComputerUse(target: AxTarget): Promise<ComputerUse> {
     const key = target.pid !== undefined ? `pid:${target.pid}` : target.app !== undefined ? `app:${target.app}` : 'focused'
     let cu = this.computerUseInstances.get(key)
     if (!cu) {
-      cu = new ComputerUse(this.createAxBridgePort(), { target })
+      const port = this.createAxBridgePort()
+      const visionFallback = await this.createVisionFallback(port, target)
+      cu = new ComputerUse(port, { target, visionFallback })
       this.computerUseInstances.set(key, cu)
     }
     return cu

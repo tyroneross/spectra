@@ -11,12 +11,13 @@
 
 import { describe, it, expect } from 'vitest'
 import { ComputerUse } from '../../src/computer-use/computer-use.js'
-import { AxPermissionError, type AxBridgePort, type RawActRequest, type RawActResult, type RawAxSnapshot, type RawKeyRequest } from '../../src/computer-use/port.js'
-import type { VisionFallback } from '../../src/computer-use/vision-fallback.js'
+import { AxPermissionError, type AxBridgePort, type RawActRequest, type RawActResult, type RawAxSnapshot, type RawClickAtRequest, type RawKeyRequest, type RawTypeTextRequest, type RawVisionAvailability, type RawVisionGrounding } from '../../src/computer-use/port.js'
+import { NativeVisionFallback, type VisionFallback } from '../../src/computer-use/vision-fallback.js'
 import type { AxNode, AxTarget } from '../../src/computer-use/types.js'
 
 function node(partial: Partial<AxNode> & { role: string; label: string; path: number[] }): AxNode {
   return {
+    source: 'ax',
     value: null,
     enabled: true,
     focused: false,
@@ -31,7 +32,12 @@ function node(partial: Partial<AxNode> & { role: string; label: string; path: nu
 class FakeAxBridgePort implements AxBridgePort {
   acts: RawActRequest[] = []
   keys: RawKeyRequest[] = []
+  clicks: RawClickAtRequest[] = []
+  typed: RawTypeTextRequest[] = []
+  visionGroundCalls = 0
   permission: 'granted' | 'denied' = 'granted'
+  visionAvailability: RawVisionAvailability = { available: false }
+  visionGroundings: RawVisionGrounding[] = []
   /** Override to simulate a field that rejects/mangles the set (verify failure). */
   echo: (req: RawActRequest) => string | null = (req) => req.value ?? null
 
@@ -53,6 +59,25 @@ class FakeAxBridgePort implements AxBridgePort {
   async key(req: RawKeyRequest): Promise<{ success: boolean }> {
     this.keys.push(req)
     return { success: true }
+  }
+
+  async clickAt(req: RawClickAtRequest): Promise<{ success: boolean }> {
+    this.clicks.push(req)
+    return { success: true }
+  }
+
+  async typeText(req: RawTypeTextRequest): Promise<{ success: boolean }> {
+    this.typed.push(req)
+    return { success: true }
+  }
+
+  async visionAvailable(): Promise<RawVisionAvailability> {
+    return this.visionAvailability
+  }
+
+  async visionGround(): Promise<RawVisionGrounding[]> {
+    this.visionGroundCalls++
+    return this.visionGroundings
   }
 
   async preflight(): Promise<{ trusted: boolean }> {
@@ -152,6 +177,10 @@ describe('ComputerUse.act — lazy self-snapshot (dead-act-path regression)', ()
       async snapshotFocused() { snapshotCalls++; return base },
       async act() { return { success: true } },
       async key() { return { success: true } },
+      async clickAt() { return { success: true } },
+      async typeText() { return { success: true } },
+      async visionAvailable() { return { available: false } },
+      async visionGround() { return [] },
       async preflight() { return { trusted: true } },
     }
     const cu = new ComputerUse(port)
@@ -242,8 +271,8 @@ describe('ComputerUse — vision-fallback gate (AX-node-count)', () => {
   it('grounds via a wired, available VisionFallback and clears the signal', async () => {
     const port = new FakeAxBridgePort(emptySnapshot)
     const grounded: AxNode[] = [
-      node({ role: 'AXButton', label: 'Play', actions: ['press'], path: [0] }),
-      node({ role: 'AXButton', label: 'Stop', actions: ['press'], path: [1] }),
+      node({ source: 'vision', role: 'AXButton', label: 'Play', actions: ['press'], bounds: [10, 20, 40, 20], path: [] }),
+      node({ source: 'vision', role: 'AXButton', label: 'Stop', actions: ['press'], bounds: [60, 20, 40, 20], path: [] }),
     ]
     let called = false
     const vf: VisionFallback = {
@@ -257,6 +286,70 @@ describe('ComputerUse — vision-fallback gate (AX-node-count)', () => {
     expect(snap.needsVisionFallback).toBe(false)
     expect(snap.fallbackReason).toBe('vision-fallback-applied')
     expect(snap.nodes).toHaveLength(2)
+    expect(snap.axStatus).toBe('ok')
+    expect(snap.nodes.every((n) => n.source === 'vision')).toBe(true)
+  })
+
+  it('NativeVisionFallback maps native OCR groundings to vision nodes and gates availability', async () => {
+    const port = new FakeAxBridgePort(emptySnapshot)
+    port.visionAvailability = { available: true }
+    port.visionGroundings = [{ label: 'Email', bounds: [20, 40, 120, 22], confidence: 0.91 }]
+
+    const vf = new NativeVisionFallback(port, { available: true })
+    expect(vf.available()).toBe(true)
+    const nodes = await vf.ground(undefined, { reason: 'empty', nodeCount: 0 })
+
+    expect(port.visionGroundCalls).toBe(1)
+    expect(nodes).toMatchObject([
+      { source: 'vision', role: 'AXTextField', label: 'Email', bounds: [20, 40, 120, 22], confidence: 0.91, path: [] },
+    ])
+
+    const unavailable = new NativeVisionFallback(port, { available: false, unavailableReason: 'Screen Recording permission not granted' })
+    expect(unavailable.available()).toBe(false)
+    await expect(unavailable.ground(undefined, { reason: 'empty', nodeCount: 0 })).rejects.toMatchObject({
+      name: 'VisionFallbackUnavailableError',
+    })
+  })
+
+  it('resolves a vision click through clickAt, never AXPress', async () => {
+    const port = new FakeAxBridgePort(emptySnapshot)
+    const vf: VisionFallback = {
+      name: 'test-vision',
+      available: () => true,
+      async ground() {
+        return [node({ source: 'vision', role: 'AXButton', label: 'Play', actions: ['press'], bounds: [10, 20, 40, 20], path: [] })]
+      },
+    }
+    const cu = new ComputerUse(port, { visionFallback: vf })
+
+    const outcome = await cu.act({ kind: 'click', label: 'Play' })
+
+    expect(outcome.matched).toBe(true)
+    expect(outcome.success).toBe(true)
+    expect(port.clicks).toEqual([{ target: undefined, x: 30, y: 30 }])
+    expect(port.acts).toHaveLength(0)
+  })
+
+  it('sets a vision field by click-to-focus then typeText and leaves verification false', async () => {
+    const port = new FakeAxBridgePort(emptySnapshot)
+    const vf: VisionFallback = {
+      name: 'test-vision',
+      available: () => true,
+      async ground() {
+        return [node({ source: 'vision', role: 'AXTextField', label: 'Email', actions: ['press', 'setValue'], bounds: [20, 40, 120, 20], path: [] })]
+      },
+    }
+    const cu = new ComputerUse(port, { visionFallback: vf, target: { app: 'CanvasApp' } })
+
+    const outcome = await cu.act({ kind: 'set-value', label: 'Email', value: 'a@b.com' })
+
+    expect(outcome.matched).toBe(true)
+    expect(outcome.success).toBe(true)
+    expect(outcome.verified).toBe(false)
+    expect(outcome.actualValue).toBeNull()
+    expect(port.clicks).toEqual([{ target: { app: 'CanvasApp' }, x: 80, y: 50 }])
+    expect(port.typed).toEqual([{ target: { app: 'CanvasApp' }, text: 'a@b.com' }])
+    expect(port.acts).toHaveLength(0)
   })
 
   it('fill-form on an empty tree returns the fallback signal, not a crash', async () => {
@@ -283,6 +376,10 @@ describe('ComputerUse — failure modes + efficiency', () => {
       async snapshotFocused() { snapshotCalls++; return base },
       async act() { return { success: true, value: 'v' } },
       async key() { return { success: true } },
+      async clickAt() { return { success: true } },
+      async typeText() { return { success: true } },
+      async visionAvailable() { return { available: false } },
+      async visionGround() { return [] },
       async preflight() { return { trusted: true } },
     }
     const cu = new ComputerUse(port)
