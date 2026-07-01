@@ -1,6 +1,6 @@
 import { bitmapTextLayer, hexColor, type BitmapTextLayer } from './framing.js'
 import type { DemoScript } from './script.js'
-import { CAPTION_BANNER_SPEC, renderStepCardPng } from './text-render.js'
+import { CAPTION_BANNER_SPEC, renderStepCardPng, type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js'
 
 export interface TimedStepCard {
   stepLabel?: string
@@ -23,6 +23,8 @@ export interface TimedStepCardsFilterOptions {
   fontSize?: number
   cacheDir?: string
   inputIndexStart?: number
+  /** Caption banner style preset (Pillow PNG path only; the ffmpeg bitmap fallback always uses CAPTION_BANNER_SPEC). */
+  style?: CaptionBannerStyle | CaptionBannerStyleName
 }
 
 export interface TimedStepCardsFilterPlan {
@@ -144,6 +146,7 @@ export async function timedStepCardsPngFilter(opts: TimedStepCardsFilterOptions)
       y,
       fontSize,
       cacheDir: opts.cacheDir,
+      style: opts.style,
     })
     if (!path) return undefined
     imagePaths.push(path)

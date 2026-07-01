@@ -11,6 +11,7 @@ export interface StepCardPngOptions {
     y?: number;
     fontSize?: number;
     cacheDir?: string;
+    style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
 export interface CaptionPngOptions {
     text: string;
@@ -18,6 +19,7 @@ export interface CaptionPngOptions {
     outH?: number;
     fontSize?: number;
     cacheDir?: string;
+    style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
 export interface FrameChromePngOptions {
     outW: number;
@@ -72,6 +74,39 @@ export declare const CAPTION_BANNER_SPEC: {
     /** Gap between the chip's right edge and the caption text as a fraction of frame width. */
     readonly captionGapRatio: 0.015;
 };
+/**
+ * Overridable subset of CAPTION_BANNER_SPEC for a named look. Everything not
+ * covered here (corner radius ratio, inset/gap ratios, caption text color)
+ * stays fixed across presets so the layout math doesn't drift, only the
+ * banner/chip color and relative sizing do. `chipScale` multiplies
+ * CAPTION_BANNER_SPEC.chipSideRatio (bigger chip on louder presets).
+ */
+export interface CaptionBannerStyle {
+    bannerBackground: {
+        r: number;
+        g: number;
+        b: number;
+    };
+    bannerBackgroundAlpha: number;
+    bannerHeightRatio: number;
+    chipColor: {
+        r: number;
+        g: number;
+        b: number;
+    };
+    chipScale: number;
+}
+export type CaptionBannerStyleName = 'cool' | 'warm' | 'bold';
+/**
+ * Named style presets for the caption banner / step chip, selectable via the
+ * optional `style` param on renderStepCardPng / renderCaptionPng (and
+ * threaded down from polishClip / polishScript). `cool` is the default and is
+ * IDENTICAL to CAPTION_BANNER_SPEC -- omitting `style` renders exactly what
+ * today's fixed constants produce.
+ */
+export declare const BANNER_STYLE_PRESETS: Record<CaptionBannerStyleName, CaptionBannerStyle>;
+/** Resolves a style name or object to a concrete CaptionBannerStyle. Absent style => 'cool' (today's behavior). */
+export declare function resolveBannerStyle(style: CaptionBannerStyle | CaptionBannerStyleName | undefined): CaptionBannerStyle;
 export declare function textRendererAvailability(): Promise<TextRendererAvailability>;
 export declare function setTextRendererAvailabilityForTests(availability: TextRendererAvailability | undefined): void;
 export declare function renderStepCardPng(options: StepCardPngOptions): Promise<string | undefined>;

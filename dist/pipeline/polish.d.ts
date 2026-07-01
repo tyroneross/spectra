@@ -1,5 +1,6 @@
 import type { FocalRect } from '../media/spotlight.js';
 import { type DemoScript } from './script.js';
+import { type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js';
 import { type CursorPoint, type ZoomClick } from './zoom-keyframes.js';
 export type ClicksJsonInput = string | ZoomClick[] | {
     clicks?: ZoomClick[];
@@ -26,6 +27,13 @@ export interface PolishClipOptions {
     outPath: string;
     fps?: number;
     spotlight?: PolishClipSpotlightOptions;
+    /**
+     * Caption banner style preset ('cool' | 'warm' | 'bold', or a custom
+     * CaptionBannerStyle object). Threaded down into the step-card/caption PNG
+     * renders. Absent => 'cool' (today's fixed look, unchanged). 'bold' also
+     * turns on the dark-crush spotlight pre-pass by default -- see `spotlight`.
+     */
+    style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
 export interface PolishScriptOptions {
     input: string;
@@ -40,6 +48,10 @@ export interface PolishScriptOptions {
      * passthrough via buildAudioArgs, or `-an` when the source is silent).
      */
     voiceover?: string;
+    /** Same whole-clip dark-crush spotlight pre-pass as PolishClipOptions.spotlight. */
+    spotlight?: PolishClipSpotlightOptions;
+    /** Same caption banner style preset as PolishClipOptions.style. */
+    style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
 export interface PolishClipResult {
     outPath: string;

@@ -4,13 +4,13 @@ import { access, mkdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { FocalRect } from '../media/spotlight.js'
+import type { CanvasSize, FocalRect } from '../media/spotlight.js'
 import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js'
 import { deriveZoomTrackFromActivity } from './auto-zoom.js'
 import { frameChromeRenderPlan, framingFilter, type FrameChromeAssets } from './framing.js'
 import { scriptDurationMs, scriptZoomWindows, type DemoScript } from './script.js'
-import { cleanupSpotlightPrePass, renderSpotlightPrePass } from './spotlight.js'
-import { renderCaptionPng } from './text-render.js'
+import { cleanupSpotlightPrePass, defaultBoldSpotlightFocal, renderSpotlightPrePass } from './spotlight.js'
+import { renderCaptionPng, type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js'
 import { buildZoomTrack, type CursorPoint, type ZoomClick } from './zoom-keyframes.js'
 import { timedZoomFilter, zoomFilter } from './zoom-render.js'
 
@@ -44,6 +44,13 @@ export interface PolishClipOptions {
   outPath: string
   fps?: number
   spotlight?: PolishClipSpotlightOptions
+  /**
+   * Caption banner style preset ('cool' | 'warm' | 'bold', or a custom
+   * CaptionBannerStyle object). Threaded down into the step-card/caption PNG
+   * renders. Absent => 'cool' (today's fixed look, unchanged). 'bold' also
+   * turns on the dark-crush spotlight pre-pass by default -- see `spotlight`.
+   */
+  style?: CaptionBannerStyle | CaptionBannerStyleName
 }
 
 export interface PolishScriptOptions {
@@ -59,6 +66,27 @@ export interface PolishScriptOptions {
    * passthrough via buildAudioArgs, or `-an` when the source is silent).
    */
   voiceover?: string
+  /** Same whole-clip dark-crush spotlight pre-pass as PolishClipOptions.spotlight. */
+  spotlight?: PolishClipSpotlightOptions
+  /** Same caption banner style preset as PolishClipOptions.style. */
+  style?: CaptionBannerStyle | CaptionBannerStyleName
+}
+
+/**
+ * Resolves the effective spotlight pre-pass options: honors an explicit
+ * `spotlight` as-is, otherwise turns it on with a sensible default focal rect
+ * when style is the 'bold' preset (bold = cinematic dark-crush by default).
+ * Only the string preset name 'bold' triggers this -- a custom style object
+ * isn't assumed to want the spotlight look.
+ */
+function resolveSpotlightOptions(
+  requested: PolishClipSpotlightOptions | undefined,
+  style: CaptionBannerStyle | CaptionBannerStyleName | undefined,
+  canvas: CanvasSize,
+): PolishClipSpotlightOptions | undefined {
+  if (requested) return requested
+  if (style !== 'bold') return undefined
+  return { focal: defaultBoldSpotlightFocal(canvas) }
 }
 
 export interface PolishClipResult {
@@ -111,16 +139,17 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     probeHasAudio(options.input),
   ])
 
+  const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height })
   let renderInput = options.input
   let spotlightTempPath: string | undefined
-  if (options.spotlight) {
+  if (spotlight) {
     spotlightTempPath = await renderSpotlightPrePass({
       input: options.input,
       canvas: { w: metadata.width, h: metadata.height },
-      focal: options.spotlight.focal,
-      dim: options.spotlight.dim,
-      blur: options.spotlight.blur,
-      feather: options.spotlight.feather,
+      focal: spotlight.focal,
+      dim: spotlight.dim,
+      blur: spotlight.blur,
+      feather: spotlight.feather,
       hasAudio,
     })
     renderInput = spotlightTempPath
@@ -145,7 +174,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
     nextInputIndex += 1
     const captionText = options.caption?.trim()
     const captionOverlay = captionText
-      ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
+      ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
       : undefined
     if (captionOverlay) nextInputIndex += 1
     const fallbackCaption = captionOverlay ? undefined : captionText
@@ -210,86 +239,108 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     probeVideo(options.input),
     probeHasAudio(options.input),
   ])
-  const durationMs = metadata.durationMs ?? scriptDurationMs(options.script)
-  const frames = frameCount(durationMs, fps)
-  const finalCaption = options.script.finalCaption?.trim()
-  let nextInputIndex = 1
-  const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps)
-  nextInputIndex += 1
-  const captionOverlay = finalCaption
-    ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
-    : undefined
-  if (captionOverlay) nextInputIndex += 1
 
-  const fallbackCaption = captionOverlay ? undefined : finalCaption
-  const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
-  const zoom = timedZoomFilter(scriptZoomWindows(options.script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
-  const frame = framingFilter({
-    inputLabel: 'zoomed',
-    outputLabel: 'framed',
-    caption: fallbackCaption,
-    captionMode,
-    fps,
-    outW: OUTPUT_W,
-    outH: OUTPUT_H,
-    chromeAssets: chrome.chromeAssets,
-  })
-  const cardInputLabel = captionOverlay?.outputLabel ?? 'framed'
-  const cardPlan = await timedStepCardsOverlayPlan({
-    inputLabel: cardInputLabel,
-    outputLabel: 'v',
-    cards: cardsFromScript(options.script),
-    fps,
-    outW: OUTPUT_W,
-    outH: OUTPUT_H,
-    inputIndexStart: nextInputIndex,
-  })
-  const imagePaths = [
-    ...(captionOverlay ? [captionOverlay.path] : []),
-    ...cardPlan.imagePaths,
-  ]
-  const filterComplex = [
-    `[0:v]fps=${fps},${zoom}[zoomed]`,
-    frame,
-    ...(captionOverlay ? [captionOverlay.filter] : []),
-    cardPlan.filter,
-  ].join(';')
+  const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height })
+  let renderInput = options.input
+  let spotlightTempPath: string | undefined
+  if (spotlight) {
+    spotlightTempPath = await renderSpotlightPrePass({
+      input: options.input,
+      canvas: { w: metadata.width, h: metadata.height },
+      focal: spotlight.focal,
+      dim: spotlight.dim,
+      blur: spotlight.blur,
+      feather: spotlight.feather,
+      hasAudio,
+    })
+    renderInput = spotlightTempPath
+  }
 
-  // Input order is load-bearing for the filter graph: 0 = source video, 1 =
-  // chrome mask, then the looped overlay images. A voiceover, when present, is
-  // appended LAST so its input index is deterministic and the existing
-  // [0:v]/mask/image indices are undisturbed.
-  const voiceoverIndex = 2 + imagePaths.length // 0=video, 1=mask, 2..=images
-  const audio = options.voiceover
-    ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps)
-    : buildAudioArgs(hasAudio)
-  await mkdir(dirname(options.outPath), { recursive: true })
-  await runProcess('ffmpeg', [
-    '-y',
-    '-i', options.input,
-    ...chrome.maskInputArgs,
-    ...imageInputArgs(imagePaths, fps),
-    ...(options.voiceover ? ['-i', options.voiceover] : []),
-    '-filter_complex', filterComplex,
-    '-map', '[v]',
-    ...audio.mapArgs,
-    '-frames:v', String(Math.max(1, frames)),
-    ...audio.codecArgs,
-    '-r', String(fps),
-    '-c:v', 'libx264',
-    '-pix_fmt', 'yuv420p',
-    '-crf', '18',
-    '-movflags', '+faststart',
-    options.outPath,
-  ])
+  try {
+    const durationMs = metadata.durationMs ?? scriptDurationMs(options.script)
+    const frames = frameCount(durationMs, fps)
+    const finalCaption = options.script.finalCaption?.trim()
+    let nextInputIndex = 1
+    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps)
+    nextInputIndex += 1
+    const captionOverlay = finalCaption
+      ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
+      : undefined
+    if (captionOverlay) nextInputIndex += 1
 
-  return {
-    outPath: options.outPath,
-    width: OUTPUT_W,
-    height: OUTPUT_H,
-    fps,
-    durationMs,
-    frames,
+    const fallbackCaption = captionOverlay ? undefined : finalCaption
+    const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext'
+    const zoom = timedZoomFilter(scriptZoomWindows(options.script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps)
+    const frame = framingFilter({
+      inputLabel: 'zoomed',
+      outputLabel: 'framed',
+      caption: fallbackCaption,
+      captionMode,
+      fps,
+      outW: OUTPUT_W,
+      outH: OUTPUT_H,
+      chromeAssets: chrome.chromeAssets,
+    })
+    const cardInputLabel = captionOverlay?.outputLabel ?? 'framed'
+    const cardPlan = await timedStepCardsOverlayPlan({
+      inputLabel: cardInputLabel,
+      outputLabel: 'v',
+      cards: cardsFromScript(options.script),
+      fps,
+      outW: OUTPUT_W,
+      outH: OUTPUT_H,
+      inputIndexStart: nextInputIndex,
+      style: options.style,
+    })
+    const imagePaths = [
+      ...(captionOverlay ? [captionOverlay.path] : []),
+      ...cardPlan.imagePaths,
+    ]
+    const filterComplex = [
+      `[0:v]fps=${fps},${zoom}[zoomed]`,
+      frame,
+      ...(captionOverlay ? [captionOverlay.filter] : []),
+      cardPlan.filter,
+    ].join(';')
+
+    // Input order is load-bearing for the filter graph: 0 = source video, 1 =
+    // chrome mask, then the looped overlay images. A voiceover, when present, is
+    // appended LAST so its input index is deterministic and the existing
+    // [0:v]/mask/image indices are undisturbed.
+    const voiceoverIndex = 2 + imagePaths.length // 0=video, 1=mask, 2..=images
+    const audio = options.voiceover
+      ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps)
+      : buildAudioArgs(hasAudio)
+    await mkdir(dirname(options.outPath), { recursive: true })
+    await runProcess('ffmpeg', [
+      '-y',
+      '-i', renderInput,
+      ...chrome.maskInputArgs,
+      ...imageInputArgs(imagePaths, fps),
+      ...(options.voiceover ? ['-i', options.voiceover] : []),
+      '-filter_complex', filterComplex,
+      '-map', '[v]',
+      ...audio.mapArgs,
+      '-frames:v', String(Math.max(1, frames)),
+      ...audio.codecArgs,
+      '-r', String(fps),
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-crf', '18',
+      '-movflags', '+faststart',
+      options.outPath,
+    ])
+
+    return {
+      outPath: options.outPath,
+      width: OUTPUT_W,
+      height: OUTPUT_H,
+      fps,
+      durationMs,
+      frames,
+    }
+  } finally {
+    if (spotlightTempPath) await cleanupSpotlightPrePass(spotlightTempPath)
   }
 }
 
@@ -366,6 +417,7 @@ async function buildClipCaptionOverlay(
   inputIndex: number,
   outW: number,
   outH: number,
+  style: CaptionBannerStyle | CaptionBannerStyleName | undefined,
 ): Promise<CaptionOverlay | undefined> {
   return buildTimedCaptionOverlay(
     caption,
@@ -375,6 +427,7 @@ async function buildClipCaptionOverlay(
     outH,
     'framed',
     'v',
+    style,
   )
 }
 
@@ -385,13 +438,14 @@ async function buildCaptionOverlay(
   inputIndex: number,
   outW: number,
   outH: number,
+  style: CaptionBannerStyle | CaptionBannerStyleName | undefined,
 ): Promise<CaptionOverlay | undefined> {
   const window = finalCaptionWindow(script, finalCaption, durationMs)
   // No valid placement (e.g. the matched beat is truncated out of a short input):
   // skip the final caption rather than defaulting it to the whole clip, which would
   // overlap the per-beat step cards.
   if (!window) return undefined
-  return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned')
+  return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned', style)
 }
 
 async function buildTimedCaptionOverlay(
@@ -402,11 +456,13 @@ async function buildTimedCaptionOverlay(
   outH: number,
   inputLabel: string,
   outputLabel: string,
+  style: CaptionBannerStyle | CaptionBannerStyleName | undefined,
 ): Promise<CaptionOverlay | undefined> {
   const path = await renderCaptionPng({
     text,
     outW,
     outH,
+    style,
   })
   if (!path) return undefined
 

@@ -1,4 +1,5 @@
 import type { DemoScript } from './script.js';
+import { type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js';
 export interface TimedStepCard {
     stepLabel?: string;
     stepText: string;
@@ -19,6 +20,8 @@ export interface TimedStepCardsFilterOptions {
     fontSize?: number;
     cacheDir?: string;
     inputIndexStart?: number;
+    /** Caption banner style preset (Pillow PNG path only; the ffmpeg bitmap fallback always uses CAPTION_BANNER_SPEC). */
+    style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
 export interface TimedStepCardsFilterPlan {
     filter: string;

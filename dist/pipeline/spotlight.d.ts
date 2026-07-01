@@ -11,6 +11,14 @@ export declare const DARK_SPOTLIGHT_DEFAULTS: {
     readonly blur: 8;
     readonly feather: 26;
 };
+/**
+ * Default focal rect for the `bold` style preset's cinematic auto-spotlight
+ * (polishClip/polishScript apply this when style is 'bold' and the caller
+ * didn't pass an explicit `spotlight`). A centered rect covering 86% of the
+ * frame in both axes -- a reasonable default focal region for content that
+ * hasn't declared its own point of interest.
+ */
+export declare function defaultBoldSpotlightFocal(canvas: CanvasSize): FocalRect;
 export interface SpotlightStageOptions {
     focal: FocalRect;
     canvas: CanvasSize;

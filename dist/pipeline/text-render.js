@@ -40,6 +40,49 @@ export const CAPTION_BANNER_SPEC = {
     /** Gap between the chip's right edge and the caption text as a fraction of frame width. */
     captionGapRatio: 0.015,
 };
+/**
+ * Named style presets for the caption banner / step chip, selectable via the
+ * optional `style` param on renderStepCardPng / renderCaptionPng (and
+ * threaded down from polishClip / polishScript). `cool` is the default and is
+ * IDENTICAL to CAPTION_BANNER_SPEC -- omitting `style` renders exactly what
+ * today's fixed constants produce.
+ */
+export const BANNER_STYLE_PRESETS = {
+    cool: {
+        bannerBackground: { ...CAPTION_BANNER_SPEC.bannerBackground },
+        bannerBackgroundAlpha: CAPTION_BANNER_SPEC.bannerBackgroundAlpha,
+        bannerHeightRatio: CAPTION_BANNER_SPEC.bannerHeightRatio,
+        chipColor: { ...CAPTION_BANNER_SPEC.chipColor },
+        chipScale: 1.0,
+    },
+    warm: {
+        bannerBackground: { r: 17, g: 15, b: 13 },
+        bannerBackgroundAlpha: 0.92,
+        bannerHeightRatio: 0.13,
+        chipColor: { r: 240, g: 182, b: 94 }, // #F0B65E
+        chipScale: 1.08,
+    },
+    bold: {
+        bannerBackground: { r: 0, g: 0, b: 0 },
+        bannerBackgroundAlpha: 0.96,
+        bannerHeightRatio: 0.14,
+        chipColor: { r: 129, g: 140, b: 248 }, // #818CF8
+        chipScale: 1.18,
+    },
+};
+const DEFAULT_BANNER_STYLE_NAME = 'cool';
+/** Resolves a style name or object to a concrete CaptionBannerStyle. Absent style => 'cool' (today's behavior). */
+export function resolveBannerStyle(style) {
+    if (!style)
+        return BANNER_STYLE_PRESETS[DEFAULT_BANNER_STYLE_NAME];
+    if (typeof style === 'string') {
+        const preset = BANNER_STYLE_PRESETS[style];
+        if (!preset)
+            throw new Error(`Unknown caption banner style: ${style}`);
+        return preset;
+    }
+    return style;
+}
 let availabilityPromise;
 let availabilityOverride;
 export async function textRendererAvailability() {
@@ -70,6 +113,7 @@ export async function renderStepCardPng(options) {
         fontIndex: DEFAULT_FONT_INDEX,
         stepText,
         stepLabel: options.stepLabel?.trim() || undefined,
+        style: resolveBannerStyle(options.style),
     };
     const outPath = cachedPath(options.cacheDir, requestBase);
     const request = { ...requestBase, outPath };
@@ -88,6 +132,7 @@ export async function renderCaptionPng(options) {
         fontPath: DEFAULT_FONT_PATH,
         fontIndex: DEFAULT_FONT_INDEX,
         text,
+        style: resolveBannerStyle(options.style),
     };
     const outPath = cachedPath(options.cacheDir, requestBase);
     const request = { ...requestBase, outPath };
@@ -180,6 +225,12 @@ import os
 import sys
 from PIL import Image, ImageDraw, ImageFont
 
+# Parsed up front (rather than at the bottom of the script) so the
+# style-derived banner/chip constants below can read request['style'] --
+# style is per-request (varies by caption-banner preset), unlike the other
+# constants here which used to be fixed at script-generation time.
+request = json.load(sys.stdin)
+
 def load_font(path, size, index):
     return ImageFont.truetype(path, int(size), index=int(index))
 
@@ -202,11 +253,18 @@ def draw_centered_text(draw, x, center_y, text, font, fill):
     y = center_y - (height / 2) - box[1]
     draw.text((x, y), text, font=font, fill=fill)
 
-BANNER_HEIGHT_RATIO = ${CAPTION_BANNER_SPEC.bannerHeightRatio}
-BANNER_BG = (${CAPTION_BANNER_SPEC.bannerBackground.r}, ${CAPTION_BANNER_SPEC.bannerBackground.g}, ${CAPTION_BANNER_SPEC.bannerBackground.b}, ${Math.round(255 * CAPTION_BANNER_SPEC.bannerBackgroundAlpha)})
-CHIP_SIDE_RATIO = ${CAPTION_BANNER_SPEC.chipSideRatio}
+# Style-overridable (per BANNER_STYLE_PRESETS in text-render.ts); falls back
+# to the canonical 'cool' CAPTION_BANNER_SPEC values when style is absent
+# (frame-background/frame-mask requests, or any caller that skips it).
+_style = request.get('style') or {}
+_banner_bg = _style.get('bannerBackground', {'r': ${CAPTION_BANNER_SPEC.bannerBackground.r}, 'g': ${CAPTION_BANNER_SPEC.bannerBackground.g}, 'b': ${CAPTION_BANNER_SPEC.bannerBackground.b}})
+_chip_color = _style.get('chipColor', {'r': ${CAPTION_BANNER_SPEC.chipColor.r}, 'g': ${CAPTION_BANNER_SPEC.chipColor.g}, 'b': ${CAPTION_BANNER_SPEC.chipColor.b}})
+
+BANNER_HEIGHT_RATIO = float(_style.get('bannerHeightRatio', ${CAPTION_BANNER_SPEC.bannerHeightRatio}))
+BANNER_BG = (int(_banner_bg['r']), int(_banner_bg['g']), int(_banner_bg['b']), round(255 * float(_style.get('bannerBackgroundAlpha', ${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}))))
+CHIP_SIDE_RATIO = ${CAPTION_BANNER_SPEC.chipSideRatio} * float(_style.get('chipScale', 1.0))
 CHIP_RADIUS_RATIO = ${CAPTION_BANNER_SPEC.chipCornerRadiusRatio}
-CHIP_COLOR = (${CAPTION_BANNER_SPEC.chipColor.r}, ${CAPTION_BANNER_SPEC.chipColor.g}, ${CAPTION_BANNER_SPEC.chipColor.b}, 255)
+CHIP_COLOR = (int(_chip_color['r']), int(_chip_color['g']), int(_chip_color['b']), 255)
 CHIP_INSET_X_RATIO = ${CAPTION_BANNER_SPEC.chipInsetXRatio}
 CAPTION_TEXT_COLOR = (${CAPTION_BANNER_SPEC.captionTextColor.r}, ${CAPTION_BANNER_SPEC.captionTextColor.g}, ${CAPTION_BANNER_SPEC.captionTextColor.b}, 255)
 CAPTION_GAP_RATIO = ${CAPTION_BANNER_SPEC.captionGapRatio}
@@ -271,7 +329,6 @@ def render_caption(request, draw, image):
     x = (out_w - text_w) / 2 - box[0]
     draw_centered_text(draw, x, center_y, text, font, CAPTION_TEXT_COLOR)
 
-request = json.load(sys.stdin)
 image = Image.new('RGBA', (int(request['outW']), int(request['outH'])), (0, 0, 0, 0))
 draw = ImageDraw.Draw(image)
 

@@ -86,6 +86,7 @@ export async function timedStepCardsPngFilter(opts) {
             y,
             fontSize,
             cacheDir: opts.cacheDir,
+            style: opts.style,
         });
         if (!path)
             return undefined;

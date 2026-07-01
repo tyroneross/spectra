@@ -8,10 +8,24 @@ import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js';
 import { deriveZoomTrackFromActivity } from './auto-zoom.js';
 import { frameChromeRenderPlan, framingFilter } from './framing.js';
 import { scriptDurationMs, scriptZoomWindows } from './script.js';
-import { cleanupSpotlightPrePass, renderSpotlightPrePass } from './spotlight.js';
+import { cleanupSpotlightPrePass, defaultBoldSpotlightFocal, renderSpotlightPrePass } from './spotlight.js';
 import { renderCaptionPng } from './text-render.js';
 import { buildZoomTrack } from './zoom-keyframes.js';
 import { timedZoomFilter, zoomFilter } from './zoom-render.js';
+/**
+ * Resolves the effective spotlight pre-pass options: honors an explicit
+ * `spotlight` as-is, otherwise turns it on with a sensible default focal rect
+ * when style is the 'bold' preset (bold = cinematic dark-crush by default).
+ * Only the string preset name 'bold' triggers this -- a custom style object
+ * isn't assumed to want the spotlight look.
+ */
+function resolveSpotlightOptions(requested, style, canvas) {
+    if (requested)
+        return requested;
+    if (style !== 'bold')
+        return undefined;
+    return { focal: defaultBoldSpotlightFocal(canvas) };
+}
 const OUTPUT_W = 1920;
 const OUTPUT_H = 1080;
 const DEFAULT_FPS = 60;
@@ -27,16 +41,17 @@ export async function polishClip(options) {
         probeVideo(options.input),
         probeHasAudio(options.input),
     ]);
+    const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height });
     let renderInput = options.input;
     let spotlightTempPath;
-    if (options.spotlight) {
+    if (spotlight) {
         spotlightTempPath = await renderSpotlightPrePass({
             input: options.input,
             canvas: { w: metadata.width, h: metadata.height },
-            focal: options.spotlight.focal,
-            dim: options.spotlight.dim,
-            blur: options.spotlight.blur,
-            feather: options.spotlight.feather,
+            focal: spotlight.focal,
+            dim: spotlight.dim,
+            blur: spotlight.blur,
+            feather: spotlight.feather,
             hasAudio,
         });
         renderInput = spotlightTempPath;
@@ -60,7 +75,7 @@ export async function polishClip(options) {
         nextInputIndex += 1;
         const captionText = options.caption?.trim();
         const captionOverlay = captionText
-            ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
+            ? await buildClipCaptionOverlay(captionText, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
             : undefined;
         if (captionOverlay)
             nextInputIndex += 1;
@@ -124,85 +139,107 @@ export async function polishScript(options) {
         probeVideo(options.input),
         probeHasAudio(options.input),
     ]);
-    const durationMs = metadata.durationMs ?? scriptDurationMs(options.script);
-    const frames = frameCount(durationMs, fps);
-    const finalCaption = options.script.finalCaption?.trim();
-    let nextInputIndex = 1;
-    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
-    nextInputIndex += 1;
-    const captionOverlay = finalCaption
-        ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H)
-        : undefined;
-    if (captionOverlay)
+    const spotlight = resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height });
+    let renderInput = options.input;
+    let spotlightTempPath;
+    if (spotlight) {
+        spotlightTempPath = await renderSpotlightPrePass({
+            input: options.input,
+            canvas: { w: metadata.width, h: metadata.height },
+            focal: spotlight.focal,
+            dim: spotlight.dim,
+            blur: spotlight.blur,
+            feather: spotlight.feather,
+            hasAudio,
+        });
+        renderInput = spotlightTempPath;
+    }
+    try {
+        const durationMs = metadata.durationMs ?? scriptDurationMs(options.script);
+        const frames = frameCount(durationMs, fps);
+        const finalCaption = options.script.finalCaption?.trim();
+        let nextInputIndex = 1;
+        const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
         nextInputIndex += 1;
-    const fallbackCaption = captionOverlay ? undefined : finalCaption;
-    const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext';
-    const zoom = timedZoomFilter(scriptZoomWindows(options.script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
-    const frame = framingFilter({
-        inputLabel: 'zoomed',
-        outputLabel: 'framed',
-        caption: fallbackCaption,
-        captionMode,
-        fps,
-        outW: OUTPUT_W,
-        outH: OUTPUT_H,
-        chromeAssets: chrome.chromeAssets,
-    });
-    const cardInputLabel = captionOverlay?.outputLabel ?? 'framed';
-    const cardPlan = await timedStepCardsOverlayPlan({
-        inputLabel: cardInputLabel,
-        outputLabel: 'v',
-        cards: cardsFromScript(options.script),
-        fps,
-        outW: OUTPUT_W,
-        outH: OUTPUT_H,
-        inputIndexStart: nextInputIndex,
-    });
-    const imagePaths = [
-        ...(captionOverlay ? [captionOverlay.path] : []),
-        ...cardPlan.imagePaths,
-    ];
-    const filterComplex = [
-        `[0:v]fps=${fps},${zoom}[zoomed]`,
-        frame,
-        ...(captionOverlay ? [captionOverlay.filter] : []),
-        cardPlan.filter,
-    ].join(';');
-    // Input order is load-bearing for the filter graph: 0 = source video, 1 =
-    // chrome mask, then the looped overlay images. A voiceover, when present, is
-    // appended LAST so its input index is deterministic and the existing
-    // [0:v]/mask/image indices are undisturbed.
-    const voiceoverIndex = 2 + imagePaths.length; // 0=video, 1=mask, 2..=images
-    const audio = options.voiceover
-        ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps)
-        : buildAudioArgs(hasAudio);
-    await mkdir(dirname(options.outPath), { recursive: true });
-    await runProcess('ffmpeg', [
-        '-y',
-        '-i', options.input,
-        ...chrome.maskInputArgs,
-        ...imageInputArgs(imagePaths, fps),
-        ...(options.voiceover ? ['-i', options.voiceover] : []),
-        '-filter_complex', filterComplex,
-        '-map', '[v]',
-        ...audio.mapArgs,
-        '-frames:v', String(Math.max(1, frames)),
-        ...audio.codecArgs,
-        '-r', String(fps),
-        '-c:v', 'libx264',
-        '-pix_fmt', 'yuv420p',
-        '-crf', '18',
-        '-movflags', '+faststart',
-        options.outPath,
-    ]);
-    return {
-        outPath: options.outPath,
-        width: OUTPUT_W,
-        height: OUTPUT_H,
-        fps,
-        durationMs,
-        frames,
-    };
+        const captionOverlay = finalCaption
+            ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
+            : undefined;
+        if (captionOverlay)
+            nextInputIndex += 1;
+        const fallbackCaption = captionOverlay ? undefined : finalCaption;
+        const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext';
+        const zoom = timedZoomFilter(scriptZoomWindows(options.script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
+        const frame = framingFilter({
+            inputLabel: 'zoomed',
+            outputLabel: 'framed',
+            caption: fallbackCaption,
+            captionMode,
+            fps,
+            outW: OUTPUT_W,
+            outH: OUTPUT_H,
+            chromeAssets: chrome.chromeAssets,
+        });
+        const cardInputLabel = captionOverlay?.outputLabel ?? 'framed';
+        const cardPlan = await timedStepCardsOverlayPlan({
+            inputLabel: cardInputLabel,
+            outputLabel: 'v',
+            cards: cardsFromScript(options.script),
+            fps,
+            outW: OUTPUT_W,
+            outH: OUTPUT_H,
+            inputIndexStart: nextInputIndex,
+            style: options.style,
+        });
+        const imagePaths = [
+            ...(captionOverlay ? [captionOverlay.path] : []),
+            ...cardPlan.imagePaths,
+        ];
+        const filterComplex = [
+            `[0:v]fps=${fps},${zoom}[zoomed]`,
+            frame,
+            ...(captionOverlay ? [captionOverlay.filter] : []),
+            cardPlan.filter,
+        ].join(';');
+        // Input order is load-bearing for the filter graph: 0 = source video, 1 =
+        // chrome mask, then the looped overlay images. A voiceover, when present, is
+        // appended LAST so its input index is deterministic and the existing
+        // [0:v]/mask/image indices are undisturbed.
+        const voiceoverIndex = 2 + imagePaths.length; // 0=video, 1=mask, 2..=images
+        const audio = options.voiceover
+            ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps)
+            : buildAudioArgs(hasAudio);
+        await mkdir(dirname(options.outPath), { recursive: true });
+        await runProcess('ffmpeg', [
+            '-y',
+            '-i', renderInput,
+            ...chrome.maskInputArgs,
+            ...imageInputArgs(imagePaths, fps),
+            ...(options.voiceover ? ['-i', options.voiceover] : []),
+            '-filter_complex', filterComplex,
+            '-map', '[v]',
+            ...audio.mapArgs,
+            '-frames:v', String(Math.max(1, frames)),
+            ...audio.codecArgs,
+            '-r', String(fps),
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-crf', '18',
+            '-movflags', '+faststart',
+            options.outPath,
+        ]);
+        return {
+            outPath: options.outPath,
+            width: OUTPUT_W,
+            height: OUTPUT_H,
+            fps,
+            durationMs,
+            frames,
+        };
+    }
+    finally {
+        if (spotlightTempPath)
+            await cleanupSpotlightPrePass(spotlightTempPath);
+    }
 }
 /**
  * Renders the rounded-rect mask ONCE via a single ffmpeg pass (see
@@ -262,23 +299,24 @@ async function renderFrameChromeAssets(inputIndexStart, outW, outH, fps) {
 async function exists(path) {
     return access(path).then(() => true, () => false);
 }
-async function buildClipCaptionOverlay(caption, durationMs, inputIndex, outW, outH) {
-    return buildTimedCaptionOverlay(caption, { startMs: 0, endMs: Math.max(0, durationMs) }, inputIndex, outW, outH, 'framed', 'v');
+async function buildClipCaptionOverlay(caption, durationMs, inputIndex, outW, outH, style) {
+    return buildTimedCaptionOverlay(caption, { startMs: 0, endMs: Math.max(0, durationMs) }, inputIndex, outW, outH, 'framed', 'v', style);
 }
-async function buildCaptionOverlay(script, finalCaption, durationMs, inputIndex, outW, outH) {
+async function buildCaptionOverlay(script, finalCaption, durationMs, inputIndex, outW, outH, style) {
     const window = finalCaptionWindow(script, finalCaption, durationMs);
     // No valid placement (e.g. the matched beat is truncated out of a short input):
     // skip the final caption rather than defaulting it to the whole clip, which would
     // overlap the per-beat step cards.
     if (!window)
         return undefined;
-    return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned');
+    return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned', style);
 }
-async function buildTimedCaptionOverlay(text, window, inputIndex, outW, outH, inputLabel, outputLabel) {
+async function buildTimedCaptionOverlay(text, window, inputIndex, outW, outH, inputLabel, outputLabel, style) {
     const path = await renderCaptionPng({
         text,
         outW,
         outH,
+        style,
     });
     if (!path)
         return undefined;

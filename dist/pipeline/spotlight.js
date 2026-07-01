@@ -27,6 +27,23 @@ export const DARK_SPOTLIGHT_DEFAULTS = {
     feather: 26,
 };
 /**
+ * Default focal rect for the `bold` style preset's cinematic auto-spotlight
+ * (polishClip/polishScript apply this when style is 'bold' and the caller
+ * didn't pass an explicit `spotlight`). A centered rect covering 86% of the
+ * frame in both axes -- a reasonable default focal region for content that
+ * hasn't declared its own point of interest.
+ */
+export function defaultBoldSpotlightFocal(canvas) {
+    const w = Math.round(canvas.w * 0.86);
+    const h = Math.round(canvas.h * 0.86);
+    return {
+        x: Math.round((canvas.w - w) / 2),
+        y: Math.round((canvas.h - h) / 2),
+        w,
+        h,
+    };
+}
+/**
  * Builds the dark-crush spotlight filtergraph stage (output label `[out]`).
  * Any field the caller omits falls back to DARK_SPOTLIGHT_DEFAULTS rather
  * than buildSpotlightFilter's own mild-dim defaults. Pure function — no
