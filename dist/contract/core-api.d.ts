@@ -993,8 +993,29 @@ export interface DemoPolishClipResult {
     frames: number;
 }
 export type DemoPolishScriptResult = DemoPolishClipResult;
-export type DemoParams = DemoScanParams | DemoPolishParams | DemoAutoRampParams | DemoRecordCompositeParams | DemoPolishClipParams | DemoPolishScriptParams;
-export type DemoResult = DemoScanResult | DemoPolishResult | AutoRampDemoResult | DemoPolishClipResult | DemoPolishScriptResult | RecordCompositeResult;
+/** Mirrors pipeline/script-runner.ts BeatActionLog. */
+export interface DemoRunScriptLogEntry {
+    beatId: string;
+    kind: DemoScriptAction['kind'];
+    ok: boolean;
+    detail: string;
+}
+/**
+ * Execute a DemoScript's beat actions live against an already-open CDP page
+ * target — no rendering. Mirrors pipeline/script-runner.ts runDemoScript's
+ * `{ script, cdpUrl }` inputs (driver-based execution is a Node-only option
+ * not exposed over the wire).
+ */
+export interface DemoRunScriptParams {
+    action: 'run-script';
+    script: DemoScript;
+    cdpUrl: string;
+}
+export interface DemoRunScriptResult {
+    log: DemoRunScriptLogEntry[];
+}
+export type DemoParams = DemoScanParams | DemoPolishParams | DemoAutoRampParams | DemoRecordCompositeParams | DemoPolishClipParams | DemoPolishScriptParams | DemoRunScriptParams;
+export type DemoResult = DemoScanResult | DemoPolishResult | AutoRampDemoResult | DemoPolishClipResult | DemoPolishScriptResult | DemoRunScriptResult | RecordCompositeResult;
 export interface CoreApi {
     health(params?: HealthParams): Promise<HealthResult>;
     getPermissions(params?: GetPermissionsParams): Promise<PermissionsResult>;

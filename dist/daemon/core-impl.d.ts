@@ -34,6 +34,8 @@ export declare class CoreApiImplementation implements CoreApi {
     private readonly compositeRecordings;
     constructor(options?: CoreApiImplementationOptions);
     protected spawnCursorSampler(args: string[]): ChildProcess;
+    /** Overridable seam so tests can simulate a missing/failed-to-build binary without compiling. */
+    protected ensureCursorSamplerBinary(): string;
     health(params?: HealthParams): Promise<HealthResult>;
     getPermissions(params?: GetPermissionsParams): Promise<{
         permissions: PermissionStatus[];

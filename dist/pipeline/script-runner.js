@@ -48,7 +48,7 @@ async function locateTarget(runtime, target) {
     // 1. Data attributes commonly used for nav/targets.
     var attrs = ['data-nav','data-target','data-testid','data-action','data-tab','aria-label','name','id'];
     for (var i=0;i<attrs.length;i++){
-      var el = document.querySelector('['+attrs[i]+'='+JSON.stringify(t)+']');
+      var el = document.querySelector('['+attrs[i]+'="'+CSS.escape(t)+'"]');
       var c = center(el);
       if(c) return c;
     }

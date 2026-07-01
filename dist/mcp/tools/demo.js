@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { scanActivity, polishDemo, autoRampDemo } from '../../media/spotlight.js';
 import { polishClip, polishScript } from '../../pipeline/polish.js';
+import { runDemoScript } from '../../pipeline/script-runner.js';
 // NOTE: action 'record-composite' is dispatched by the daemon (CoreApiImpl.demo →
 // recordComposite → src/daemon/composite-worker.ts) and is intercepted before
 // reaching this handler, so it intentionally has no branch here. The window-
@@ -117,6 +118,11 @@ export const DemoSchema = z.discriminatedUnion('action', [
         fps: z.number().optional().describe('Output fps (default 60)'),
         voiceover: z.string().optional().describe('Path to a voiceover audio file — REPLACES input audio, synced to t=0 and padded/trimmed to the video duration'),
     }),
+    z.object({
+        action: z.literal('run-script'),
+        script: DemoScriptSchema,
+        cdpUrl: z.string().describe('WebSocket debugger URL of an already-open CDP page target to drive'),
+    }),
 ]);
 // ─── Handler ──────────────────────────────────────────────────
 export async function handleDemo(params, _ctx) {
@@ -152,6 +158,10 @@ export async function handleDemo(params, _ctx) {
             fps: parsed.fps,
             voiceover: parsed.voiceover,
         });
+    }
+    if (parsed.action === 'run-script') {
+        const log = await runDemoScript(parsed.script, { cdpUrl: parsed.cdpUrl });
+        return { log };
     }
     // action === 'polish'
     return polishDemo(parsed.spec, parsed.out);

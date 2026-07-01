@@ -91,7 +91,7 @@ function mapSession(args) {
 }
 function mapDemo(args) {
     const action = args.action;
-    const knownActions = ['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script'];
+    const knownActions = ['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script', 'run-script'];
     if (typeof action !== 'string' || !knownActions.includes(action)) {
         throw new ToolMappingError(`spectra_demo: unknown action "${String(action)}"`);
     }

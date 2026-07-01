@@ -11,7 +11,7 @@ import { DaemonClient } from '../client/daemon-client.js';
  * discriminatedUnion) — that's what server.tool()'s SDK signature requires.
  */
 export declare const spectraDemoInputShape: {
-    action: z.ZodEnum<["scan", "polish", "auto-ramp", "record-composite", "polish-clip", "polish-script"]>;
+    action: z.ZodEnum<["scan", "polish", "auto-ramp", "record-composite", "polish-clip", "polish-script", "run-script"]>;
     input: z.ZodOptional<z.ZodString>;
     threshold: z.ZodOptional<z.ZodNumber>;
     deadSpeed: z.ZodOptional<z.ZodNumber>;
@@ -346,6 +346,7 @@ export declare const spectraDemoInputShape: {
         finalCaption?: string | undefined;
     }>>;
     voiceover: z.ZodOptional<z.ZodString>;
+    cdpUrl: z.ZodOptional<z.ZodString>;
 };
 /**
  * Build a coreless Spectra MCP server bound to the given daemon client. The
