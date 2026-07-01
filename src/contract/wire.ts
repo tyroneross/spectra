@@ -106,6 +106,7 @@ export const operationCapabilities = {
   library: ['library:read', 'library:write'],
   demo: ['demo:write'],
   autoRampDemo: ['demo:write'],
+  computerUse: ['ui:read', 'ui:act'],
 } as const satisfies Record<CoreApiOperation, readonly Capability[]>
 
 export interface UnixSocketTransportPolicy {

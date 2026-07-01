@@ -39,6 +39,7 @@ export const operationCapabilities = {
     library: ['library:read', 'library:write'],
     demo: ['demo:write'],
     autoRampDemo: ['demo:write'],
+    computerUse: ['ui:read', 'ui:act'],
 };
 export const unixSocketTransportPolicy = {
     kind: 'unix-socket',

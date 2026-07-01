@@ -65,6 +65,10 @@ export function mapToolCall(toolName: string, args: Args = {}): MappedCall {
       return mapSession(args)
     case 'spectra_demo':
       return mapDemo(args)
+    case 'spectra_computer_use':
+      // Action-discriminated (snapshot | act | fill-form) — forward verbatim; the
+      // daemon's computerUseParamsSchema is the strict validation gate.
+      return op('computerUse', { ...args })
     default:
       throw new ToolMappingError(`Unknown spectra tool: ${toolName}`)
   }

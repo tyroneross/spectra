@@ -44,6 +44,28 @@ export type { CdpDriverOptions } from './cdp/driver.js'
 export { NativeDriver } from './native/driver.js'
 export { SimDriver } from './native/sim.js'
 
+// ─── Computer Use (AX-first, focused-window scoped) ─────────
+export { ComputerUse, NativeAxBridgePort, StubVisionFallback } from './computer-use/index.js'
+export type {
+  ComputerUseOptions,
+  AxBridgePort,
+  RawAxSnapshot,
+  RawActRequest,
+  RawActResult,
+  RawKeyRequest,
+  VisionFallback,
+  VisionContext,
+  AxNode,
+  AxWindow,
+  AxStatus,
+  AxSnapshot,
+  AxTarget,
+  ComputerUseAction,
+  ActOutcome,
+  FieldResult,
+  FillFormResult,
+} from './computer-use/index.js'
+
 // ─── Utilities ──────────────────────────────────────────────
 export { normalizeRole } from './core/normalize.js'
 export { serializeSnapshot, serializeElement } from './core/serialize.js'

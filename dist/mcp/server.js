@@ -148,6 +148,25 @@ export const spectraDemoInputShape = {
     voiceover: z.string().optional().describe('polish-script: path to a voiceover/narration audio file — REPLACES input audio, starts at t=0, padded/trimmed to the video duration (short VO never truncates the video; long VO is cut to video length)'),
     cdpUrl: z.string().optional().describe('run-script: WebSocket debugger URL of an already-open CDP page target to drive the script against'),
 };
+// ─── spectra_computer_use: AX-first, focused-window computer use ───────────
+// Exported (like spectraDemoInputShape) so tests validate the EXACT shape the
+// MCP SDK enforces at the public boundary. Deliberately lenient (the daemon's
+// computerUseParamsSchema is the strict gate) but structured enough that the SDK
+// accepts snapshot/act/fill-form before forward() runs. Keep it a flat object.
+export const spectraComputerUseInputShape = {
+    action: z.enum(['snapshot', 'act', 'fill-form']).describe('snapshot: scoped AX tree of the focused window | act: run one action (click/set-value/key) | fill-form: resolve a {label:value} map, set + verify each field'),
+    app: z.string().optional().describe('Target app name substring. Omit (with pid) to target the FOCUSED/frontmost app.'),
+    pid: z.number().optional().describe('Target process id. Takes precedence over app.'),
+    threshold: z.number().optional().describe('snapshot: min AX node-count before the vision fallback is signalled (default 1)'),
+    op: z.object({
+        kind: z.enum(['click', 'set-value', 'key']),
+        role: z.string().optional().describe('click: optional AX role filter (e.g. AXButton)'),
+        label: z.string().optional().describe('click/set-value: the element label to resolve against the AX tree'),
+        value: z.string().optional().describe('set-value: the value to set (verified by read-back)'),
+        key: z.string().optional().describe('key: one of return|tab|space|delete|escape|left|right|up|down'),
+    }).optional().describe('act: the single action to perform'),
+    fields: z.record(z.string()).optional().describe('fill-form: {fieldLabel: value} map resolved against editable AX nodes'),
+};
 /**
  * Build a coreless Spectra MCP server bound to the given daemon client. The
  * client is injectable so tests can point it at a mock daemon.
@@ -302,6 +321,7 @@ export function createSpectraServer(client) {
         showcasePath: z.string().optional().describe('Path to a legacy .showcase/ directory'),
     }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_library', args));
     server.tool('spectra_demo', 'Produce polished agent demo video clips from screen recordings. Use action=scan to find active stretches via scene-change detection, action=polish to apply spotlight focus, captions, and speed to a set of segments and merge them, action=auto-ramp to automatically speed dead-air spans while keeping motion at real cadence, action=record-composite to drive the WINDOW-ISOLATED composite recorder (two app windows side-by-side via ScreenCaptureKit, caffeinate-wrapped so the display never sleeps, with a post-capture black-frame guard), or action=polish-clip / action=polish-script to render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional dark-crush spotlight) from a click track or a structured beat script. Audio is preserved when the source has an audio track; stripped otherwise.', spectraDemoInputShape, { readOnlyHint: false, destructiveHint: false, idempotentHint: false }, async (args) => forward(client, 'spectra_demo', args));
+    server.tool('spectra_computer_use', 'AX-first, focused-window macOS computer use. action=snapshot returns the scoped Accessibility tree of the focused window (semantic role/label, ~30-80ms, no screenshot); action=act runs one action (click-by-role-label, set-value, or key) against a resolved AX node; action=fill-form resolves a {label:value} map against editable AX nodes, sets each via AX, and VERIFIES each by read-back. Omit app/pid to target the frontmost app. Drives via the Accessibility API (not coordinate clicks); when the AX tree is empty/thin it returns a needsVisionFallback signal instead of failing.', spectraComputerUseInputShape, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_computer_use', args));
     // ─── Prompts (unchanged) ───────────────────────────────────
     server.prompt('walkthrough', 'Walk through a UI flow and capture screenshots at each step', {
         url: z.string().describe('URL to connect to'),

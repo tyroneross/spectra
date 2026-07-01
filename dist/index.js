@@ -8,6 +8,8 @@ export { resolve, jaroWinkler } from './core/resolve.js';
 export { CdpDriver } from './cdp/driver.js';
 export { NativeDriver } from './native/driver.js';
 export { SimDriver } from './native/sim.js';
+// ─── Computer Use (AX-first, focused-window scoped) ─────────
+export { ComputerUse, NativeAxBridgePort, StubVisionFallback } from './computer-use/index.js';
 // ─── Utilities ──────────────────────────────────────────────
 export { normalizeRole } from './core/normalize.js';
 export { serializeSnapshot, serializeElement } from './core/serialize.js';

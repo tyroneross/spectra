@@ -1,5 +1,6 @@
 import { type ChildProcess } from 'node:child_process';
-import type { AnalyzeParams, AnalyzeResult, AutoRampDemoParams, AutoRampDemoResult, CloseAllSessionsResult, CloseSessionResult, CoreApi, CreateSessionParams, CreateSessionResult, DemoParams, DemoResult, DiscoverParams, DiscoverResult, GetPermissionsParams, GetRunResult, GetSessionResult, HealthParams, HealthResult, LibraryParams, LibraryResult, ListSessionsParams, ListSessionsResult, ListWindowsParams, ListWindowsResult, PermissionStatus, GetRecordingParams, GetRecordingResult, RecordCompositeParams, RecordCompositeResult, RecordLlmUsageParams, RecordLlmUsageResult, RequestPermissionsParams, RequestPermissionsResult, ScreenshotParams, ScreenshotResult, SessionByIdParams, StartRecordingParams, StartRecordingResult, StopRecordingParams, StopRecordingResult, WindowRecord, SnapshotParams, SnapshotResult, ObserveParams, ObserveResult, ActParams, ActResult, StepParams, StepResult, LlmStepParams, LlmStepResult, WalkthroughParams, WalkthroughResult, TerminalRecordParams, TerminalRecordResult, TerminalReplayParams, TerminalReplayResult } from '../contract/core-api.js';
+import type { AnalyzeParams, AnalyzeResult, AutoRampDemoParams, AutoRampDemoResult, CloseAllSessionsResult, CloseSessionResult, CoreApi, CreateSessionParams, CreateSessionResult, DemoParams, DemoResult, DiscoverParams, DiscoverResult, GetPermissionsParams, GetRunResult, GetSessionResult, HealthParams, HealthResult, LibraryParams, LibraryResult, ListSessionsParams, ListSessionsResult, ListWindowsParams, ListWindowsResult, PermissionStatus, GetRecordingParams, GetRecordingResult, RecordCompositeParams, RecordCompositeResult, RecordLlmUsageParams, RecordLlmUsageResult, RequestPermissionsParams, RequestPermissionsResult, ScreenshotParams, ScreenshotResult, SessionByIdParams, StartRecordingParams, StartRecordingResult, StopRecordingParams, StopRecordingResult, WindowRecord, SnapshotParams, SnapshotResult, ObserveParams, ObserveResult, ActParams, ActResult, StepParams, StepResult, LlmStepParams, LlmStepResult, WalkthroughParams, WalkthroughResult, TerminalRecordParams, TerminalRecordResult, TerminalReplayParams, TerminalReplayResult, ComputerUseParams, ComputerUseResult } from '../contract/core-api.js';
+import type { AxBridgePort } from '../computer-use/port.js';
 import type { DaemonEvent } from '../contract/wire.js';
 import { type ToolContext } from '../mcp/context.js';
 import { recordCompositeWithWorker } from './composite-worker.js';
@@ -70,6 +71,14 @@ export declare class CoreApiImplementation implements CoreApi {
     library(params: LibraryParams): Promise<LibraryResult>;
     demo(params: DemoParams): Promise<DemoResult>;
     autoRampDemo(params: AutoRampDemoParams): Promise<AutoRampDemoResult>;
+    /**
+     * AX-first, focused-window-scoped computer use. Builds a ComputerUse over the
+     * native AX bridge (overridable seam for tests) and dispatches by action. AX
+     * failure modes are mapped to actionable daemon errors, never a crash.
+     */
+    computerUse(params: ComputerUseParams): Promise<ComputerUseResult>;
+    /** Overridable seam so tests can inject a fake AX bridge without a GUI session. */
+    protected createAxBridgePort(): AxBridgePort;
     close(): Promise<void>;
     private startCursorSampler;
     private stopCursorSampler;

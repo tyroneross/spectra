@@ -57,6 +57,7 @@ export declare const operationCapabilities: {
     readonly library: readonly ["library:read", "library:write"];
     readonly demo: readonly ["demo:write"];
     readonly autoRampDemo: readonly ["demo:write"];
+    readonly computerUse: readonly ["ui:read", "ui:act"];
 };
 export interface UnixSocketTransportPolicy {
     kind: 'unix-socket';

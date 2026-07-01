@@ -5,6 +5,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
+import { ComputerUse } from '../computer-use/computer-use.js';
+import { NativeAxBridgePort } from '../computer-use/native-port.js';
+import { AxPermissionError } from '../computer-use/port.js';
 import { detectFfmpeg } from '../media/ffmpeg.js';
 import { probeVideo } from '../media/pipeline.js';
 import { createContext } from '../mcp/context.js';
@@ -662,6 +665,61 @@ export class CoreApiImplementation {
     }
     async autoRampDemo(params) {
         return handleDemo({ ...params, action: 'auto-ramp' }, this.ctx);
+    }
+    /**
+     * AX-first, focused-window-scoped computer use. Builds a ComputerUse over the
+     * native AX bridge (overridable seam for tests) and dispatches by action. AX
+     * failure modes are mapped to actionable daemon errors, never a crash.
+     */
+    async computerUse(params) {
+        const target = {};
+        if (params.pid !== undefined)
+            target.pid = params.pid;
+        else if (params.app !== undefined)
+            target.app = params.app;
+        const threshold = params.action === 'snapshot' ? params.threshold : undefined;
+        const cu = new ComputerUse(this.createAxBridgePort(), {
+            target,
+            ...(threshold !== undefined ? { visionFallbackThreshold: threshold } : {}),
+        });
+        try {
+            switch (params.action) {
+                case 'snapshot': {
+                    const snap = await cu.snapshotFocusedWindow();
+                    return { action: 'snapshot', ...snap };
+                }
+                case 'act': {
+                    const outcome = await cu.act(params.op);
+                    return {
+                        action: 'act',
+                        success: outcome.success,
+                        matched: outcome.matched,
+                        verified: outcome.verified,
+                        actualValue: outcome.actualValue,
+                        error: outcome.error,
+                        needsVisionFallback: outcome.needsVisionFallback,
+                    };
+                }
+                case 'fill-form': {
+                    const result = await cu.fillForm(params.fields);
+                    return { action: 'fill-form', ...result };
+                }
+            }
+        }
+        catch (error) {
+            if (error instanceof AxPermissionError) {
+                throw new DaemonApiError('permission_denied', error.message, {
+                    status: 403,
+                    hint: 'Grant Accessibility permission to the Spectra daemon helper in System Settings → Privacy & Security → Accessibility.',
+                    retryable: false,
+                });
+            }
+            throw error;
+        }
+    }
+    /** Overridable seam so tests can inject a fake AX bridge without a GUI session. */
+    createAxBridgePort() {
+        return new NativeAxBridgePort();
     }
     async close() {
         await Promise.all(this.recordings.list().map(async (recording) => {

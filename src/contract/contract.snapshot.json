@@ -6,6 +6,7 @@
     "autoRampDemo",
     "closeAllSessions",
     "closeSession",
+    "computerUse",
     "createSession",
     "demo",
     "discover",
@@ -114,6 +115,7 @@
     "closeSession": [
       "sessionId"
     ],
+    "computerUse": [],
     "createSession": [
       "name",
       "record",

@@ -365,6 +365,34 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
         cdpUrl: z.string(),
     }),
 ]);
+// Computer-use — discriminated by `action`; the `act` op nests a `kind`-
+// discriminated action. This is the STRICT daemon gate (the MCP tool shape in
+// server.ts is deliberately lenient — the daemon schema is the real contract).
+const computerUseActionSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('click'), role: z.string().optional(), label: z.string() }),
+    z.object({ kind: z.literal('set-value'), label: z.string(), value: z.string() }),
+    z.object({ kind: z.literal('key'), key: z.string() }),
+]);
+export const computerUseParamsSchema = z.discriminatedUnion('action', [
+    z.object({
+        action: z.literal('snapshot'),
+        app: z.string().optional(),
+        pid: z.number().optional(),
+        threshold: z.number().optional(),
+    }),
+    z.object({
+        action: z.literal('act'),
+        app: z.string().optional(),
+        pid: z.number().optional(),
+        op: computerUseActionSchema,
+    }),
+    z.object({
+        action: z.literal('fill-form'),
+        app: z.string().optional(),
+        pid: z.number().optional(),
+        fields: z.record(z.string()),
+    }),
+]);
 // ─── Operation → param-schema registry ─────────────────────────
 //
 // `undefined` means the operation takes no params (closeAllSessions) or only
@@ -400,6 +428,7 @@ export const operationParamSchemas = {
     library: libraryParamsSchema,
     demo: demoParamsSchema,
     autoRampDemo: autoRampDemoParamsSchema,
+    computerUse: computerUseParamsSchema,
 };
 // ─── Authoritative runtime mirrors (frozen-surface inputs) ─────
 //

@@ -348,6 +348,32 @@ export declare const spectraDemoInputShape: {
     voiceover: z.ZodOptional<z.ZodString>;
     cdpUrl: z.ZodOptional<z.ZodString>;
 };
+export declare const spectraComputerUseInputShape: {
+    action: z.ZodEnum<["snapshot", "act", "fill-form"]>;
+    app: z.ZodOptional<z.ZodString>;
+    pid: z.ZodOptional<z.ZodNumber>;
+    threshold: z.ZodOptional<z.ZodNumber>;
+    op: z.ZodOptional<z.ZodObject<{
+        kind: z.ZodEnum<["click", "set-value", "key"]>;
+        role: z.ZodOptional<z.ZodString>;
+        label: z.ZodOptional<z.ZodString>;
+        value: z.ZodOptional<z.ZodString>;
+        key: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        kind: "click" | "key" | "set-value";
+        label?: string | undefined;
+        role?: string | undefined;
+        key?: string | undefined;
+        value?: string | undefined;
+    }, {
+        kind: "click" | "key" | "set-value";
+        label?: string | undefined;
+        role?: string | undefined;
+        key?: string | undefined;
+        value?: string | undefined;
+    }>>;
+    fields: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+};
 /**
  * Build a coreless Spectra MCP server bound to the given daemon client. The
  * client is injectable so tests can point it at a mock daemon.

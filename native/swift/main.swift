@@ -60,6 +60,18 @@ func handleRequest(_ request: Request) {
     case "find":
         handleFind(request)
 
+    case "cuSnapshot":
+        handleCuSnapshot(request)
+
+    case "cuAct":
+        handleCuAct(request)
+
+    case "cuKey":
+        handleCuKey(request)
+
+    case "cuPreflight":
+        sendResult(id: request.id, AnyCodableValue.from(computerUsePreflight()))
+
     case "screenshot":
         handleScreenshot(request)
 
@@ -143,6 +155,68 @@ func handleFind(_ req: Request) {
         let label = req.params?["label"]?.stringValue
         let elements = findElements(pid: pid, role: role, label: label)
         sendResult(id: req.id, AnyCodableValue.from(elements))
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
+}
+
+// ─── Computer-Use Handlers (focused-window scoped AX) ─────
+
+func handleCuSnapshot(_ req: Request) {
+    switch resolveComputerUsePid(from: req.params) {
+    case .success(let pid):
+        switch snapshotFocusedWindow(pid: pid) {
+        case .success(let result):
+            sendResult(id: req.id, AnyCodableValue.from(result))
+        case .failure(let err):
+            sendError(id: req.id, code: -1, message: err.message)
+        }
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
+}
+
+func handleCuAct(_ req: Request) {
+    guard let params = req.params else {
+        sendError(id: req.id, code: -1, message: "Missing params")
+        return
+    }
+    switch resolveComputerUsePid(from: params) {
+    case .success(let pid):
+        guard let pathValue = params["elementPath"], case .array(let pathArray) = pathValue else {
+            sendError(id: req.id, code: -1, message: "Missing elementPath")
+            return
+        }
+        let path = pathArray.compactMap { $0.intValue }
+        guard let action = params["action"]?.stringValue else {
+            sendError(id: req.id, code: -1, message: "Missing action")
+            return
+        }
+        let value = params["value"]?.stringValue
+        switch computerUseAct(pid: pid, path: path, action: action, value: value) {
+        case .success(let result):
+            sendResult(id: req.id, AnyCodableValue.from(result))
+        case .failure(let err):
+            sendError(id: req.id, code: -1, message: err.message)
+        }
+    case .failure(let err):
+        sendError(id: req.id, code: -1, message: err.message)
+    }
+}
+
+func handleCuKey(_ req: Request) {
+    switch resolveComputerUsePid(from: req.params) {
+    case .success(let pid):
+        guard let key = req.params?["key"]?.stringValue else {
+            sendError(id: req.id, code: -1, message: "Missing key")
+            return
+        }
+        switch computerUseKey(pid: pid, key: key) {
+        case .success:
+            sendResult(id: req.id, .dictionary(["success": .bool(true)]))
+        case .failure(let err):
+            sendResult(id: req.id, .dictionary(["success": .bool(false), "error": .string(err.message)]))
+        }
     case .failure(let err):
         sendError(id: req.id, code: -1, message: err.message)
     }

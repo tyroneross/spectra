@@ -1016,6 +1016,81 @@ export interface DemoRunScriptResult {
 }
 export type DemoParams = DemoScanParams | DemoPolishParams | DemoAutoRampParams | DemoRecordCompositeParams | DemoPolishClipParams | DemoPolishScriptParams | DemoRunScriptParams;
 export type DemoResult = DemoScanResult | DemoPolishResult | AutoRampDemoResult | DemoPolishClipResult | DemoPolishScriptResult | DemoRunScriptResult | RecordCompositeResult;
+export type ComputerUseAxStatus = 'ok' | 'empty' | 'no-window';
+export interface ComputerUseNode {
+    role: string;
+    label: string;
+    value: string | null;
+    enabled: boolean;
+    focused: boolean;
+    actions: string[];
+    bounds: Bounds;
+    path: number[];
+}
+export type ComputerUseActionInput = {
+    kind: 'click';
+    role?: string;
+    label: string;
+} | {
+    kind: 'set-value';
+    label: string;
+    value: string;
+} | {
+    kind: 'key';
+    key: string;
+};
+export interface ComputerUseTarget {
+    app?: string;
+    pid?: number;
+}
+export type ComputerUseParams = ({
+    action: 'snapshot';
+    threshold?: number;
+} & ComputerUseTarget) | ({
+    action: 'act';
+    op: ComputerUseActionInput;
+} & ComputerUseTarget) | ({
+    action: 'fill-form';
+    fields: Record<string, string>;
+} & ComputerUseTarget);
+export interface ComputerUseSnapshotResult {
+    action: 'snapshot';
+    window: {
+        title: string;
+        bounds: Bounds;
+    } | null;
+    nodes: ComputerUseNode[];
+    nodeCount: number;
+    axStatus: ComputerUseAxStatus;
+    focusedWindowTitle: string;
+    needsVisionFallback: boolean;
+    fallbackReason?: string;
+}
+export interface ComputerUseActResult {
+    action: 'act';
+    success: boolean;
+    matched: boolean;
+    verified?: boolean;
+    actualValue?: string | null;
+    error?: string;
+    needsVisionFallback?: boolean;
+}
+export interface ComputerUseFillFormFieldResult {
+    label: string;
+    expected: string;
+    matched: boolean;
+    set: boolean;
+    verified: boolean;
+    actual?: string | null;
+    error?: string;
+}
+export interface ComputerUseFillFormResult {
+    action: 'fill-form';
+    fields: ComputerUseFillFormFieldResult[];
+    allVerified: boolean;
+    needsVisionFallback: boolean;
+}
+export type ComputerUseResult = ComputerUseSnapshotResult | ComputerUseActResult | ComputerUseFillFormResult;
 export interface CoreApi {
     health(params?: HealthParams): Promise<HealthResult>;
     getPermissions(params?: GetPermissionsParams): Promise<PermissionsResult>;
@@ -1046,5 +1121,6 @@ export interface CoreApi {
     library(params: LibraryParams): Promise<LibraryResult>;
     demo(params: DemoParams): Promise<DemoResult>;
     autoRampDemo(params: AutoRampDemoParams): Promise<AutoRampDemoResult>;
+    computerUse(params: ComputerUseParams): Promise<ComputerUseResult>;
 }
 //# sourceMappingURL=core-api.d.ts.map

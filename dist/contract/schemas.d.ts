@@ -704,6 +704,7 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     durationMs?: number | undefined;
     url?: string | undefined;
     platform?: "web" | "macos" | "ios" | "watchos" | "terminal" | "unknown" | undefined;
+    title?: string | undefined;
     viewport?: string | undefined;
     walkthrough?: {
         steps: string[];
@@ -711,7 +712,6 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     } | undefined;
     feature?: string | undefined;
     component?: string | undefined;
-    title?: string | undefined;
     selector?: string | undefined;
     deviceName?: string | undefined;
     tags?: string[] | undefined;
@@ -725,6 +725,7 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     durationMs?: number | undefined;
     url?: string | undefined;
     platform?: "web" | "macos" | "ios" | "watchos" | "terminal" | "unknown" | undefined;
+    title?: string | undefined;
     viewport?: string | undefined;
     walkthrough?: {
         steps: string[];
@@ -732,7 +733,6 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     } | undefined;
     feature?: string | undefined;
     component?: string | undefined;
-    title?: string | undefined;
     selector?: string | undefined;
     deviceName?: string | undefined;
     tags?: string[] | undefined;
@@ -807,17 +807,17 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
 }, "strip", z.ZodTypeAny, {
     id: string;
     action: "tag";
+    title?: string | undefined;
     feature?: string | undefined;
     component?: string | undefined;
-    title?: string | undefined;
     tags?: string[] | undefined;
     starred?: boolean | undefined;
 }, {
     id: string;
     action: "tag";
+    title?: string | undefined;
     feature?: string | undefined;
     component?: string | undefined;
-    title?: string | undefined;
     tags?: string[] | undefined;
     starred?: boolean | undefined;
 }>, z.ZodObject<{
@@ -1680,6 +1680,107 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     };
     cdpUrl: string;
 }>]>;
+export declare const computerUseParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<{
+    action: z.ZodLiteral<"snapshot">;
+    app: z.ZodOptional<z.ZodString>;
+    pid: z.ZodOptional<z.ZodNumber>;
+    threshold: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    action: "snapshot";
+    app?: string | undefined;
+    pid?: number | undefined;
+    threshold?: number | undefined;
+}, {
+    action: "snapshot";
+    app?: string | undefined;
+    pid?: number | undefined;
+    threshold?: number | undefined;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"act">;
+    app: z.ZodOptional<z.ZodString>;
+    pid: z.ZodOptional<z.ZodNumber>;
+    op: z.ZodDiscriminatedUnion<"kind", [z.ZodObject<{
+        kind: z.ZodLiteral<"click">;
+        role: z.ZodOptional<z.ZodString>;
+        label: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        label: string;
+        kind: "click";
+        role?: string | undefined;
+    }, {
+        label: string;
+        kind: "click";
+        role?: string | undefined;
+    }>, z.ZodObject<{
+        kind: z.ZodLiteral<"set-value">;
+        label: z.ZodString;
+        value: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        label: string;
+        value: string;
+        kind: "set-value";
+    }, {
+        label: string;
+        value: string;
+        kind: "set-value";
+    }>, z.ZodObject<{
+        kind: z.ZodLiteral<"key">;
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+        kind: "key";
+    }, {
+        key: string;
+        kind: "key";
+    }>]>;
+}, "strip", z.ZodTypeAny, {
+    action: "act";
+    op: {
+        label: string;
+        kind: "click";
+        role?: string | undefined;
+    } | {
+        label: string;
+        value: string;
+        kind: "set-value";
+    } | {
+        key: string;
+        kind: "key";
+    };
+    app?: string | undefined;
+    pid?: number | undefined;
+}, {
+    action: "act";
+    op: {
+        label: string;
+        kind: "click";
+        role?: string | undefined;
+    } | {
+        label: string;
+        value: string;
+        kind: "set-value";
+    } | {
+        key: string;
+        kind: "key";
+    };
+    app?: string | undefined;
+    pid?: number | undefined;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"fill-form">;
+    app: z.ZodOptional<z.ZodString>;
+    pid: z.ZodOptional<z.ZodNumber>;
+    fields: z.ZodRecord<z.ZodString, z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    action: "fill-form";
+    fields: Record<string, string>;
+    app?: string | undefined;
+    pid?: number | undefined;
+}, {
+    action: "fill-form";
+    fields: Record<string, string>;
+    app?: string | undefined;
+    pid?: number | undefined;
+}>]>;
 export declare const operationParamSchemas: {
     health: z.ZodObject<{
         includePermissions: z.ZodOptional<z.ZodBoolean>;
@@ -2267,6 +2368,7 @@ export declare const operationParamSchemas: {
         durationMs?: number | undefined;
         url?: string | undefined;
         platform?: "web" | "macos" | "ios" | "watchos" | "terminal" | "unknown" | undefined;
+        title?: string | undefined;
         viewport?: string | undefined;
         walkthrough?: {
             steps: string[];
@@ -2274,7 +2376,6 @@ export declare const operationParamSchemas: {
         } | undefined;
         feature?: string | undefined;
         component?: string | undefined;
-        title?: string | undefined;
         selector?: string | undefined;
         deviceName?: string | undefined;
         tags?: string[] | undefined;
@@ -2288,6 +2389,7 @@ export declare const operationParamSchemas: {
         durationMs?: number | undefined;
         url?: string | undefined;
         platform?: "web" | "macos" | "ios" | "watchos" | "terminal" | "unknown" | undefined;
+        title?: string | undefined;
         viewport?: string | undefined;
         walkthrough?: {
             steps: string[];
@@ -2295,7 +2397,6 @@ export declare const operationParamSchemas: {
         } | undefined;
         feature?: string | undefined;
         component?: string | undefined;
-        title?: string | undefined;
         selector?: string | undefined;
         deviceName?: string | undefined;
         tags?: string[] | undefined;
@@ -2370,17 +2471,17 @@ export declare const operationParamSchemas: {
     }, "strip", z.ZodTypeAny, {
         id: string;
         action: "tag";
+        title?: string | undefined;
         feature?: string | undefined;
         component?: string | undefined;
-        title?: string | undefined;
         tags?: string[] | undefined;
         starred?: boolean | undefined;
     }, {
         id: string;
         action: "tag";
+        title?: string | undefined;
         feature?: string | undefined;
         component?: string | undefined;
-        title?: string | undefined;
         tags?: string[] | undefined;
         starred?: boolean | undefined;
     }>, z.ZodObject<{
@@ -3243,6 +3344,107 @@ export declare const operationParamSchemas: {
         padSec?: number | undefined;
         threshold?: number | undefined;
     }>;
+    computerUse: z.ZodDiscriminatedUnion<"action", [z.ZodObject<{
+        action: z.ZodLiteral<"snapshot">;
+        app: z.ZodOptional<z.ZodString>;
+        pid: z.ZodOptional<z.ZodNumber>;
+        threshold: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        action: "snapshot";
+        app?: string | undefined;
+        pid?: number | undefined;
+        threshold?: number | undefined;
+    }, {
+        action: "snapshot";
+        app?: string | undefined;
+        pid?: number | undefined;
+        threshold?: number | undefined;
+    }>, z.ZodObject<{
+        action: z.ZodLiteral<"act">;
+        app: z.ZodOptional<z.ZodString>;
+        pid: z.ZodOptional<z.ZodNumber>;
+        op: z.ZodDiscriminatedUnion<"kind", [z.ZodObject<{
+            kind: z.ZodLiteral<"click">;
+            role: z.ZodOptional<z.ZodString>;
+            label: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            label: string;
+            kind: "click";
+            role?: string | undefined;
+        }, {
+            label: string;
+            kind: "click";
+            role?: string | undefined;
+        }>, z.ZodObject<{
+            kind: z.ZodLiteral<"set-value">;
+            label: z.ZodString;
+            value: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            label: string;
+            value: string;
+            kind: "set-value";
+        }, {
+            label: string;
+            value: string;
+            kind: "set-value";
+        }>, z.ZodObject<{
+            kind: z.ZodLiteral<"key">;
+            key: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            key: string;
+            kind: "key";
+        }, {
+            key: string;
+            kind: "key";
+        }>]>;
+    }, "strip", z.ZodTypeAny, {
+        action: "act";
+        op: {
+            label: string;
+            kind: "click";
+            role?: string | undefined;
+        } | {
+            label: string;
+            value: string;
+            kind: "set-value";
+        } | {
+            key: string;
+            kind: "key";
+        };
+        app?: string | undefined;
+        pid?: number | undefined;
+    }, {
+        action: "act";
+        op: {
+            label: string;
+            kind: "click";
+            role?: string | undefined;
+        } | {
+            label: string;
+            value: string;
+            kind: "set-value";
+        } | {
+            key: string;
+            kind: "key";
+        };
+        app?: string | undefined;
+        pid?: number | undefined;
+    }>, z.ZodObject<{
+        action: z.ZodLiteral<"fill-form">;
+        app: z.ZodOptional<z.ZodString>;
+        pid: z.ZodOptional<z.ZodNumber>;
+        fields: z.ZodRecord<z.ZodString, z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        action: "fill-form";
+        fields: Record<string, string>;
+        app?: string | undefined;
+        pid?: number | undefined;
+    }, {
+        action: "fill-form";
+        fields: Record<string, string>;
+        app?: string | undefined;
+        pid?: number | undefined;
+    }>]>;
 };
 export declare const apiOperations: CoreApiOperation[];
 export declare const clientSurfaces: readonly ["stdio-mcp", "cli", "menubar", "slash-command", "http-mcp", "test", "unknown"];
