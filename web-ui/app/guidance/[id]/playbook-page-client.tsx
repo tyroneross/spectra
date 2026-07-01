@@ -94,7 +94,7 @@ export function PlaybookPageClient({ playbook: initial, isNew }: PlaybookPageCli
               variant="outline"
               size="sm"
               onClick={() => setDeleteOpen(true)}
-              className="min-h-11 border-zinc-700 text-red-500 hover:bg-zinc-800 hover:text-red-400 sm:min-h-9"
+              className="min-h-11 border-white/[0.08] text-red-400 hover:bg-red-500/10 hover:text-red-300 sm:min-h-9"
             >
               Delete
             </Button>
@@ -103,7 +103,7 @@ export function PlaybookPageClient({ playbook: initial, isNew }: PlaybookPageCli
       </div>
 
       {saveError && (
-        <div className="bg-red-950/30 border border-red-700/40 rounded-lg px-3 py-2 text-sm text-red-300">
+        <div className="bg-red-950/30 border border-red-700/40 rounded-xl px-3 py-2 text-sm text-red-300">
           {saveError}
         </div>
       )}
@@ -115,14 +115,14 @@ export function PlaybookPageClient({ playbook: initial, isNew }: PlaybookPageCli
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm px-4 py-2.5 rounded-lg shadow-xl z-50 animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-6 right-6 border border-white/[0.08] bg-zinc-950/95 text-zinc-100 text-sm px-4 py-2.5 rounded-xl shadow-xl shadow-black/50 z-50 animate-in fade-in slide-in-from-bottom-2">
           {toast}
         </div>
       )}
 
       {/* Delete confirm */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+        <DialogContent className="bg-zinc-950/95 border-white/[0.08] text-zinc-100">
           <DialogHeader>
             <DialogTitle className="text-zinc-50">Delete playbook?</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -133,7 +133,7 @@ export function PlaybookPageClient({ playbook: initial, isNew }: PlaybookPageCli
             <Button
               variant="outline"
               onClick={() => setDeleteOpen(false)}
-              className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
+              className="min-h-11 border-white/[0.08] text-zinc-300 hover:bg-white/[0.04] sm:min-h-9"
             >
               Cancel
             </Button>

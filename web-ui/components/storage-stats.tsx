@@ -46,11 +46,11 @@ function HorizontalBarChart({ entries, total }: BarChartProps) {
         const pct = total > 0 ? Math.max(1, Math.round((value / total) * 100)) : 0
         return (
           <div key={label}>
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-zinc-300 capitalize">{label}</span>
+            <div className="mb-1 flex justify-between text-xs">
+              <span className="capitalize text-zinc-300">{label}</span>
               <span className="text-zinc-500">{formatBytes(value)}</span>
             </div>
-            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div
                 className={`h-full rounded-full ${colorClass}`}
                 style={{ width: `${pct}%` }}
@@ -77,41 +77,52 @@ export function StorageStats({ stats }: StorageStatsProps) {
   }))
 
   return (
-    <div className="space-y-6">
-      {/* Total */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex items-baseline gap-3">
-        <span className="text-3xl font-bold text-zinc-50">{formatBytes(stats.totalSize)}</span>
-        <span className="text-sm text-zinc-400">total storage used</span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* By platform */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-4">By Platform</h3>
-          <HorizontalBarChart entries={platformEntries} total={stats.totalSize} />
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-5">
+      <div className="space-y-5">
+        {/* Total KPI */}
+        <div>
+          <span className="text-sm font-bold text-zinc-50">{formatBytes(stats.totalSize)}</span>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-zinc-500">Total Storage</p>
         </div>
 
-        {/* By type */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-4">By File Type</h3>
-          <HorizontalBarChart entries={typeEntries} total={stats.totalSize} />
-        </div>
-      </div>
+        <div className="border-t border-white/[0.06]" />
 
-      {/* Largest sessions */}
-      {stats.largestSessions.length > 0 && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-4">Largest Sessions</h3>
-          <div className="divide-y divide-zinc-800">
-            {stats.largestSessions.map((s) => (
-              <div key={s.sessionId} className="flex justify-between items-center py-2">
-                <span className="text-sm text-zinc-300 truncate max-w-[60%]">{s.name}</span>
-                <span className="text-xs text-zinc-500">{formatBytes(s.size)}</span>
-              </div>
-            ))}
+        {/* By platform + by type */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div>
+            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">
+              By Platform
+            </h3>
+            <HorizontalBarChart entries={platformEntries} total={stats.totalSize} />
+          </div>
+          <div>
+            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">
+              By File Type
+            </h3>
+            <HorizontalBarChart entries={typeEntries} total={stats.totalSize} />
           </div>
         </div>
-      )}
+
+        {/* Largest sessions */}
+        {stats.largestSessions.length > 0 && (
+          <>
+            <div className="border-t border-white/[0.06]" />
+            <div>
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                Largest Sessions
+              </h3>
+              <div className="divide-y divide-white/[0.06]">
+                {stats.largestSessions.map((s) => (
+                  <div key={s.sessionId} className="flex items-center justify-between py-2">
+                    <span className="max-w-[60%] truncate text-sm text-zinc-300">{s.name}</span>
+                    <span className="text-xs text-zinc-500">{formatBytes(s.size)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

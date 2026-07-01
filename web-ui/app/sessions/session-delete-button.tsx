@@ -40,14 +40,14 @@ export function SessionDeleteButton({ sessionId }: SessionDeleteButtonProps) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-xs px-3 py-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+        className="text-[11px] px-3 py-1.5 rounded-md text-zinc-500 hover:text-rose-400 hover:bg-white/[0.04] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60"
         title="Delete session"
       >
         Delete
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+        <DialogContent className="border border-white/[0.08] bg-zinc-950/95 text-zinc-100 backdrop-blur-md">
           <DialogHeader>
             <DialogTitle className="text-zinc-50">Delete session?</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -58,14 +58,14 @@ export function SessionDeleteButton({ sessionId }: SessionDeleteButtonProps) {
             <Button
               variant="outline"
               onClick={() => setOpen(false)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="border-white/[0.08] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDelete}
               disabled={loading}
-              className="bg-red-600 hover:bg-red-700 text-white border-0"
+              className="border border-rose-400/30 bg-rose-400/10 text-rose-300 hover:bg-rose-400/20 hover:text-rose-200 disabled:opacity-50"
             >
               {loading ? 'Deleting...' : 'Delete'}
             </Button>

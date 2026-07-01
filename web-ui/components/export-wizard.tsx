@@ -90,8 +90,9 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
     return (
       <div className="space-y-4">
         <p className="text-sm text-zinc-400">
-          Click captures to select them for export. {selectedIds.size > 0 && (
-            <span className="text-zinc-200 font-medium">{selectedIds.size} selected</span>
+          Click captures to select them for export.{' '}
+          {selectedIds.size > 0 && (
+            <span className="font-medium text-zinc-200">{selectedIds.size} selected</span>
           )}
         </p>
 
@@ -100,7 +101,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
             No captures available. Take some screenshots first.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {captures.map((capture) => {
               const isSelected = selectedIds.has(capture.id)
               return (
@@ -109,17 +110,17 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
                   type="button"
                   onClick={() => toggleCapture(capture.id)}
                   className={cn(
-                    'relative group rounded-lg overflow-hidden border transition-all text-left',
+                    'group relative overflow-hidden rounded-xl border text-left transition-all duration-200 ease-out',
                     isSelected
-                      ? 'border-zinc-300 ring-1 ring-zinc-300'
-                      : 'border-zinc-800 hover:border-zinc-600'
+                      ? 'border-indigo-400/70 bg-indigo-400/[0.04] ring-1 ring-indigo-400/40'
+                      : 'border-white/[0.06] bg-white/[0.025] hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-white/[0.045] hover:shadow-xl hover:shadow-black/50'
                   )}
                 >
-                  <div style={{ aspectRatio: '16/10' }}>
+                  <div className="relative aspect-[16/10] overflow-hidden border-b border-white/[0.06] bg-black/50">
                     {capture.type === 'video' ? (
                       <video
                         src={`/api/media/${capture.path}`}
-                        className="w-full h-full object-cover bg-zinc-950"
+                        className="h-full w-full object-cover"
                         preload="metadata"
                         muted
                       />
@@ -127,23 +128,23 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
                       <img
                         src={`/api/media/${capture.path}`}
                         alt={capture.filename}
-                        className="w-full h-full object-cover bg-zinc-950"
+                        className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
                         loading="lazy"
                       />
                     )}
+
+                    {/* Checkmark overlay */}
+                    {isSelected && (
+                      <div className="absolute right-1.5 top-1.5 flex size-5 items-center justify-center rounded-full bg-indigo-500">
+                        <svg className="size-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Checkmark overlay */}
-                  {isSelected && (
-                    <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-zinc-50 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-zinc-950" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-
-                  <div className="px-2 py-1.5 bg-zinc-900">
-                    <p className="text-xs text-zinc-400 truncate">{capture.filename}</p>
+                  <div className="px-2 py-1.5">
+                    <p className="truncate text-[11px] text-zinc-400">{capture.filename}</p>
                   </div>
                 </button>
               )
@@ -153,13 +154,13 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
 
         {/* Selected list */}
         {selectedCaptures.length > 0 && (
-          <div className="border border-zinc-800 rounded-lg p-3">
-            <p className="text-xs font-medium text-zinc-400 mb-2">Selected order</p>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Selected order</p>
             <div className="space-y-1">
               {selectedCaptures.map((c, i) => (
                 <div key={c.id} className="flex items-center gap-2 text-sm">
-                  <span className="text-xs text-zinc-600 w-4 text-right">{i + 1}.</span>
-                  <span className="text-zinc-300 truncate">{c.filename}</span>
+                  <span className="w-4 text-right text-[11px] text-zinc-600">{i + 1}.</span>
+                  <span className="truncate text-[13px] text-zinc-300">{c.filename}</span>
                 </div>
               ))}
             </div>
@@ -171,8 +172,8 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
             onClick={() => { setAnnotateIndex(0); setStep(2) }}
             disabled={selectedCaptures.length === 0}
             className={selectedCaptures.length > 0
-              ? 'bg-zinc-50 text-zinc-950 hover:bg-zinc-200'
-              : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}
+              ? 'bg-indigo-500 text-white hover:bg-indigo-400'
+              : 'cursor-not-allowed bg-white/[0.04] text-zinc-600'}
           >
             Next: Annotate
           </Button>
@@ -198,7 +199,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
               size="sm"
               onClick={() => setAnnotateIndex((i) => Math.max(0, i - 1))}
               disabled={annotateIndex === 0}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="border-white/[0.08] text-zinc-300 hover:bg-white/[0.04]"
             >
               Prev
             </Button>
@@ -207,19 +208,19 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
               size="sm"
               onClick={() => setAnnotateIndex((i) => Math.min(selectedCaptures.length - 1, i + 1))}
               disabled={annotateIndex === selectedCaptures.length - 1}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="border-white/[0.08] text-zinc-300 hover:bg-white/[0.04]"
             >
               Next
             </Button>
           </div>
         </div>
 
-        {/* Image */}
-        <div className="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+        {/* Media preview */}
+        <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-black/50">
           {capture.type === 'video' ? (
             <video
               src={`/api/media/${capture.path}`}
-              className="w-full max-h-[60vh] object-contain"
+              className="max-h-[60vh] w-full object-contain"
               controls
               muted
             />
@@ -227,19 +228,19 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
             <img
               src={`/api/media/${capture.path}`}
               alt={capture.filename}
-              className="w-full max-h-[60vh] object-contain"
+              className="max-h-[60vh] w-full object-contain"
             />
           )}
         </div>
 
         {/* Caption */}
         <div className="space-y-1.5">
-          <label className="text-xs text-zinc-400">Caption</label>
+          <label className="text-xs font-medium uppercase tracking-wider text-zinc-500">Caption</label>
           <Input
             value={captions[capture.id] ?? ''}
             onChange={(e) => setCaptions((prev) => ({ ...prev, [capture.id]: e.target.value }))}
             placeholder={`Caption for ${capture.filename}`}
-            className="bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500"
+            className="border-white/[0.08] bg-white/[0.025] text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-400/60 focus-visible:ring-2 focus-visible:ring-indigo-400/60"
           />
         </div>
 
@@ -247,13 +248,13 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <Button
             variant="outline"
             onClick={() => setStep(1)}
-            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
+            className="min-h-11 border-white/[0.08] text-zinc-300 hover:bg-white/[0.04] sm:min-h-9"
           >
             Back
           </Button>
           <Button
             onClick={() => setStep(3)}
-            className="min-h-11 bg-zinc-50 text-zinc-950 hover:bg-zinc-200 sm:min-h-9"
+            className="min-h-11 bg-indigo-500 text-white hover:bg-indigo-400 sm:min-h-9"
           >
             Next: Export
           </Button>
@@ -267,17 +268,17 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
     if (result) {
       return (
         <div className="space-y-4">
-          <div className="bg-green-950/30 border border-green-700/40 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <svg className="size-4 text-emerald-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-sm font-medium text-green-300">Export complete</span>
+              <span className="text-sm font-medium text-emerald-300">Export complete</span>
             </div>
             <div className="space-y-1 text-sm">
               <p className="text-zinc-300">
                 <span className="text-zinc-500">Output:</span>{' '}
-                <code className="font-mono text-xs bg-zinc-900 px-1 py-0.5 rounded">{result.outputPath}</code>
+                <code className="rounded bg-white/[0.04] px-1 py-0.5 font-mono text-xs">{result.outputPath}</code>
               </p>
               <p className="text-zinc-300">
                 <span className="text-zinc-500">Files:</span> {result.fileCount}
@@ -291,11 +292,11 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
               {result.manifestPath && (
                 <p className="text-zinc-300">
                   <span className="text-zinc-500">Manifest:</span>{' '}
-                  <code className="font-mono text-xs bg-zinc-900 px-1 py-0.5 rounded">{result.manifestPath}</code>
+                  <code className="rounded bg-white/[0.04] px-1 py-0.5 font-mono text-xs">{result.manifestPath}</code>
                 </p>
               )}
               {result.warnings && result.warnings.length > 0 && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-200">
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-amber-200">
                   <p className="mb-1 text-xs font-medium">
                     {result.warnings.length} warning{result.warnings.length === 1 ? '' : 's'}
                   </p>
@@ -317,7 +318,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <Button
             variant="outline"
             onClick={() => { setResult(null); setStep(1); setSelectedIds(new Set()) }}
-            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
+            className="min-h-11 border-white/[0.08] text-zinc-300 hover:bg-white/[0.04] sm:min-h-9"
           >
             Start New Export
           </Button>
@@ -327,10 +328,10 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
 
     return (
       <div className="space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Format */}
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Format</label>
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Format</p>
             <div className="space-y-2">
               {(
                 [
@@ -343,10 +344,10 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
                 <label
                   key={opt.value}
                   className={cn(
-                    'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                    'flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-all duration-200 ease-out',
                     format === opt.value
-                      ? 'border-zinc-400 bg-zinc-800'
-                      : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                      ? 'border-indigo-400/70 bg-indigo-400/[0.04]'
+                      : 'border-white/[0.06] bg-white/[0.025] hover:border-white/[0.12] hover:bg-white/[0.045]'
                   )}
                 >
                   <input
@@ -355,11 +356,11 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
                     value={opt.value}
                     checked={format === opt.value}
                     onChange={() => setFormat(opt.value)}
-                    className="mt-0.5 accent-white"
+                    className="mt-0.5 accent-indigo-400"
                   />
                   <div>
-                    <p className="text-sm text-zinc-200">{opt.label}</p>
-                    <p className="text-xs text-zinc-500">{opt.description}</p>
+                    <p className="text-[13px] font-medium text-zinc-200">{opt.label}</p>
+                    <p className="text-[11px] text-zinc-500">{opt.description}</p>
                   </div>
                 </label>
               ))}
@@ -369,32 +370,32 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <div className="space-y-4">
             {/* Template */}
             <div className="space-y-1.5">
-              <label className="text-xs text-zinc-400">Template</label>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Template</p>
               <Select value={template ?? 'blog'} onValueChange={(v) => setTemplate(v as ExportRequest['template'])}>
-                <SelectTrigger className="bg-zinc-950 border-zinc-700 text-zinc-100 focus:border-zinc-500">
+                <SelectTrigger className="border-white/[0.08] bg-white/[0.025] text-zinc-100 focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/60">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700">
-                  <SelectItem value="blog" className="text-zinc-100 focus:bg-zinc-800">Blog Post</SelectItem>
-                  <SelectItem value="social" className="text-zinc-100 focus:bg-zinc-800">Social Card</SelectItem>
-                  <SelectItem value="docs" className="text-zinc-100 focus:bg-zinc-800">Documentation</SelectItem>
+                <SelectContent className="border-white/[0.08] bg-zinc-950">
+                  <SelectItem value="blog" className="text-zinc-100 focus:bg-white/[0.04]">Blog Post</SelectItem>
+                  <SelectItem value="social" className="text-zinc-100 focus:bg-white/[0.04]">Social Card</SelectItem>
+                  <SelectItem value="docs" className="text-zinc-100 focus:bg-white/[0.04]">Documentation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Output dir */}
             <div className="space-y-1.5">
-              <label className="text-xs text-zinc-400">Output directory</label>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Output directory</p>
               <Input
                 value={outputDir}
                 onChange={(e) => setOutputDir(e.target.value)}
                 placeholder="spectra-export/"
-                className="bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500"
+                className="border-white/[0.08] bg-white/[0.025] font-mono text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-400/60 focus-visible:ring-2 focus-visible:ring-indigo-400/60"
               />
             </div>
 
             {/* Summary */}
-            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400 space-y-1">
+            <div className="space-y-1 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-[11px] text-zinc-400">
               <p>{selectedCaptures.length} capture{selectedCaptures.length !== 1 ? 's' : ''} selected</p>
               <p>{Object.values(captions).filter(Boolean).length} caption{Object.values(captions).filter(Boolean).length !== 1 ? 's' : ''} added</p>
             </div>
@@ -402,7 +403,7 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
         </div>
 
         {error && (
-          <div className="bg-red-950/30 border border-red-700/40 rounded-lg p-3 text-sm text-red-300">
+          <div className="rounded-xl border border-red-400/20 bg-red-950/30 p-3 text-sm text-red-300">
             {error}
           </div>
         )}
@@ -411,14 +412,16 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <Button
             variant="outline"
             onClick={() => setStep(2)}
-            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 sm:min-h-9"
+            className="min-h-11 border-white/[0.08] text-zinc-300 hover:bg-white/[0.04] sm:min-h-9"
           >
             Back
           </Button>
           <Button
             onClick={handleExport}
             disabled={exporting}
-            className={!exporting ? 'min-h-11 bg-zinc-50 text-zinc-950 hover:bg-zinc-200 sm:min-h-9' : 'min-h-11 bg-zinc-800 text-zinc-600 cursor-not-allowed sm:min-h-9'}
+            className={!exporting
+              ? 'min-h-11 bg-indigo-500 text-white hover:bg-indigo-400 sm:min-h-9'
+              : 'min-h-11 cursor-not-allowed bg-white/[0.04] text-zinc-600 sm:min-h-9'}
           >
             {exporting ? 'Exporting...' : 'Export'}
           </Button>
@@ -441,12 +444,12 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
           <div key={s} className="flex items-center gap-2">
             <div
               className={cn(
-                'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
+                'flex size-6 items-center justify-center rounded-full text-xs font-medium',
                 step === s
-                  ? 'bg-zinc-50 text-zinc-950'
+                  ? 'bg-indigo-500/80 text-white'
                   : step > s
-                  ? 'bg-zinc-700 text-zinc-300'
-                  : 'bg-zinc-800 text-zinc-500'
+                  ? 'bg-white/[0.08] text-zinc-400'
+                  : 'border border-white/[0.06] bg-white/[0.025] text-zinc-600'
               )}
             >
               {s}
@@ -454,12 +457,12 @@ export function ExportWizard({ captures, preselectedIds = [] }: ExportWizardProp
             <span
               className={cn(
                 'text-sm',
-                step === s ? 'text-zinc-200 font-medium' : 'text-zinc-500'
+                step === s ? 'font-medium text-zinc-100' : 'text-zinc-500'
               )}
             >
               {stepLabels[s]}
             </span>
-            {s < 3 && <span className="text-zinc-700 mx-1">›</span>}
+            {s < 3 && <span className="mx-1 text-zinc-700">›</span>}
           </div>
         ))}
       </div>

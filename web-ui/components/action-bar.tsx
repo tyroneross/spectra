@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useState, useRef } from 'react'
 import { Archive, Download, FolderDown, Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -81,17 +82,17 @@ export function ActionBar({
           onChange={handleSearch}
           placeholder="Search captures…"
           aria-label="Search captures"
-          className="min-h-11 border-zinc-700 bg-zinc-900 pl-9 text-base text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-zinc-600 sm:min-h-9 sm:text-sm"
+          className="min-h-11 border-white/[0.08] bg-white/[0.03] pl-9 text-base text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-2 focus-visible:ring-indigo-400/60 sm:min-h-9 sm:text-sm"
         />
       </div>
 
       <Select value={currentSort} onValueChange={(v) => setParam('sort', v)}>
-        <SelectTrigger aria-label="Sort captures" className="min-h-11 w-full border-zinc-700 bg-zinc-900 text-sm text-zinc-300 focus:ring-zinc-600 sm:min-h-9 sm:w-36">
+        <SelectTrigger aria-label="Sort captures" className="min-h-11 w-full border-white/[0.08] bg-white/[0.03] text-sm text-zinc-300 focus-visible:ring-2 focus-visible:ring-indigo-400/60 sm:min-h-9 sm:w-36">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-300">
+        <SelectContent className="border-white/[0.08] bg-zinc-950/95 text-zinc-300">
           {SORT_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value} className="focus:bg-zinc-800 focus:text-zinc-100">
+            <SelectItem key={opt.value} value={opt.value} className="focus:bg-white/[0.06] focus:text-zinc-100">
               {opt.label}
             </SelectItem>
           ))}
@@ -102,15 +103,15 @@ export function ActionBar({
         value={currentSessionType}
         onValueChange={(v) => setParam('sessionType', v === '__all' ? null : v)}
       >
-        <SelectTrigger aria-label="Filter by session type" className="min-h-11 w-full border-zinc-700 bg-zinc-900 text-sm text-zinc-300 focus:ring-zinc-600 sm:min-h-9 sm:w-48">
+        <SelectTrigger aria-label="Filter by session type" className="min-h-11 w-full border-white/[0.08] bg-white/[0.03] text-sm text-zinc-300 focus-visible:ring-2 focus-visible:ring-indigo-400/60 sm:min-h-9 sm:w-48">
           <SelectValue placeholder="Session Type" />
         </SelectTrigger>
-        <SelectContent className="bg-zinc-900 border-zinc-700 text-zinc-300">
-          <SelectItem value="__all" className="focus:bg-zinc-800 focus:text-zinc-100">
+        <SelectContent className="border-white/[0.08] bg-zinc-950/95 text-zinc-300">
+          <SelectItem value="__all" className="focus:bg-white/[0.06] focus:text-zinc-100">
             All Session Types
           </SelectItem>
           {sessionTypes.map((sessionType) => (
-            <SelectItem key={sessionType.name} value={sessionType.name} className="focus:bg-zinc-800 focus:text-zinc-100">
+            <SelectItem key={sessionType.name} value={sessionType.name} className="focus:bg-white/[0.06] focus:text-zinc-100">
               {sessionType.name} ({sessionType.count})
             </SelectItem>
           ))}
@@ -124,7 +125,12 @@ export function ActionBar({
             variant="outline"
             onClick={onExport}
             disabled={!hasSelection}
-            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:min-h-9"
+            className={cn(
+              'min-h-11 sm:min-h-9',
+              hasSelection
+                ? 'border-transparent bg-indigo-500 text-white hover:bg-indigo-400'
+                : 'border-white/[0.12] bg-white/[0.03] text-zinc-500 hover:bg-white/[0.06]'
+            )}
           >
             <Download className="size-4" aria-hidden="true" />
             Export {hasSelection ? selectedCount : ''}
@@ -134,7 +140,12 @@ export function ActionBar({
             variant="outline"
             onClick={onArchive}
             disabled={!hasSelection}
-            className="min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:min-h-9"
+            className={cn(
+              'min-h-11 sm:min-h-9',
+              hasSelection
+                ? 'border-rose-500/30 bg-rose-500/80 text-white hover:bg-rose-500'
+                : 'border-white/[0.12] bg-white/[0.03] text-zinc-500 hover:bg-white/[0.06]'
+            )}
           >
             <Archive className="size-4" aria-hidden="true" />
             Archive {hasSelection ? selectedCount : ''}
@@ -145,13 +156,14 @@ export function ActionBar({
       <Button
         type="button"
         size="sm"
-        variant={importPanelOpen ? 'default' : 'outline'}
+        variant="outline"
         onClick={onOpenImport}
-        className={
+        className={cn(
+          'min-h-11 sm:min-h-9',
           importPanelOpen
-            ? 'min-h-11 bg-zinc-700 text-zinc-100 hover:bg-zinc-600 sm:min-h-9'
-            : 'min-h-11 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 sm:min-h-9'
-        }
+            ? 'border-indigo-400/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
+            : 'border-white/[0.12] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'
+        )}
       >
         <FolderDown className="size-4" aria-hidden="true" />
         Import
@@ -160,13 +172,14 @@ export function ActionBar({
       <Button
         type="button"
         size="sm"
-        variant={bulkMode ? 'default' : 'outline'}
+        variant="outline"
         onClick={onToggleBulk}
-        className={
+        className={cn(
+          'min-h-11 sm:min-h-9',
           bulkMode
-            ? 'min-h-11 bg-zinc-700 text-zinc-100 hover:bg-zinc-600 sm:min-h-9'
-            : 'min-h-11 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 sm:min-h-9'
-        }
+            ? 'border-indigo-400/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
+            : 'border-white/[0.12] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200'
+        )}
       >
         {bulkMode ? 'Cancel' : 'Select'}
       </Button>

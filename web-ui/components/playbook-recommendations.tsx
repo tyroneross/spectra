@@ -83,13 +83,13 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-indigo-300" aria-hidden="true" />
-          <h2 className="text-sm font-medium text-zinc-200">Recommended Playbooks</h2>
-          <span className="text-xs text-zinc-600">{recommendations.length}</span>
+          <h2 className="text-[13px] font-medium text-zinc-100">Recommended Playbooks</h2>
+          <span className="text-[11px] text-zinc-500">{recommendations.length}</span>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-900/50 bg-red-950/20 px-3 py-2 text-sm text-red-200">
+        <div className="rounded-xl border border-red-900/50 bg-red-950/20 px-3 py-2 text-sm text-red-200">
           {error}
         </div>
       )}
@@ -103,17 +103,17 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
           return (
             <article
               key={recommendation.id}
-              className="rounded-lg border border-indigo-400/20 bg-zinc-900/80 p-4 transition-colors hover:border-indigo-300/30"
+              className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-white/[0.045] hover:shadow-xl hover:shadow-black/50"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-sm font-medium text-zinc-50">{recommendation.name}</h3>
-                    <span className="rounded-full border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-xs text-zinc-400">
+                    <h3 className="truncate text-[13px] font-medium text-zinc-100">{recommendation.name}</h3>
+                    <span className="rounded-md border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-zinc-400">
                       {PLATFORM_LABELS[recommendation.platform] ?? recommendation.platform}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-[11px] text-zinc-500">
                     {recommendation.occurrences} runs · {recommendation.steps.length} steps · {Math.round(recommendation.confidence * 100)}% confidence
                   </p>
                 </div>
@@ -125,7 +125,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
                     aria-controls={detailsId}
                     aria-expanded={isExpanded}
                     onClick={() => setExpandedId(isExpanded ? null : recommendation.id)}
-                    className="min-h-9 border-zinc-700 bg-zinc-950/40 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50"
+                    className="min-h-9 border-white/[0.08] bg-white/[0.025] text-zinc-300 hover:bg-white/[0.04] hover:text-zinc-100"
                   >
                     Learn more
                     <ChevronDown
@@ -138,7 +138,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
                     size="sm"
                     onClick={() => acceptRecommendation(recommendation)}
                     disabled={acceptingId === recommendation.id}
-                    className="min-h-9 bg-zinc-50 text-zinc-950 hover:bg-zinc-200"
+                    className="min-h-9 bg-indigo-500 hover:bg-indigo-400 text-white border-0"
                   >
                     <Check className="size-4" aria-hidden="true" />
                     {acceptingId === recommendation.id ? 'Accepting' : 'Accept'}
@@ -156,7 +156,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
               </ol>
 
               {isExpanded && (
-                <div id={detailsId} className="mt-4 border-t border-zinc-800 pt-4">
+                <div id={detailsId} className="mt-4 border-t border-white/[0.06] pt-4">
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(12rem,0.7fr)]">
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
@@ -169,7 +169,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
                         <dt className="text-zinc-600">Target</dt>
                         <dd className="truncate text-zinc-400">{recommendation.target || 'Not recorded'}</dd>
                         <dt className="text-zinc-600">Tool path</dt>
-                        <dd className="text-zinc-400">{toolPaths || 'Not recorded'}</dd>
+                        <dd className="font-mono text-[11px] text-zinc-400">{toolPaths || 'Not recorded'}</dd>
                         <dt className="text-zinc-600">Agent source</dt>
                         <dd className="text-zinc-400">Not recorded on this recommendation</dd>
                       </dl>
@@ -183,7 +183,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
                           <li key={`${recommendation.id}:${evidence.sessionId}`} className="text-xs">
                             <p className="truncate text-zinc-300">{evidence.sessionName}</p>
                             <p className="font-mono text-[11px] text-zinc-600">{evidence.sessionId}</p>
-                            <p className="text-zinc-600">{relativeTime(evidence.updatedAt)}</p>
+                            <p className="text-[11px] text-zinc-600">{relativeTime(evidence.updatedAt)}</p>
                           </li>
                         ))}
                       </ul>
@@ -194,7 +194,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
                     <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                       Step details
                     </p>
-                    <ol className="mt-2 divide-y divide-zinc-800">
+                    <ol className="mt-2 divide-y divide-white/[0.06]">
                       {recommendation.steps.map((step, index) => (
                         <li key={`${recommendation.id}:detail:${index}:${step.intent}`} className="grid gap-1 py-2 text-xs sm:grid-cols-[1.5rem_minmax(0,1fr)_9rem_10rem] sm:items-center">
                           <span className="font-mono text-zinc-600">{index + 1}</span>
@@ -208,7 +208,7 @@ export function PlaybookRecommendations({ recommendations }: PlaybookRecommendat
                 </div>
               )}
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-zinc-600">
                 <span>{relativeTime(recommendation.lastSeenAt)}</span>
                 {recommendation.target && (
                   <>

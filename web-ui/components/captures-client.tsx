@@ -236,7 +236,7 @@ export function CapturesClient({ captures, sessionTypes }: CapturesClientProps) 
         importPanelOpen={importPanelOpen}
       />
       {importPanelOpen && (
-        <div className="mb-4 rounded-md border border-zinc-800 bg-zinc-950/80 p-3">
+        <div className="mb-4 rounded-md border border-white/[0.08] bg-zinc-950/80 p-3">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm font-medium text-zinc-200">External captures</p>
@@ -262,7 +262,7 @@ export function CapturesClient({ captures, sessionTypes }: CapturesClientProps) 
           )}
 
           {importResults.length > 0 && (
-            <div className="mb-3 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-300">
+            <div className="mb-3 rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-xs text-zinc-300">
               {importResults.map((result) => (
                 <p key={result.candidateId}>
                   {result.repoName} {result.sourceType}: {result.copied} imported, {result.skipped} skipped
@@ -273,19 +273,19 @@ export function CapturesClient({ captures, sessionTypes }: CapturesClientProps) 
           )}
 
           {importLoading && (
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-300">
+            <div className="rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-zinc-300">
               Scanning sibling repos...
             </div>
           )}
 
           {!importLoading && importCandidates?.length === 0 && (
-            <div className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400">
+            <div className="rounded-md border border-white/[0.08] bg-zinc-900 px-3 py-2 text-sm text-zinc-400">
               No external repo captures found.
             </div>
           )}
 
           {!importLoading && importCandidates && importCandidates.length > 0 && (
-            <div className="divide-y divide-zinc-800 overflow-hidden rounded-md border border-zinc-800">
+            <div className="divide-y divide-white/[0.08] overflow-hidden rounded-md border border-white/[0.08]">
               {importCandidates.map((candidate) => {
                 const isImporting = importingId === candidate.id
                 return (
@@ -322,7 +322,7 @@ export function CapturesClient({ captures, sessionTypes }: CapturesClientProps) 
         </div>
       )}
       {archiving && (
-        <div className="mb-4 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-300">
+        <div className="mb-4 rounded-md border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-sm text-zinc-300">
           Moving selected captures to the archive...
         </div>
       )}
@@ -332,7 +332,7 @@ export function CapturesClient({ captures, sessionTypes }: CapturesClientProps) 
         <div className="space-y-8">
           {projectGroups.map((projectGroup) => (
             <section key={projectGroup.key} className="space-y-5">
-              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-800 pb-3">
+              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.08] pb-3">
                 <div className="min-w-0">
                   <h2 className="text-base font-semibold text-zinc-50">{projectGroup.label}</h2>
                   {projectGroup.repoName !== projectGroup.label && (
@@ -346,11 +346,11 @@ export function CapturesClient({ captures, sessionTypes }: CapturesClientProps) 
 
               {projectGroup.dateGroups.map((dateGroup) => (
                 <section key={`${projectGroup.key}:${dateGroup.key}`} className="space-y-4">
-                  <h3 className="text-sm font-medium text-zinc-400">{dateGroup.label}</h3>
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-zinc-500">{dateGroup.label}</h3>
                   {dateGroup.mediaGroups.map((mediaGroup) => (
                     <section key={`${projectGroup.key}:${dateGroup.key}:${mediaGroup.type}`} className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        <h4 className="text-xs font-medium uppercase tracking-wider text-zinc-500">
                           {mediaGroup.label}
                         </h4>
                         <span className="text-xs text-zinc-600">{mediaGroup.captures.length}</span>

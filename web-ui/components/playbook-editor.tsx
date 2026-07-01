@@ -96,29 +96,29 @@ export function PlaybookEditor({ playbook, onSave }: PlaybookEditorProps) {
   return (
     <div className="space-y-6">
       {/* Header fields */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-4">
-        <h2 className="text-sm font-medium text-zinc-300">Playbook Details</h2>
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Playbook Details</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Name</label>
+            <label className="text-xs text-zinc-500">Name</label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Onboarding flow"
-              className="bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500"
+              className="bg-white/[0.04] border-white/[0.08] text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-indigo-400/60 min-h-11"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Platform</label>
+            <label className="text-xs text-zinc-500">Platform</label>
             <Select value={platform} onValueChange={setPlatform}>
-              <SelectTrigger className="bg-zinc-950 border-zinc-700 text-zinc-100 focus:border-zinc-500">
+              <SelectTrigger className="bg-white/[0.04] border-white/[0.08] text-zinc-100 focus-visible:ring-2 focus-visible:ring-indigo-400/60 min-h-11">
                 <SelectValue placeholder="Select platform" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700">
+              <SelectContent className="bg-zinc-950 border-white/[0.08]">
                 {PLATFORM_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value} className="text-zinc-100 focus:bg-zinc-800">
+                  <SelectItem key={o.value} value={o.value} className="text-zinc-100 focus:bg-white/[0.04]">
                     {o.label}
                   </SelectItem>
                 ))}
@@ -127,31 +127,33 @@ export function PlaybookEditor({ playbook, onSave }: PlaybookEditorProps) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Target</label>
+            <label className="text-xs text-zinc-500">Target</label>
             <Input
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               placeholder="e.g., https://app.example.com or MyApp"
-              className="bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500"
+              className="bg-white/[0.04] border-white/[0.08] text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-indigo-400/60 min-h-11"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Description</label>
+            <label className="text-xs text-zinc-500">Description</label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of this playbook"
-              className="bg-zinc-950 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500"
+              className="bg-white/[0.04] border-white/[0.08] text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-indigo-400/60 min-h-11"
             />
           </div>
         </div>
       </div>
 
       {/* Steps */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-medium text-zinc-300">Steps ({steps.length})</h2>
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+            Steps ({steps.length})
+          </p>
         </div>
 
         {steps.length === 0 && (
@@ -160,88 +162,90 @@ export function PlaybookEditor({ playbook, onSave }: PlaybookEditorProps) {
           </p>
         )}
 
-        <div className="space-y-2">
-          {steps.map((step, idx) => (
-            <div
-              key={idx}
-              draggable
-              onDragStart={() => handleDragStart(idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDragEnd={handleDragEnd}
-              className="flex items-start gap-2 bg-zinc-950 border border-zinc-800 rounded-lg p-3 cursor-default"
-            >
-              {/* Drag handle */}
+        {steps.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-white/[0.06] divide-y divide-white/[0.06] mb-3">
+            {steps.map((step, idx) => (
               <div
-                className="mt-2 shrink-0 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing select-none"
-                title="Drag to reorder"
+                key={idx}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDragEnd={handleDragEnd}
+                className="flex items-start gap-2 p-3 cursor-default"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <circle cx="9" cy="5" r="1.5" />
-                  <circle cx="15" cy="5" r="1.5" />
-                  <circle cx="9" cy="12" r="1.5" />
-                  <circle cx="15" cy="12" r="1.5" />
-                  <circle cx="9" cy="19" r="1.5" />
-                  <circle cx="15" cy="19" r="1.5" />
-                </svg>
-              </div>
-
-              {/* Step number */}
-              <div className="mt-2 w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
-                <span className="text-xs text-zinc-400">{idx + 1}</span>
-              </div>
-
-              {/* Fields */}
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Input
-                  value={step.intent}
-                  onChange={(e) => updateStep(idx, { intent: e.target.value })}
-                  placeholder="e.g., click the settings button"
-                  className="sm:col-span-1 bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm h-8 focus:border-zinc-500"
-                />
-
-                <Select
-                  value={step.captureType}
-                  onValueChange={(v) => updateStep(idx, { captureType: v as PlaybookStep['captureType'] })}
+                {/* Drag handle */}
+                <div
+                  className="mt-2 shrink-0 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing select-none"
+                  title="Drag to reorder"
                 >
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-zinc-100 h-8 text-sm focus:border-zinc-500">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-900 border-zinc-700">
-                    {CAPTURE_TYPE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value} className="text-zinc-100 focus:bg-zinc-800 text-sm">
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="9" cy="5" r="1.5" />
+                    <circle cx="15" cy="5" r="1.5" />
+                    <circle cx="9" cy="12" r="1.5" />
+                    <circle cx="15" cy="12" r="1.5" />
+                    <circle cx="9" cy="19" r="1.5" />
+                    <circle cx="15" cy="19" r="1.5" />
+                  </svg>
+                </div>
 
-                <Input
-                  value={step.notes ?? ''}
-                  onChange={(e) => updateStep(idx, { notes: e.target.value })}
-                  placeholder="Notes (optional)"
-                  className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm h-8 focus:border-zinc-500"
-                />
+                {/* Step number */}
+                <div className="mt-2 size-5 rounded-full bg-white/[0.06] flex items-center justify-center shrink-0">
+                  <span className="text-xs text-zinc-400">{idx + 1}</span>
+                </div>
+
+                {/* Fields */}
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <Input
+                    value={step.intent}
+                    onChange={(e) => updateStep(idx, { intent: e.target.value })}
+                    placeholder="e.g., click the settings button"
+                    className="sm:col-span-1 bg-white/[0.04] border-white/[0.08] text-zinc-100 placeholder:text-zinc-600 text-sm h-8 focus-visible:ring-1 focus-visible:ring-indigo-400/60"
+                  />
+
+                  <Select
+                    value={step.captureType}
+                    onValueChange={(v) => updateStep(idx, { captureType: v as PlaybookStep['captureType'] })}
+                  >
+                    <SelectTrigger className="bg-white/[0.04] border-white/[0.08] text-zinc-100 h-8 text-sm focus-visible:ring-1 focus-visible:ring-indigo-400/60">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-950 border-white/[0.08]">
+                      {CAPTURE_TYPE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="text-zinc-100 focus:bg-white/[0.04] text-sm">
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    value={step.notes ?? ''}
+                    onChange={(e) => updateStep(idx, { notes: e.target.value })}
+                    placeholder="Notes (optional)"
+                    className="bg-white/[0.04] border-white/[0.08] text-zinc-100 placeholder:text-zinc-600 text-sm h-8 focus-visible:ring-1 focus-visible:ring-indigo-400/60"
+                  />
+                </div>
+
+                {/* Delete */}
+                <button
+                  onClick={() => removeStep(idx)}
+                  className="mt-1.5 shrink-0 text-zinc-600 hover:text-red-400 transition-colors"
+                  title="Remove step"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-
-              {/* Delete */}
-              <button
-                onClick={() => removeStep(idx)}
-                className="mt-1.5 shrink-0 text-zinc-600 hover:text-red-400 transition-colors"
-                title="Remove step"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <Button
           variant="outline"
           size="sm"
           onClick={addStep}
-          className="mt-3 min-h-11 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 sm:min-h-9"
+          className="min-h-11 border-white/[0.08] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200 sm:min-h-9"
         >
           + Add Step
         </Button>
@@ -252,7 +256,11 @@ export function PlaybookEditor({ playbook, onSave }: PlaybookEditorProps) {
         <Button
           onClick={handleSave}
           disabled={!isDirty || !name.trim()}
-          className={isDirty && name.trim() ? 'min-h-11 bg-zinc-50 text-zinc-950 hover:bg-zinc-200 sm:min-h-9' : 'min-h-11 bg-zinc-800 text-zinc-600 cursor-not-allowed sm:min-h-9'}
+          className={
+            isDirty && name.trim()
+              ? 'min-h-11 bg-indigo-500 hover:bg-indigo-400 text-white border-0 sm:min-h-9'
+              : 'min-h-11 bg-white/[0.04] text-zinc-600 cursor-not-allowed border-0 sm:min-h-9'
+          }
         >
           Save Playbook
         </Button>

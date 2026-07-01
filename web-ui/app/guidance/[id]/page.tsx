@@ -31,11 +31,11 @@ export default async function PlaybookDetailPage({ params }: PageProps) {
         <Link href="/guidance" className="text-zinc-500 hover:text-zinc-300 transition-colors">
           Guidance
         </Link>
-        <span className="text-zinc-700">/</span>
+        <span className="text-zinc-600">/</span>
         <span className="text-zinc-300">{isNew ? 'New Playbook' : (playbook?.name || id)}</span>
       </div>
 
-      <h1 className="text-lg font-semibold text-zinc-50">
+      <h1 className="text-2xl font-bold text-zinc-50">
         {isNew ? 'New Playbook' : 'Edit Playbook'}
       </h1>
 

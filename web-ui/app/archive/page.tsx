@@ -9,15 +9,15 @@ export default async function ArchivePage() {
   ])
 
   return (
-    <main className="p-6 space-y-8">
+    <main className="space-y-8 p-6">
       <div>
-        <h1 className="text-lg font-semibold text-zinc-50 mb-1">Archive</h1>
+        <h1 className="mb-1 text-2xl font-bold text-zinc-50">Archive</h1>
         <p className="text-sm text-zinc-500">Archived captures are stored separately and excluded from the main captures view.</p>
       </div>
 
       {/* Archive browser */}
       <section>
-        <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-4">
+        <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-zinc-500">
           Archived captures
           {captures.length > 0 && <span className="ml-2 text-zinc-600">{captures.length}</span>}
         </h2>
@@ -26,7 +26,7 @@ export default async function ArchivePage() {
 
       {/* Storage stats */}
       <section>
-        <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-4">Storage</h2>
+        <h2 className="mb-4 text-xs font-medium uppercase tracking-wider text-zinc-500">Storage</h2>
         <StorageStats stats={stats} />
       </section>
     </main>

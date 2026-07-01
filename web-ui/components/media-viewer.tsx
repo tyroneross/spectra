@@ -35,12 +35,12 @@ export function MediaViewer({ capture }: MediaViewerProps) {
   const src = `/api/media/${capture.path}`
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full bg-zinc-950 rounded-lg overflow-hidden">
+    <div className="relative flex items-center justify-center w-full h-full rounded-xl border border-white/[0.06] bg-black/50 overflow-hidden">
       {isVideo ? (
         <video
           src={src}
           controls
-          className="max-w-full max-h-full rounded object-contain"
+          className="max-w-full max-h-full object-contain"
         />
       ) : (
         <div
@@ -54,7 +54,7 @@ export function MediaViewer({ capture }: MediaViewerProps) {
             src={src}
             alt={capture.filename}
             className={cn(
-              'rounded object-contain transition-transform duration-200',
+              'object-contain transition-transform duration-200',
               zoomed
                 ? 'max-w-none max-h-none scale-150 origin-center'
                 : 'max-w-full max-h-full'
@@ -65,7 +65,7 @@ export function MediaViewer({ capture }: MediaViewerProps) {
 
       {/* Zoom hint for images */}
       {!isVideo && (
-        <div className="absolute bottom-3 right-3 text-xs text-zinc-600 pointer-events-none">
+        <div className="absolute bottom-3 right-3 text-xs text-zinc-500 pointer-events-none select-none">
           {zoomed ? 'Click to zoom out · Esc' : 'Click to zoom · Esc to go back'}
         </div>
       )}

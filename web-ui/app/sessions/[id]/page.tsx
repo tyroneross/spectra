@@ -51,24 +51,22 @@ export default async function SessionDetailPage({ params }: PageProps) {
       </div>
 
       {/* Header */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <div className="flex flex-wrap items-start gap-3 mb-3">
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4">
+        <div className="flex flex-wrap items-start gap-3 mb-4">
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-semibold text-zinc-50">Run {session.id}</h1>
-            <p className="mt-1 truncate text-sm text-zinc-500">
+            <h1 className="truncate text-xl font-bold text-zinc-50">Run {session.id}</h1>
+            <p className="mt-1 truncate text-[11px] text-zinc-500">
               {projectLabel} · {sessionTypeLabel}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-[11px] text-zinc-500">
               {PLATFORM_LABELS[session.platform] ?? session.platform}
             </span>
             <span
               className={[
-                'text-xs px-1.5 py-0.5 rounded',
-                isActive
-                  ? 'bg-green-950/50 text-green-400 border border-green-800'
-                  : 'bg-zinc-800 text-zinc-500',
+                'text-[11px] font-medium',
+                isActive ? 'text-green-400' : 'text-zinc-500',
               ].join(' ')}
             >
               {isActive ? 'Active' : 'Closed'}
@@ -76,67 +74,67 @@ export default async function SessionDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-zinc-500 mb-0.5">Project</p>
-            <p className="text-zinc-300 truncate">{projectLabel}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Project</p>
+            <p className="text-[13px] text-zinc-100 truncate">{projectLabel}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Session Type</p>
-            <p className="text-zinc-300 truncate">{sessionTypeLabel}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Session Type</p>
+            <p className="text-[13px] text-zinc-100 truncate">{sessionTypeLabel}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Target</p>
-            <p className="text-zinc-300 truncate">{targetLabel}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Target</p>
+            <p className="text-[13px] text-zinc-100 truncate">{targetLabel}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Steps</p>
-            <p className="text-zinc-300">{session.steps.length}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Steps</p>
+            <p className="text-[13px] text-zinc-100">{session.steps.length}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Captures</p>
-            <p className="text-zinc-300">{session.captureCount}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Captures</p>
+            <p className="text-[13px] text-zinc-100">{session.captureCount}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Created</p>
-            <p className="text-zinc-300">{relativeTime(session.createdAt)}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Created</p>
+            <p className="text-[13px] text-zinc-100">{relativeTime(session.createdAt)}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Decisions</p>
-            <p className="text-zinc-300">{run?.decisions.length ?? 0}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Decisions</p>
+            <p className="text-[13px] text-zinc-100">{run?.decisions.length ?? 0}</p>
           </div>
           <div>
-            <p className="text-zinc-500 mb-0.5">Recording</p>
-            <p className="text-zinc-300 capitalize">{run?.recording.state ?? 'idle'}</p>
+            <p className="text-[11px] text-zinc-500 mb-0.5">Recording</p>
+            <p className="text-[13px] text-zinc-100 capitalize">{run?.recording.state ?? 'idle'}</p>
           </div>
         </div>
       </div>
 
       {run && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wide">Run</h2>
-            <span className="text-xs text-zinc-500">schema v{run.schemaVersion}</span>
+            <h2 className="text-xs font-medium uppercase tracking-wider text-zinc-500">Run</h2>
+            <span className="text-[11px] text-zinc-500">schema v{run.schemaVersion}</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-zinc-500 mb-0.5">Planner</p>
-              <p className="text-zinc-300">{run.planner.source}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Planner</p>
+              <p className="text-[13px] text-zinc-100">{run.planner.source}</p>
             </div>
             <div>
-              <p className="text-zinc-500 mb-0.5">Actions</p>
-              <p className="text-zinc-300">{run.actions.length}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Actions</p>
+              <p className="text-[13px] text-zinc-100">{run.actions.length}</p>
             </div>
             <div>
-              <p className="text-zinc-500 mb-0.5">Artifacts</p>
-              <p className="text-zinc-300">{run.artifacts.length}</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Artifacts</p>
+              <p className="text-[13px] text-zinc-100">{run.artifacts.length}</p>
             </div>
             <div>
-              <p className="text-zinc-500 mb-0.5">Source</p>
+              <p className="text-[11px] text-zinc-500 mb-0.5">Source</p>
               <p
                 className={[
-                  'truncate',
-                  run.recording.sourceVerified === false ? 'text-amber-300' : 'text-zinc-300',
+                  'text-[13px] truncate',
+                  run.recording.sourceVerified === false ? 'text-amber-300' : 'text-zinc-100',
                 ].join(' ')}
               >
                 {run.recording.source ?? 'none'}
@@ -148,14 +146,14 @@ export default async function SessionDetailPage({ params }: PageProps) {
 
       {/* Timeline */}
       <div>
-        <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-4">Steps</h2>
+        <h2 className="text-xs font-medium uppercase tracking-wider text-zinc-500 mb-4">Steps</h2>
         <SessionTimeline steps={session.steps} />
       </div>
 
       {/* Captures */}
       {captures.length > 0 && (
         <div>
-          <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-4">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-zinc-500 mb-4">
             Captures ({captures.length})
           </h2>
           <MediaGrid captures={captures} />
