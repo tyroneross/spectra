@@ -28,6 +28,7 @@ export declare class ComputerUse {
      */
     snapshotFocusedWindow(options?: {
         refresh?: boolean;
+        visionFallbackThreshold?: number;
     }): Promise<AxSnapshot>;
     /** Route a single action to the right primitive. AX-node resolution first;
      * fall back to a signal (never a crash) when the tree can't ground it. */

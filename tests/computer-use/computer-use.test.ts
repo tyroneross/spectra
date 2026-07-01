@@ -112,6 +112,55 @@ describe('ComputerUse.fillForm — first-class form-filling', () => {
   })
 })
 
+describe('ComputerUse.act — lazy self-snapshot (dead-act-path regression)', () => {
+  // Deliberately do NOT call cu.snapshotFocusedWindow() first in these tests —
+  // that prior call is exactly the gap that hid the bug: a standalone act on
+  // a fresh instance (this.cache === null) must ground itself, mirroring
+  // fillForm's self-snapshot at computer-use.ts ~line 153. Pre-fix, click()/
+  // setValue() resolved against `this.cache?.nodes ?? []` directly, so a
+  // fresh instance always saw an empty node list and reported matched:false.
+
+  it('click with a null cache self-snapshots then resolves the node', async () => {
+    const port = new FakeAxBridgePort(loginFormSnapshot())
+    const cu = new ComputerUse(port)
+
+    const outcome = await cu.act({ kind: 'click', label: 'Sign In' })
+
+    expect(outcome.matched).toBe(true)
+    expect(outcome.success).toBe(true)
+    expect(port.acts).toHaveLength(1)
+    expect(port.acts[0]?.action).toBe('press')
+    expect(port.acts[0]?.elementPath).toEqual([0, 3])
+  })
+
+  it('set-value with a null cache self-snapshots then resolves and verifies', async () => {
+    const port = new FakeAxBridgePort(loginFormSnapshot())
+    const cu = new ComputerUse(port)
+
+    const outcome = await cu.act({ kind: 'set-value', label: 'Email', value: 'a@b.com' })
+
+    expect(outcome.matched).toBe(true)
+    expect(outcome.verified).toBe(true)
+    expect(outcome.actualValue).toBe('a@b.com')
+    expect(port.acts[0]?.action).toBe('setValue')
+  })
+
+  it('a null-cache click only self-snapshots once even across repeated calls (cache reused, not re-walked)', async () => {
+    let snapshotCalls = 0
+    const base = loginFormSnapshot()
+    const port: AxBridgePort = {
+      async snapshotFocused() { snapshotCalls++; return base },
+      async act() { return { success: true } },
+      async key() { return { success: true } },
+      async preflight() { return { trusted: true } },
+    }
+    const cu = new ComputerUse(port)
+
+    await cu.act({ kind: 'click', label: 'Sign In' })
+    expect(snapshotCalls).toBe(1)
+  })
+})
+
 describe('ComputerUse.act — routing', () => {
   it('routes click-by-role-label to a press on the resolved node', async () => {
     const port = new FakeAxBridgePort(loginFormSnapshot())

@@ -33,6 +33,17 @@ export declare class CoreApiImplementation implements CoreApi {
     private readonly eventSink?;
     private readonly recordings;
     private readonly compositeRecordings;
+    /**
+     * One ComputerUse instance per distinct target, reused across MCP calls so
+     * its snapshot cache (and the native AX bridge it holds) actually pays off.
+     * Previously computerUse() built a fresh ComputerUse per call, so `act`'s
+     * cache was always empty and every standalone act fell through to
+     * needsVisionFallback regardless of the app (see docs/prd — dead act path).
+     * Keyed by target (pid/app) since a snapshot cache scoped to one window is
+     * meaningless for another; targets are few and long-lived per session so
+     * this map does not grow unbounded in practice.
+     */
+    private readonly computerUseInstances;
     constructor(options?: CoreApiImplementationOptions);
     protected spawnCursorSampler(args: string[]): ChildProcess;
     /** Overridable seam so tests can simulate a missing/failed-to-build binary without compiling. */
@@ -79,6 +90,14 @@ export declare class CoreApiImplementation implements CoreApi {
     computerUse(params: ComputerUseParams): Promise<ComputerUseResult>;
     /** Overridable seam so tests can inject a fake AX bridge without a GUI session. */
     protected createAxBridgePort(): AxBridgePort;
+    /**
+     * Returns the persistent ComputerUse for `target`, constructing it lazily
+     * on first use. Reusing the instance across calls is what lets `act`'s
+     * lazy self-snapshot (computer-use.ts) actually build up a cache that
+     * later act/click/setValue calls in the same target benefit from — a
+     * fresh-per-call instance (the pre-fix behavior) never accumulated state.
+     */
+    private getOrCreateComputerUse;
     close(): Promise<void>;
     private startCursorSampler;
     private stopCursorSampler;

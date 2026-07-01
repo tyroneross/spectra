@@ -13,17 +13,24 @@
 //       fails against pre-fix code, see comment below).
 //   (b) an AX permission error maps to the daemon's permission_denied / 403
 //       path instead of leaking a raw AxPermissionError.
+//   (c) a STANDALONE `action:'act'` MCP call — no prior snapshot call in the
+//       same instance — resolves against the focused window and dispatches
+//       to the bridge. Regression test for the dead-act-path defect: the
+//       daemon used to construct a brand-new ComputerUse per call, whose
+//       cache was always empty, so `act` always reported matched:false /
+//       needsVisionFallback:true regardless of the app. This test FAILS
+//       against pre-fix computer-use.ts (see mutation-check note below).
 //
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from 'vitest'
 import { CoreApiImplementation } from '../../src/daemon/core-impl.js'
 import { DaemonApiError } from '../../src/daemon/errors.js'
-import { AxPermissionError, type AxBridgePort, type RawActResult, type RawAxSnapshot } from '../../src/computer-use/port.js'
+import { AxPermissionError, type AxBridgePort, type RawActRequest, type RawActResult, type RawAxSnapshot } from '../../src/computer-use/port.js'
 import type { AxNode } from '../../src/computer-use/types.js'
-import type { ComputerUseSnapshotResult } from '../../src/contract/core-api.js'
+import type { ComputerUseActResult, ComputerUseSnapshotResult } from '../../src/contract/core-api.js'
 
-function mkNode(label: string): AxNode {
+function mkNode(label: string, path: number[] = [0]): AxNode {
   return {
     role: 'AXButton',
     label,
@@ -32,23 +39,28 @@ function mkNode(label: string): AxNode {
     focused: false,
     actions: ['press'],
     bounds: [0, 0, 10, 10],
-    path: [0],
+    path,
   }
 }
 
 /** Fake AX bridge: returns a fixed snapshot (2 nodes, axStatus 'ok') or throws. */
 class FakeAxBridgePort implements AxBridgePort {
+  acts: RawActRequest[] = []
+  snapshotCalls = 0
+
   constructor(
     private readonly snapshot?: RawAxSnapshot,
     private readonly failWith?: Error,
   ) {}
 
   async snapshotFocused(): Promise<RawAxSnapshot> {
+    this.snapshotCalls++
     if (this.failWith) throw this.failWith
     return this.snapshot!
   }
 
-  async act(): Promise<RawActResult> {
+  async act(req: RawActRequest): Promise<RawActResult> {
+    this.acts.push(req)
     return { success: true }
   }
 
@@ -76,7 +88,7 @@ class HandlerTestCore extends CoreApiImplementation {
 describe('CoreApiImplementation#computerUse (daemon handler)', () => {
   const twoNodeSnapshot: RawAxSnapshot = {
     window: { title: 'Test Window', bounds: [0, 0, 800, 600] },
-    elements: [mkNode('Save'), mkNode('Cancel')],
+    elements: [mkNode('Save', [0, 0]), mkNode('Cancel', [0, 1])],
     nodeCount: 2,
     axStatus: 'ok',
     focusedWindowTitle: 'Test Window',
@@ -109,6 +121,28 @@ describe('CoreApiImplementation#computerUse (daemon handler)', () => {
     const result = (await core.computerUse({ action: 'snapshot' })) as ComputerUseSnapshotResult
 
     expect(result.needsVisionFallback).toBe(false)
+  })
+
+  it('a standalone action:"act" call resolves against the focused window and dispatches to the bridge (dead-act-path regression)', async () => {
+    // No prior 'snapshot' MCP call — this is the exact shape that was dead:
+    // a bare `act` call is the FIRST thing this daemon handler sees.
+    const port = new FakeAxBridgePort(twoNodeSnapshot)
+    const core = new HandlerTestCore(port)
+
+    const result = (await core.computerUse({
+      action: 'act',
+      op: { kind: 'click', label: 'Save' },
+    })) as ComputerUseActResult
+
+    expect(result.matched).toBe(true)
+    expect(result.success).toBe(true)
+    expect(result.needsVisionFallback).toBeFalsy()
+    // Dispatched to the fake bridge's act(), not left unresolved.
+    expect(port.acts).toHaveLength(1)
+    expect(port.acts[0]?.action).toBe('press')
+    expect(port.acts[0]?.elementPath).toEqual([0, 0])
+    // Exactly one native snapshot round trip — the lazy self-snapshot, not zero.
+    expect(port.snapshotCalls).toBe(1)
   })
 
   it('maps an AX permission error to the daemon permission_denied/403 path', async () => {

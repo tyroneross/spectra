@@ -78,8 +78,15 @@ export class ComputerUse {
    * Snapshot the focused window as a scoped AX tree. Cached: repeated calls
    * reuse the last snapshot until an action invalidates it or `refresh` is set.
    */
-  async snapshotFocusedWindow(options: { refresh?: boolean } = {}): Promise<AxSnapshot> {
+  async snapshotFocusedWindow(
+    options: { refresh?: boolean; visionFallbackThreshold?: number } = {},
+  ): Promise<AxSnapshot> {
     if (this.cache && !options.refresh) return this.cache
+
+    // Per-call override so a reused/shared ComputerUse instance (see
+    // core-impl.ts's persistent-instance-per-target cache) can still honor a
+    // per-request threshold without needing to be reconstructed.
+    const threshold = options.visionFallbackThreshold ?? this.threshold
 
     let raw
     try {
@@ -95,7 +102,7 @@ export class ComputerUse {
     }
 
     let nodes = raw.elements
-    let needsVisionFallback = raw.axStatus !== 'ok' || raw.nodeCount < this.threshold
+    let needsVisionFallback = raw.axStatus !== 'ok' || raw.nodeCount < threshold
     let fallbackReason: string | undefined
     if (needsVisionFallback) {
       fallbackReason =
@@ -106,7 +113,7 @@ export class ComputerUse {
       const vf = this.opts.visionFallback
       if (vf && vf.available()) {
         const grounded = await vf.ground(this.opts.target, { reason: fallbackReason, nodeCount: raw.nodeCount })
-        if (grounded.length >= this.threshold) {
+        if (grounded.length >= threshold) {
           nodes = grounded
           needsVisionFallback = false
           fallbackReason = 'vision-fallback-applied'
@@ -181,6 +188,13 @@ export class ComputerUse {
   // ─── Primitives ─────────────────────────────────────────
 
   private async click(action: { kind: 'click'; role?: string; label: string }): Promise<ActOutcome> {
+    // Lazy self-snapshot: a standalone act/click call (no prior in-instance
+    // snapshot) must ground itself first, exactly like fillForm already does
+    // at ~line 153 — otherwise this.cache is empty and every standalone act
+    // spuriously reports matched:false. Only snapshot when there is no cache
+    // yet; a prior in-instance snapshot (or a cached one from an earlier act)
+    // is reused untouched.
+    if (!this.cache) await this.snapshotFocusedWindow()
     const node = this.resolveByLabel(action.label, {
       role: action.role,
       prefer: (n) => n.actions.includes('press'),
@@ -199,6 +213,8 @@ export class ComputerUse {
   }
 
   private async setValue(label: string, value: string, action: ComputerUseAction): Promise<ActOutcome> {
+    // Lazy self-snapshot — see click() above for rationale.
+    if (!this.cache) await this.snapshotFocusedWindow()
     const node = this.resolveEditable(label)
     if (!node) return this.unresolved(action)
 

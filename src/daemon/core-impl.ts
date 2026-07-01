@@ -144,6 +144,17 @@ export class CoreApiImplementation implements CoreApi {
   private readonly eventSink?: DaemonEventSink
   private readonly recordings = new RecordingRegistry()
   private readonly compositeRecordings = new CompositeRecordingRegistry()
+  /**
+   * One ComputerUse instance per distinct target, reused across MCP calls so
+   * its snapshot cache (and the native AX bridge it holds) actually pays off.
+   * Previously computerUse() built a fresh ComputerUse per call, so `act`'s
+   * cache was always empty and every standalone act fell through to
+   * needsVisionFallback regardless of the app (see docs/prd — dead act path).
+   * Keyed by target (pid/app) since a snapshot cache scoped to one window is
+   * meaningless for another; targets are few and long-lived per session so
+   * this map does not grow unbounded in practice.
+   */
+  private readonly computerUseInstances = new Map<string, ComputerUse>()
 
   constructor(options: CoreApiImplementationOptions = {}) {
     this.ctx = options.context ?? createContext()
@@ -835,14 +846,13 @@ export class CoreApiImplementation implements CoreApi {
     else if (params.app !== undefined) target.app = params.app
 
     const threshold = params.action === 'snapshot' ? params.threshold : undefined
-    const cu = new ComputerUse(this.createAxBridgePort(), {
-      target,
-      ...(threshold !== undefined ? { visionFallbackThreshold: threshold } : {}),
-    })
+    const cu = this.getOrCreateComputerUse(target)
     try {
       switch (params.action) {
         case 'snapshot': {
-          const snap = await cu.snapshotFocusedWindow()
+          const snap = await cu.snapshotFocusedWindow(
+            threshold !== undefined ? { visionFallbackThreshold: threshold } : {},
+          )
           return { action: 'snapshot', ...snap }
         }
         case 'act': {
@@ -877,6 +887,23 @@ export class CoreApiImplementation implements CoreApi {
   /** Overridable seam so tests can inject a fake AX bridge without a GUI session. */
   protected createAxBridgePort(): AxBridgePort {
     return new NativeAxBridgePort()
+  }
+
+  /**
+   * Returns the persistent ComputerUse for `target`, constructing it lazily
+   * on first use. Reusing the instance across calls is what lets `act`'s
+   * lazy self-snapshot (computer-use.ts) actually build up a cache that
+   * later act/click/setValue calls in the same target benefit from — a
+   * fresh-per-call instance (the pre-fix behavior) never accumulated state.
+   */
+  private getOrCreateComputerUse(target: AxTarget): ComputerUse {
+    const key = target.pid !== undefined ? `pid:${target.pid}` : target.app !== undefined ? `app:${target.app}` : 'focused'
+    let cu = this.computerUseInstances.get(key)
+    if (!cu) {
+      cu = new ComputerUse(this.createAxBridgePort(), { target })
+      this.computerUseInstances.set(key, cu)
+    }
+    return cu
   }
 
   async close(): Promise<void> {
