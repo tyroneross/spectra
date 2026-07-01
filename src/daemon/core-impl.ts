@@ -91,7 +91,7 @@ import { handleSession } from '../mcp/tools/session.js'
 import { handleSnapshot } from '../mcp/tools/snapshot.js'
 import { handleStep } from '../mcp/tools/step.js'
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js'
-import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary } from '../native/compiler.js'
+import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary } from '../native/compiler.js'
 import {
   COMPOSITE_WORKER_DEFAULTS,
   parseLuminance,
@@ -154,6 +154,11 @@ export class CoreApiImplementation implements CoreApi {
     const child = spawn(cursorSamplerBinaryPath(), args, { stdio: 'ignore' })
     child.on('error', () => {})
     return child
+  }
+
+  /** Overridable seam so tests can simulate a missing/failed-to-build binary without compiling. */
+  protected ensureCursorSamplerBinary(): string {
+    return ensureCursorSamplerBinary()
   }
 
   async health(params: HealthParams = {}): Promise<HealthResult> {
@@ -356,17 +361,29 @@ export class CoreApiImplementation implements CoreApi {
       )
     }
     let cursorSampler: ActiveCursorSampler | undefined
+    let cursorSamplerSkippedWarning: string | undefined
     if (params.captureCursor === true) {
       try {
-        cursorSampler = this.startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds)
-      } catch (error) {
-        await handle.abort().catch(() => {})
-        await this.keepAwake.recordingStopped(recordingId).catch(() => {})
-        throw new DaemonApiError(
-          'recording_failed',
-          `startRecording cursor sampler failed: ${error instanceof Error ? error.message : String(error)}`,
-          { status: 500, retryable: false, cause: error },
-        )
+        this.ensureCursorSamplerBinary()
+      } catch {
+        // Binary missing/stale and (re)build failed — skip the spawn entirely
+        // rather than shell out to a binary we know is broken. The recording
+        // itself still succeeds; the gap is surfaced as an artifact warning
+        // at stop time instead of failing silently.
+        cursorSamplerSkippedWarning = CURSOR_SAMPLER_SILENT_FAILURE_WARNING
+      }
+      if (!cursorSamplerSkippedWarning) {
+        try {
+          cursorSampler = this.startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds)
+        } catch (error) {
+          await handle.abort().catch(() => {})
+          await this.keepAwake.recordingStopped(recordingId).catch(() => {})
+          throw new DaemonApiError(
+            'recording_failed',
+            `startRecording cursor sampler failed: ${error instanceof Error ? error.message : String(error)}`,
+            { status: 500, retryable: false, cause: error },
+          )
+        }
       }
     }
 
@@ -382,6 +399,7 @@ export class CoreApiImplementation implements CoreApi {
       bitrate,
       handle,
       cursorSampler,
+      cursorSamplerSkippedWarning,
     })
     const recording = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
       state: 'recording',
@@ -475,6 +493,11 @@ export class CoreApiImplementation implements CoreApi {
     const durationMs = stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt)
     const sizeBytes = stopped.sizeBytes ?? file?.size
     const cursorTelemetryPath = await this.cursorTelemetryPathIfPresent(active.cursorSampler)
+    if (active.cursorSamplerSkippedWarning) {
+      warnings.push(active.cursorSamplerSkippedWarning)
+    } else if (active.cursorSampler && !cursorTelemetryPath) {
+      warnings.push(CURSOR_SAMPLER_SILENT_FAILURE_WARNING)
+    }
     const saved = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
       state: 'saved',
       recordingId: active.recordingId,
@@ -854,6 +877,10 @@ export class CoreApiImplementation implements CoreApi {
   private async stopCursorSampler(sampler: ActiveCursorSampler | undefined): Promise<void> {
     if (!sampler) return
     const child = sampler.child
+    // Spawn failed (no pid was ever assigned) — nothing to signal, and
+    // waiting out the SIGTERM/SIGKILL timeouts here would stall stopRecording
+    // for ~3s for no reason.
+    if (child.pid === undefined) return
     if (child.exitCode !== null || child.signalCode !== null) return
     child.kill('SIGTERM')
     await waitForChildExit(child, 2_000).catch(() => {
@@ -1015,7 +1042,12 @@ interface ActiveRecording {
   bitrate: string
   handle: NativeRecordingHandle
   cursorSampler?: ActiveCursorSampler
+  /** Set when captureCursor was requested but the sampler was never spawned (binary missing/failed to build). */
+  cursorSamplerSkippedWarning?: string
 }
+
+const CURSOR_SAMPLER_SILENT_FAILURE_WARNING =
+  'cursor telemetry requested but the sampler produced no output (is spectra-cursor-sampler built? run npm run build:cursor-sampler)'
 
 class RecordingRegistry {
   private readonly byId = new Map<string, ActiveRecording>()

@@ -59,6 +59,27 @@ describe('DemoSchema — polish-clip / polish-script validation', () => {
     expect(result.success).toBe(false)
   })
 
+  // f1: run-script (src/pipeline/script-runner.ts runDemoScript) wired as a
+  // demo action — no rendering, executes beat actions live via CDP.
+  it('accepts a run-script action with a script + cdpUrl', () => {
+    const result = DemoSchema.safeParse({
+      action: 'run-script',
+      script: {
+        beats: [{ id: 'b1', startMs: 0, endMs: 100, action: { kind: 'scroll' } }],
+      },
+      cdpUrl: 'ws://127.0.0.1:9222/devtools/page/abc',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects a run-script action missing cdpUrl', () => {
+    const result = DemoSchema.safeParse({
+      action: 'run-script',
+      script: { beats: [] },
+    })
+    expect(result.success).toBe(false)
+  })
+
   it('rejects polish-clip missing the out path', () => {
     const result = DemoSchema.safeParse({
       action: 'polish-clip',

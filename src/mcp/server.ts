@@ -116,7 +116,7 @@ const demoSpotlightObjectShape = z.object({
  * discriminatedUnion) — that's what server.tool()'s SDK signature requires.
  */
 export const spectraDemoInputShape = {
-  action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP | polish-clip: render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional spotlight) from a clicks/cursor track | polish-script: render the rich pipeline from a structured beat script'),
+  action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script', 'run-script']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP | polish-clip: render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional spotlight) from a clicks/cursor track | polish-script: render the rich pipeline from a structured beat script | run-script: execute a DemoScript beat-by-beat live against an already-open CDP page target (search/click/scroll/navigate), no rendering'),
   input: z.string().optional().describe('scan/auto-ramp/polish-clip/polish-script: path to the source video file'),
   threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
   deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
@@ -155,8 +155,9 @@ export const spectraDemoInputShape = {
   sessionId: z.string().optional().describe('record-composite: optional session to register the artifact against'),
   async: z.boolean().optional().describe('record-composite: return a recordingId immediately and finish via recording.status/artifact.added events'),
   clicksJson: demoClicksJsonShape.optional().describe('polish-clip: click/cursor track driving the zoom — JSON string, inline array of {tMs,cx,cy}, or {clicks?,cursorPath?} object'),
-  script: demoScriptShape.optional().describe('polish-script: structured beat script — {title?, finalCaption?, beats:[{id,startMs,endMs,stepLabel?,stepText?,zoom?,action?}]}'),
+  script: demoScriptShape.optional().describe('polish-script/run-script: structured beat script — {title?, finalCaption?, beats:[{id,startMs,endMs,stepLabel?,stepText?,zoom?,action?}]}'),
   voiceover: z.string().optional().describe('polish-script: path to a voiceover/narration audio file — REPLACES input audio, starts at t=0, padded/trimmed to the video duration (short VO never truncates the video; long VO is cut to video length)'),
+  cdpUrl: z.string().optional().describe('run-script: WebSocket debugger URL of an already-open CDP page target to drive the script against'),
 }
 
 /**

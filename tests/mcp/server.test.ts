@@ -76,6 +76,26 @@ describe('spectra_demo MCP input shape — activation-path boundary (f1)', () =>
     expect(spectraDemoInputSchema.parse({ action: 'auto-ramp', input: 'x.mp4', out: 'o.mp4' }).action).toBe('auto-ramp')
   })
 
+  // f1: the CDP DemoScript runner (src/pipeline/script-runner.ts runDemoScript)
+  // is wired as the run-script action. Proves the payload parses at the ACTUAL
+  // MCP SDK boundary (spectraDemoInputShape), not just downstream in the
+  // daemon-side handler/pipeline.
+  it('parses a run-script payload with a script + cdpUrl', () => {
+    const result = spectraDemoInputSchema.parse({
+      action: 'run-script',
+      script: {
+        title: 't',
+        beats: [
+          { id: 'b1', startMs: 0, endMs: 100, action: { kind: 'click', target: 'Graph' } },
+        ],
+      },
+      cdpUrl: 'ws://x',
+    })
+    expect(result.action).toBe('run-script')
+    expect(result.cdpUrl).toBe('ws://x')
+    expect(result.script?.beats).toHaveLength(1)
+  })
+
   it('rejects an unknown action at the boundary', () => {
     expect(() => spectraDemoInputSchema.parse({ action: 'not-a-real-action' })).toThrow()
   })

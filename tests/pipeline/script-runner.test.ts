@@ -17,6 +17,8 @@ const TEST_PAGE_HTML = `<!doctype html><html><head><title>Demo Target</title></h
 <nav><a href="#" data-nav="Graph" onclick="show('Graph');return false">Graph</a>
 <a href="#" data-nav="Research" onclick="show('Research');return false">Research</a></nav>
 <div id="panel">home</div>
+<div data-nav="foo
+bar" onclick="show('newline-hit')" style="width:10px;height:10px;">Y</div>
 <div id="tall" style="height:3000px">scroll region</div>
 <script>
 window.__state={search:'',panel:'home',scrollY:0};
@@ -80,5 +82,46 @@ describe.skipIf(!findChrome())('runDemoScript (integration, real Chrome)', () =>
     const log = await runDemoScript(script, { driver })
     expect(log).toHaveLength(1)
     expect(log[0]).toMatchObject({ beatId: 'missing', kind: 'click', ok: false })
+  }, 30_000)
+
+  // f4: locateTarget used to build the data-attr selector as
+  // `'['+attr+'='+JSON.stringify(t)+']'` — JSON string-escaping, not CSS
+  // attribute-selector string-escaping. For quote/backslash content the two
+  // escaping schemes happen to coincide in a real CSS tokenizer (both use a
+  // bare `\<char>` escape), so this does not throw — the run must still
+  // continue and simply log ok:false (target not found).
+  it('logs ok:false (never throws) for a target containing a double-quote', async () => {
+    const script: DemoScript = {
+      beats: [{ id: 'quoted', startMs: 0, endMs: 50, action: { kind: 'click', target: 'she said "hi" to me' } }],
+    }
+    const log = await runDemoScript(script, { driver })
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({ beatId: 'quoted', kind: 'click', ok: false })
+  }, 30_000)
+
+  // f4 (discriminating case): JSON escapes a literal newline as the two
+  // characters `\n`; a CSS string tokenizer reads `\` + non-hex-digit `n` as
+  // the LITERAL character 'n' (not a newline), so the old selector silently
+  // matched the wrong (non-existent) value and never found the element —
+  // no throw, just a false negative. CSS.escape() emits the CSS hex escape
+  // `\a ` for a control character, which round-trips correctly. This is a
+  // real old-vs-new behavior difference, confirmed by running both selector-
+  // building strategies against a live element in headless Chrome.
+  it('finds a data-nav target containing an embedded newline (CSS.escape round-trips control chars; JSON quoting did not)', async () => {
+    const { conn, sessionId } = driver.getConnection()
+    const runtime = new RuntimeDomain(conn, sessionId ?? undefined)
+    // Earlier tests in this shared-page describe block scroll the document;
+    // reset so the target div's getBoundingClientRect() is viewport-visible.
+    await runtime.evaluate('window.scrollTo(0,0)')
+
+    const script: DemoScript = {
+      beats: [{ id: 'newline-target', startMs: 0, endMs: 50, action: { kind: 'click', target: 'foo\nbar' } }],
+    }
+    const log = await runDemoScript(script, { driver })
+    expect(log).toHaveLength(1)
+    expect(log[0]).toMatchObject({ beatId: 'newline-target', kind: 'click', ok: true })
+
+    const panel = (await runtime.evaluate('window.__state.panel')) as string
+    expect(panel).toBe('newline-hit')
   }, 30_000)
 })

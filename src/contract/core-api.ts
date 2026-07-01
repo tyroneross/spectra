@@ -1135,6 +1135,30 @@ export interface DemoPolishClipResult {
 
 export type DemoPolishScriptResult = DemoPolishClipResult
 
+/** Mirrors pipeline/script-runner.ts BeatActionLog. */
+export interface DemoRunScriptLogEntry {
+  beatId: string
+  kind: DemoScriptAction['kind']
+  ok: boolean
+  detail: string
+}
+
+/**
+ * Execute a DemoScript's beat actions live against an already-open CDP page
+ * target — no rendering. Mirrors pipeline/script-runner.ts runDemoScript's
+ * `{ script, cdpUrl }` inputs (driver-based execution is a Node-only option
+ * not exposed over the wire).
+ */
+export interface DemoRunScriptParams {
+  action: 'run-script'
+  script: DemoScript
+  cdpUrl: string
+}
+
+export interface DemoRunScriptResult {
+  log: DemoRunScriptLogEntry[]
+}
+
 export type DemoParams =
   | DemoScanParams
   | DemoPolishParams
@@ -1142,6 +1166,7 @@ export type DemoParams =
   | DemoRecordCompositeParams
   | DemoPolishClipParams
   | DemoPolishScriptParams
+  | DemoRunScriptParams
 
 export type DemoResult =
   | DemoScanResult
@@ -1149,6 +1174,7 @@ export type DemoResult =
   | AutoRampDemoResult
   | DemoPolishClipResult
   | DemoPolishScriptResult
+  | DemoRunScriptResult
   | RecordCompositeResult
 
 export interface CoreApi {

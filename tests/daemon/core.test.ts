@@ -43,6 +43,17 @@ class FakeSamplerChild extends EventEmitter {
   signalCode: NodeJS.Signals | null = null
   killed = false
   killSignals: Array<NodeJS.Signals | number | undefined> = []
+  pid: number | undefined
+
+  // Real ChildProcess leaves `pid` undefined when spawn fails (ENOENT/crash).
+  // Default to a realistic pid so pre-existing tests model a live process;
+  // pass `null` explicitly to model a failed/crashed spawn (f3) — NOTE: a
+  // default parameter substitutes on an explicit `undefined` argument too,
+  // so `null` (not `undefined`) is the sentinel that actually reaches here.
+  constructor(pid: number | null = 4242) {
+    super()
+    this.pid = pid === null ? undefined : pid
+  }
 
   kill(signal?: NodeJS.Signals | number): boolean {
     this.killed = true
@@ -57,9 +68,43 @@ class CursorSamplerTestCore extends CoreApiImplementation {
   readonly cursorSamplerArgs: string[][] = []
   readonly cursorSamplerChildren: FakeSamplerChild[] = []
 
+  // Avoid invoking the real native compiler from unit tests.
+  protected override ensureCursorSamplerBinary(): string {
+    return '/fake/path/spectra-cursor-sampler'
+  }
+
   protected override spawnCursorSampler(args: string[]): ChildProcess {
     this.cursorSamplerArgs.push(args)
     const child = new FakeSamplerChild()
+    this.cursorSamplerChildren.push(child)
+    return child as unknown as ChildProcess
+  }
+}
+
+/** f2: simulates ensureCursorSamplerBinary() failing to (re)build the binary. */
+class EnsureCursorSamplerBinaryFailsTestCore extends CoreApiImplementation {
+  readonly cursorSamplerArgs: string[][] = []
+
+  protected override ensureCursorSamplerBinary(): string {
+    throw new Error('compile failed: no toolchain available')
+  }
+
+  protected override spawnCursorSampler(args: string[]): ChildProcess {
+    this.cursorSamplerArgs.push(args)
+    return new FakeSamplerChild() as unknown as ChildProcess
+  }
+}
+
+/** f2/f3: simulates a spawn that produces a pidless/crashing child (no telemetry, no pid). */
+class PidlessCursorSamplerTestCore extends CoreApiImplementation {
+  readonly cursorSamplerChildren: FakeSamplerChild[] = []
+
+  protected override ensureCursorSamplerBinary(): string {
+    return '/fake/path/spectra-cursor-sampler'
+  }
+
+  protected override spawnCursorSampler(args: string[]): ChildProcess {
+    const child = new FakeSamplerChild(null)
     this.cursorSamplerChildren.push(child)
     return child as unknown as ChildProcess
   }
@@ -553,6 +598,166 @@ describe('daemon core', () => {
         },
       })
       expect(keepAwake.activeRecordings).toBe(0)
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('f2: warns and skips the spawn when the cursor sampler binary cannot be (re)built', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-cursor-nobuild-'))
+    const keepAwake = new FakeKeepAwake()
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const core = new EnsureCursorSamplerBinaryFailsTestCore({
+      context: ctx,
+      keepAwake,
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => ({
+        pid: 999,
+        started: {
+          recordingId: input.recordingId,
+          path: input.outPath,
+          startedAt: Date.now(),
+          fps: input.fps,
+          codec: input.codec,
+          bitrate: input.bitrate,
+          width: 800,
+          height: 600,
+        },
+        stop: async () => {
+          writeFileSync(input.outPath, 'video')
+          return {
+            recordingId: input.recordingId,
+            path: input.outPath,
+            format: 'mp4',
+            durationMs: 1250,
+            sizeBytes: 2048,
+            codec: input.codec,
+            fps: input.fps,
+            width: 800,
+            height: 600,
+            droppedFrames: 0,
+          }
+        },
+        abort: async () => {},
+      }),
+    })
+
+    try {
+      await core.startRecording({ sessionId: session.id, fps: 30, codec: 'h264', bitrate: '4M', captureCursor: true })
+      await core.stopRecording({ sessionId: session.id })
+      const run = ctx.sessions.getRun(session.id)
+      const artifact = run?.artifacts[0]
+
+      // ensureCursorSamplerBinary() threw, so the spawn was skipped entirely.
+      expect(core.cursorSamplerArgs).toEqual([])
+      expect(run?.recording?.cursorTelemetryPath).toBeUndefined()
+      expect(artifact?.metadata).toMatchObject({
+        warnings: expect.arrayContaining([
+          expect.stringContaining('cursor telemetry requested but the sampler produced no output'),
+        ]),
+      })
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('f2/f3: warns and stops fast when the cursor sampler spawn produces a pidless/crashing child', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-cursor-crash-'))
+    const keepAwake = new FakeKeepAwake()
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const core = new PidlessCursorSamplerTestCore({
+      context: ctx,
+      keepAwake,
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => ({
+        pid: 999,
+        started: {
+          recordingId: input.recordingId,
+          path: input.outPath,
+          startedAt: Date.now(),
+          fps: input.fps,
+          codec: input.codec,
+          bitrate: input.bitrate,
+          width: 800,
+          height: 600,
+        },
+        stop: async () => {
+          writeFileSync(input.outPath, 'video')
+          return {
+            recordingId: input.recordingId,
+            path: input.outPath,
+            format: 'mp4',
+            durationMs: 1250,
+            sizeBytes: 2048,
+            codec: input.codec,
+            fps: input.fps,
+            width: 800,
+            height: 600,
+            droppedFrames: 0,
+          }
+        },
+        abort: async () => {},
+      }),
+    })
+
+    try {
+      await core.startRecording({ sessionId: session.id, fps: 30, codec: 'h264', bitrate: '4M', captureCursor: true })
+      // No telemetry file is ever written — simulates a sampler that crashed
+      // immediately after a pidless/failed spawn.
+      const stopStartedAt = Date.now()
+      await core.stopRecording({ sessionId: session.id })
+      const stopElapsedMs = Date.now() - stopStartedAt
+      const run = ctx.sessions.getRun(session.id)
+      const artifact = run?.artifacts[0]
+
+      // f3: pidless child — stopCursorSampler short-circuits, never signals it.
+      expect(core.cursorSamplerChildren[0].killSignals).toEqual([])
+      expect(stopElapsedMs).toBeLessThan(500)
+      // f2: telemetry never showed up — silent failure is now a surfaced warning.
+      expect(run?.recording?.cursorTelemetryPath).toBeUndefined()
+      expect(artifact?.metadata).toMatchObject({
+        warnings: expect.arrayContaining([
+          expect.stringContaining('cursor telemetry requested but the sampler produced no output'),
+        ]),
+      })
     } finally {
       await core.close()
       rmSync(repoPath, { recursive: true, force: true })

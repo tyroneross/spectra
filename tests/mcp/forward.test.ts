@@ -54,7 +54,7 @@ describe('mapToolCall — dispatched tools', () => {
   })
 
   it('spectra_demo maps to the demo operation for every action', () => {
-    for (const action of ['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script']) {
+    for (const action of ['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script', 'run-script']) {
       expect(mapToolCall('spectra_demo', { action }).operation).toBe('demo')
     }
   })
