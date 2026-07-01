@@ -100,5 +100,8 @@ cursor highlights/zoom guide the eye. Design for silent autoplay, deliver for so
 - `references/production-measurement.md` — solo "film once publish many", lean stack, metrics, checklists.
 - `references/spectra-production-map.md` — plan → Spectra tools/actions/specs/preset (the integration glue).
 
+For the visual/sound/pacing DESIGN layer — color, typography specs, cut rate, music,
+philosophy — load `Skill("spectra:video-design")`.
+
 For end-to-end autonomous planning (and optional production), dispatch the
 `marketing-planner` agent.
