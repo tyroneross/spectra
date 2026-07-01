@@ -248,6 +248,7 @@ export function createSpectraServer(client: DaemonClient): McpServer {
       codec: z.enum(['h264', 'hevc']).optional().describe('Recording codec'),
       bitrate: z.enum(['4M', '8M']).optional().describe('Recording bitrate'),
       hardware: z.boolean().optional().describe('Use hardware encoding when available'),
+      captureCursor: z.boolean().optional().describe('Record cursor telemetry beside a single-window recording'),
       composite: z.object({
         enabled: z.boolean().optional(),
         displayWidth: z.number().optional(),

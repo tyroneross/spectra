@@ -290,6 +290,7 @@ export interface CaptureRunRecording {
     error?: string;
     source?: string;
     sourceVerified?: boolean;
+    cursorTelemetryPath?: string;
 }
 export interface CaptureRunEventRecord {
     id: string;
@@ -472,6 +473,7 @@ export interface StartRecordingParams {
     bitrate?: VideoBitrate;
     hardware?: boolean;
     captureAudio?: boolean;
+    captureCursor?: boolean;
     composite?: RecordingCompositeOptions;
 }
 export interface StartRecordingResult {

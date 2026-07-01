@@ -38,6 +38,10 @@ describe('mapToolCall — dispatched tools', () => {
     expect(mapToolCall('spectra_capture', { sessionId: 's', type: 'screenshot' }).operation).toBe('screenshot')
     expect(mapToolCall('spectra_capture', { sessionId: 's', type: 'start_recording' }).operation).toBe('startRecording')
     expect(mapToolCall('spectra_capture', { sessionId: 's', type: 'stop_recording' }).operation).toBe('stopRecording')
+    expect(mapToolCall('spectra_capture', { sessionId: 's', type: 'start_recording', captureCursor: true })).toMatchObject({
+      operation: 'startRecording',
+      params: { sessionId: 's', captureCursor: true },
+    })
   })
 
   it('spectra_session dispatches by action', () => {
@@ -85,9 +89,15 @@ describe('forwardTool — end-to-end over the mock daemon', () => {
   it('capture start_recording forwards startRecording params', async () => {
     daemon = await startMockDaemon()
     const client = new DaemonClient({ socketPath: daemon.socketPath, surface: 'stdio-mcp' })
-    await forwardTool(client, 'spectra_capture', { sessionId: 's1', type: 'start_recording', fps: 60, codec: 'h264' })
+    await forwardTool(client, 'spectra_capture', {
+      sessionId: 's1',
+      type: 'start_recording',
+      fps: 60,
+      codec: 'h264',
+      captureCursor: true,
+    })
     expect(daemon.calls[0].operation).toBe('startRecording')
-    expect(daemon.calls[0].params).toMatchObject({ sessionId: 's1', fps: 60, codec: 'h264' })
+    expect(daemon.calls[0].params).toMatchObject({ sessionId: 's1', fps: 60, codec: 'h264', captureCursor: true })
   })
 
   it('session close_all forwards closeAllSessions with no params', async () => {

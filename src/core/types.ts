@@ -199,6 +199,7 @@ export interface CaptureRunRecording {
   error?: string
   source?: string
   sourceVerified?: boolean
+  cursorTelemetryPath?: string
 }
 
 export interface CaptureRunEvent {

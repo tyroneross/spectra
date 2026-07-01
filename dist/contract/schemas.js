@@ -151,6 +151,7 @@ export const startRecordingParamsSchema = z.object({
     bitrate: videoBitrateSchema.optional(),
     hardware: z.boolean().optional(),
     captureAudio: z.boolean().optional(),
+    captureCursor: z.boolean().optional(),
     composite: recordingCompositeOptionsSchema.optional(),
 });
 export const stopRecordingParamsSchema = z.object({

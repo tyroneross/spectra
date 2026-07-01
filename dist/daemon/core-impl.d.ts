@@ -1,4 +1,5 @@
-import type { CoreApi, WindowRecord } from '../contract/core-api.js';
+import { type ChildProcess } from 'node:child_process';
+import type { AnalyzeParams, AnalyzeResult, AutoRampDemoParams, AutoRampDemoResult, CloseAllSessionsResult, CloseSessionResult, CoreApi, CreateSessionParams, CreateSessionResult, DemoParams, DemoResult, DiscoverParams, DiscoverResult, GetPermissionsParams, GetRunResult, GetSessionResult, HealthParams, HealthResult, LibraryParams, LibraryResult, ListSessionsParams, ListSessionsResult, ListWindowsParams, ListWindowsResult, PermissionStatus, GetRecordingParams, GetRecordingResult, RecordCompositeParams, RecordCompositeResult, RecordLlmUsageParams, RecordLlmUsageResult, RequestPermissionsParams, RequestPermissionsResult, ScreenshotParams, ScreenshotResult, SessionByIdParams, StartRecordingParams, StartRecordingResult, StopRecordingParams, StopRecordingResult, WindowRecord, SnapshotParams, SnapshotResult, ObserveParams, ObserveResult, ActParams, ActResult, StepParams, StepResult, LlmStepParams, LlmStepResult, WalkthroughParams, WalkthroughResult, TerminalRecordParams, TerminalRecordResult, TerminalReplayParams, TerminalReplayResult } from '../contract/core-api.js';
 import type { DaemonEvent } from '../contract/wire.js';
 import { type ToolContext } from '../mcp/context.js';
 import { recordCompositeWithWorker } from './composite-worker.js';
@@ -19,6 +20,64 @@ export interface CoreApiImplementationOptions {
     eventSink?: DaemonEventSink;
 }
 export declare function createCoreApi(options?: CoreApiImplementationOptions): CoreApi;
+export declare class CoreApiImplementation implements CoreApi {
+    private readonly ctx;
+    private readonly startedAt;
+    private readonly daemonVersion?;
+    private readonly healthProbe?;
+    private readonly keepAwake;
+    private readonly recordCompositeWorker;
+    private readonly singleWindowRecordingRunner;
+    private readonly windowListProvider;
+    private readonly eventSink?;
+    private readonly recordings;
+    private readonly compositeRecordings;
+    constructor(options?: CoreApiImplementationOptions);
+    protected spawnCursorSampler(args: string[]): ChildProcess;
+    health(params?: HealthParams): Promise<HealthResult>;
+    getPermissions(params?: GetPermissionsParams): Promise<{
+        permissions: PermissionStatus[];
+    }>;
+    requestPermissions(params: RequestPermissionsParams): Promise<RequestPermissionsResult>;
+    listWindows(params?: ListWindowsParams): Promise<ListWindowsResult>;
+    createSession(params: CreateSessionParams): Promise<CreateSessionResult>;
+    listSessions(_params?: ListSessionsParams): Promise<ListSessionsResult>;
+    getSession(params: SessionByIdParams): Promise<GetSessionResult>;
+    getRun(params: SessionByIdParams): Promise<GetRunResult>;
+    closeSession(params: SessionByIdParams): Promise<CloseSessionResult>;
+    closeAllSessions(): Promise<CloseAllSessionsResult>;
+    recordLlmUsage(params: RecordLlmUsageParams): Promise<RecordLlmUsageResult>;
+    snapshot(params: SnapshotParams): Promise<SnapshotResult>;
+    observe(params: ObserveParams): Promise<ObserveResult>;
+    act(params: ActParams): Promise<ActResult>;
+    step(params: StepParams): Promise<StepResult>;
+    llmStep(params: LlmStepParams): Promise<LlmStepResult>;
+    walkthrough(params: WalkthroughParams): Promise<WalkthroughResult>;
+    screenshot(params: ScreenshotParams): Promise<ScreenshotResult>;
+    startRecording(params: StartRecordingParams): Promise<StartRecordingResult>;
+    stopRecording(params: StopRecordingParams): Promise<StopRecordingResult>;
+    recordComposite(params: RecordCompositeParams): Promise<RecordCompositeResult>;
+    getRecording(params: GetRecordingParams): Promise<GetRecordingResult>;
+    private recordCompositeSync;
+    private startCompositeRecording;
+    private finishCompositeRecording;
+    analyze(params: AnalyzeParams): Promise<AnalyzeResult>;
+    discover(params: DiscoverParams): Promise<DiscoverResult>;
+    recordTerminal(params: TerminalRecordParams): Promise<TerminalRecordResult>;
+    replayTerminal(params: TerminalReplayParams): Promise<TerminalReplayResult>;
+    library(params: LibraryParams): Promise<LibraryResult>;
+    demo(params: DemoParams): Promise<DemoResult>;
+    autoRampDemo(params: AutoRampDemoParams): Promise<AutoRampDemoResult>;
+    close(): Promise<void>;
+    private startCursorSampler;
+    private stopCursorSampler;
+    private cursorTelemetryPathIfPresent;
+    private addCompositeArtifact;
+    private emit;
+    private emitRecordingStatus;
+    private emitArtifactAdded;
+    private resolveRecordingTarget;
+}
 interface NativeStartRecordingInput {
     recordingId: string;
     sessionId: string;

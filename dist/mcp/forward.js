@@ -63,7 +63,7 @@ function mapCapture(args) {
         case 'screenshot':
             return op('screenshot', pick(args, ['sessionId', 'preset', 'mode', 'elementId', 'region', 'aspectRatio', 'clean', 'quality']));
         case 'start_recording':
-            return op('startRecording', pick(args, ['sessionId', 'preset', 'fps', 'codec', 'bitrate', 'hardware', 'composite']));
+            return op('startRecording', pick(args, ['sessionId', 'preset', 'fps', 'codec', 'bitrate', 'hardware', 'captureCursor', 'composite']));
         case 'stop_recording':
             return op('stopRecording', pick(args, ['sessionId', 'preset']));
         default:

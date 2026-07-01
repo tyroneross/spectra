@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
+import type { ChildProcess } from 'node:child_process'
+import { EventEmitter } from 'node:events'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { API_VERSION, type DaemonEvent } from '../../src/contract/wire.js'
 import { createDaemonCore } from '../../src/daemon/core.js'
+import { CoreApiImplementation } from '../../src/daemon/core-impl.js'
 import { eventEnvelope, formatSseFrame, sseFrame, successEnvelope } from '../../src/daemon/envelope.js'
 import type { KeepAwakeController } from '../../src/daemon/keep-awake.js'
 import { createContext } from '../../src/mcp/context.js'
@@ -32,6 +35,33 @@ class FakeKeepAwake implements KeepAwakeController {
   async close(): Promise<void> {
     this.events.push('close')
     this.recordings.clear()
+  }
+}
+
+class FakeSamplerChild extends EventEmitter {
+  exitCode: number | null = null
+  signalCode: NodeJS.Signals | null = null
+  killed = false
+  killSignals: Array<NodeJS.Signals | number | undefined> = []
+
+  kill(signal?: NodeJS.Signals | number): boolean {
+    this.killed = true
+    this.killSignals.push(signal)
+    this.signalCode = typeof signal === 'string' ? signal : 'SIGTERM'
+    queueMicrotask(() => this.emit('close', this.exitCode, this.signalCode))
+    return true
+  }
+}
+
+class CursorSamplerTestCore extends CoreApiImplementation {
+  readonly cursorSamplerArgs: string[][] = []
+  readonly cursorSamplerChildren: FakeSamplerChild[] = []
+
+  protected override spawnCursorSampler(args: string[]): ChildProcess {
+    this.cursorSamplerArgs.push(args)
+    const child = new FakeSamplerChild()
+    this.cursorSamplerChildren.push(child)
+    return child as unknown as ChildProcess
   }
 }
 
@@ -325,6 +355,204 @@ describe('daemon core', () => {
       await expect(core.stopRecording({ sessionId: session.id })).resolves.toMatchObject({
         alreadyStopped: true,
       })
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('does not spawn a cursor sampler or add cursor telemetry fields when captureCursor is off', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-no-cursor-'))
+    const keepAwake = new FakeKeepAwake()
+    const ctx = createContext()
+    const events: DaemonEvent[] = []
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const core = new CursorSamplerTestCore({
+      context: ctx,
+      keepAwake,
+      eventSink: (event) => events.push(event),
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => ({
+        pid: 999,
+        started: {
+          recordingId: input.recordingId,
+          path: input.outPath,
+          startedAt: Date.now(),
+          fps: input.fps,
+          codec: input.codec,
+          bitrate: input.bitrate,
+          width: 800,
+          height: 600,
+        },
+        stop: async () => {
+          writeFileSync(input.outPath, 'video')
+          return {
+            recordingId: input.recordingId,
+            path: input.outPath,
+            format: 'mp4',
+            durationMs: 1250,
+            sizeBytes: 2048,
+            codec: input.codec,
+            fps: input.fps,
+            width: 800,
+            height: 600,
+            droppedFrames: 0,
+          }
+        },
+        abort: async () => {},
+      }),
+    })
+
+    try {
+      const started = await core.startRecording({ sessionId: session.id, fps: 30, codec: 'h264', bitrate: '4M' })
+      const stopped = await core.stopRecording({ sessionId: session.id })
+      const run = ctx.sessions.getRun(session.id)
+      const artifact = run?.artifacts[0]
+      const artifactEvent = events.find((event) => event.type === 'artifact.added')
+      const artifactEventData = artifactEvent?.data as { metadata?: Record<string, unknown> } | undefined
+
+      expect(core.cursorSamplerArgs).toEqual([])
+      expect(Object.keys(stopped).sort()).toEqual([
+        'alreadyStopped',
+        'codec',
+        'droppedFrames',
+        'durationMs',
+        'format',
+        'fps',
+        'height',
+        'path',
+        'preset',
+        'recordingId',
+        'sizeBytes',
+        'width',
+      ].sort())
+      expect(stopped).toMatchObject({
+        recordingId: started.recordingId,
+        path: expect.stringContaining(`${started.recordingId}.mp4`),
+        alreadyStopped: false,
+      })
+      expect(run?.recording?.cursorTelemetryPath).toBeUndefined()
+      expect(artifact?.metadata).not.toHaveProperty('cursorTelemetryPath')
+      expect(artifactEventData?.metadata).not.toHaveProperty('cursorTelemetryPath')
+      expect(keepAwake.activeRecordings).toBe(0)
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('spawns the cursor sampler and attaches telemetry when captureCursor is on', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-cursor-'))
+    const keepAwake = new FakeKeepAwake()
+    const ctx = createContext()
+    const events: DaemonEvent[] = []
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const core = new CursorSamplerTestCore({
+      context: ctx,
+      keepAwake,
+      eventSink: (event) => events.push(event),
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => ({
+        pid: 999,
+        started: {
+          recordingId: input.recordingId,
+          path: input.outPath,
+          startedAt: Date.now(),
+          fps: input.fps,
+          codec: input.codec,
+          bitrate: input.bitrate,
+          width: 800,
+          height: 600,
+        },
+        stop: async () => {
+          writeFileSync(input.outPath, 'video')
+          return {
+            recordingId: input.recordingId,
+            path: input.outPath,
+            format: 'mp4',
+            durationMs: 1250,
+            sizeBytes: 2048,
+            codec: input.codec,
+            fps: input.fps,
+            width: 800,
+            height: 600,
+            droppedFrames: 0,
+          }
+        },
+        abort: async () => {},
+      }),
+    })
+
+    try {
+      const started = await core.startRecording({
+        sessionId: session.id,
+        fps: 30,
+        codec: 'h264',
+        bitrate: '4M',
+        captureCursor: true,
+      })
+      const cursorTelemetryPath = join(ctx.sessions.sessionDir(session.id), `${started.recordingId}.cursor.json`)
+      writeFileSync(cursorTelemetryPath, JSON.stringify({
+        durationMs: 100,
+        samples: [{ tMs: 0, cx: 10, cy: 20 }],
+        clicks: [],
+      }))
+
+      await core.stopRecording({ sessionId: session.id })
+      const run = ctx.sessions.getRun(session.id)
+      const artifact = run?.artifacts[0]
+      const artifactEvent = events.find((event) => event.type === 'artifact.added')
+
+      expect(core.cursorSamplerArgs).toEqual([[
+        '--duration', '300',
+        '--fps', '30',
+        '--out', cursorTelemetryPath,
+      ]])
+      expect(core.cursorSamplerChildren[0].killSignals).toEqual(['SIGTERM'])
+      expect(run?.recording?.cursorTelemetryPath).toBe(cursorTelemetryPath)
+      expect(artifact?.metadata).toMatchObject({ cursorTelemetryPath })
+      expect(artifactEvent).toMatchObject({
+        type: 'artifact.added',
+        sessionId: session.id,
+        data: {
+          metadata: expect.objectContaining({ cursorTelemetryPath }),
+        },
+      })
+      expect(keepAwake.activeRecordings).toBe(0)
     } finally {
       await core.close()
       rmSync(repoPath, { recursive: true, force: true })

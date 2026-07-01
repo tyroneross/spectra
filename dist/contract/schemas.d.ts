@@ -397,6 +397,7 @@ export declare const startRecordingParamsSchema: z.ZodObject<{
     bitrate: z.ZodOptional<z.ZodEnum<["4M", "8M"]>>;
     hardware: z.ZodOptional<z.ZodBoolean>;
     captureAudio: z.ZodOptional<z.ZodBoolean>;
+    captureCursor: z.ZodOptional<z.ZodBoolean>;
     composite: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodBoolean>;
         displayWidth: z.ZodOptional<z.ZodNumber>;
@@ -491,6 +492,7 @@ export declare const startRecordingParamsSchema: z.ZodObject<{
     } | undefined;
     hardware?: boolean | undefined;
     captureAudio?: boolean | undefined;
+    captureCursor?: boolean | undefined;
 }, {
     sessionId: string;
     preset?: "docs" | "demo" | "social" | "app-store" | undefined;
@@ -516,6 +518,7 @@ export declare const startRecordingParamsSchema: z.ZodObject<{
     } | undefined;
     hardware?: boolean | undefined;
     captureAudio?: boolean | undefined;
+    captureCursor?: boolean | undefined;
 }>;
 export declare const stopRecordingParamsSchema: z.ZodObject<{
     sessionId: z.ZodString;
@@ -1797,6 +1800,7 @@ export declare const operationParamSchemas: {
         bitrate: z.ZodOptional<z.ZodEnum<["4M", "8M"]>>;
         hardware: z.ZodOptional<z.ZodBoolean>;
         captureAudio: z.ZodOptional<z.ZodBoolean>;
+        captureCursor: z.ZodOptional<z.ZodBoolean>;
         composite: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;
             displayWidth: z.ZodOptional<z.ZodNumber>;
@@ -1891,6 +1895,7 @@ export declare const operationParamSchemas: {
         } | undefined;
         hardware?: boolean | undefined;
         captureAudio?: boolean | undefined;
+        captureCursor?: boolean | undefined;
     }, {
         sessionId: string;
         preset?: "docs" | "demo" | "social" | "app-store" | undefined;
@@ -1916,6 +1921,7 @@ export declare const operationParamSchemas: {
         } | undefined;
         hardware?: boolean | undefined;
         captureAudio?: boolean | undefined;
+        captureCursor?: boolean | undefined;
     }>;
     stopRecording: z.ZodObject<{
         sessionId: z.ZodString;

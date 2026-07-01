@@ -1,6 +1,7 @@
 import { execFile, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { stat, mkdir } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
@@ -30,7 +31,7 @@ let screenCaptureKitWindowList;
 export function createCoreApi(options = {}) {
     return new CoreApiImplementation(options);
 }
-class CoreApiImplementation {
+export class CoreApiImplementation {
     ctx;
     startedAt;
     daemonVersion;
@@ -42,7 +43,7 @@ class CoreApiImplementation {
     eventSink;
     recordings = new RecordingRegistry();
     compositeRecordings = new CompositeRecordingRegistry();
-    constructor(options) {
+    constructor(options = {}) {
         this.ctx = options.context ?? createContext();
         this.startedAt = options.startedAt ?? Date.now();
         this.daemonVersion = options.daemonVersion;
@@ -52,6 +53,11 @@ class CoreApiImplementation {
         this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording;
         this.windowListProvider = options.windowListProvider ?? listMacWindows;
         this.eventSink = options.eventSink;
+    }
+    spawnCursorSampler(args) {
+        const child = spawn(cursorSamplerBinaryPath(), args, { stdio: 'ignore' });
+        child.on('error', () => { });
+        return child;
     }
     async health(params = {}) {
         return daemonHealth(params, {
@@ -198,6 +204,7 @@ class CoreApiImplementation {
         const codec = params.codec ?? 'h264';
         const bitrate = params.bitrate ?? '8M';
         const captureAudio = params.captureAudio ?? false;
+        const maxDurationSeconds = 300;
         await this.keepAwake.recordingStarted(recordingId);
         let handle;
         try {
@@ -211,7 +218,7 @@ class CoreApiImplementation {
                 codec,
                 bitrate,
                 captureAudio,
-                maxDurationSeconds: 300,
+                maxDurationSeconds,
             });
         }
         catch (error) {
@@ -222,6 +229,17 @@ class CoreApiImplementation {
                 retryable: false,
                 cause: error,
             });
+        }
+        let cursorSampler;
+        if (params.captureCursor === true) {
+            try {
+                cursorSampler = this.startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds);
+            }
+            catch (error) {
+                await handle.abort().catch(() => { });
+                await this.keepAwake.recordingStopped(recordingId).catch(() => { });
+                throw new DaemonApiError('recording_failed', `startRecording cursor sampler failed: ${error instanceof Error ? error.message : String(error)}`, { status: 500, retryable: false, cause: error });
+            }
         }
         this.recordings.add({
             recordingId,
@@ -234,6 +252,7 @@ class CoreApiImplementation {
             codec,
             bitrate,
             handle,
+            cursorSampler,
         });
         const recording = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
             state: 'recording',
@@ -285,8 +304,10 @@ class CoreApiImplementation {
                 bitrate: active.bitrate,
             });
             stopped = await active.handle.stop();
+            await this.stopCursorSampler(active.cursorSampler).catch(() => { });
         }
         catch (error) {
+            await this.stopCursorSampler(active.cursorSampler).catch(() => { });
             await this.keepAwake.recordingStopped(active.recordingId).catch(() => { });
             await active.handle.abort().catch(() => { });
             const failed = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
@@ -318,6 +339,7 @@ class CoreApiImplementation {
         }
         const durationMs = stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt);
         const sizeBytes = stopped.sizeBytes ?? file?.size;
+        const cursorTelemetryPath = await this.cursorTelemetryPathIfPresent(active.cursorSampler);
         const saved = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
             state: 'saved',
             recordingId: active.recordingId,
@@ -336,23 +358,27 @@ class CoreApiImplementation {
             droppedFrames: stopped.droppedFrames,
             source: `${active.target.appName}${active.target.title ? `: ${active.target.title}` : ''}`,
             sourceVerified: true,
+            ...(cursorTelemetryPath ? { cursorTelemetryPath } : {}),
         });
         this.emitRecordingStatus(params.sessionId, saved);
+        const metadata = {
+            recordingId: active.recordingId,
+            appName: active.target.appName,
+            title: active.target.title,
+            blackFrameMeanLuma: blackFrameGuard.meanLuma,
+            blackFrameAllBlack: blackFrameGuard.allBlack,
+            blackFrameSampleCount: blackFrameGuard.sampleCount,
+            warnings,
+        };
+        if (cursorTelemetryPath)
+            metadata.cursorTelemetryPath = cursorTelemetryPath;
         const artifact = await this.ctx.sessions.addArtifact(params.sessionId, {
             type: 'video',
             path,
             format: stopped.format ?? 'mp4',
             label: 'Window recording',
             sizeBytes,
-            metadata: {
-                recordingId: active.recordingId,
-                appName: active.target.appName,
-                title: active.target.title,
-                blackFrameMeanLuma: blackFrameGuard.meanLuma,
-                blackFrameAllBlack: blackFrameGuard.allBlack,
-                blackFrameSampleCount: blackFrameGuard.sampleCount,
-                warnings,
-            },
+            metadata,
         });
         this.emitArtifactAdded(params.sessionId, artifact);
         return {
@@ -617,6 +643,7 @@ class CoreApiImplementation {
         await Promise.all(this.recordings.list().map(async (recording) => {
             this.recordings.remove(recording.recordingId);
             await recording.handle.abort().catch(() => { });
+            await this.stopCursorSampler(recording.cursorSampler).catch(() => { });
             await this.keepAwake.recordingStopped(recording.recordingId).catch(() => { });
             const status = await this.ctx.sessions.setRecordingStatus(recording.sessionId, {
                 state: 'aborted',
@@ -651,6 +678,38 @@ class CoreApiImplementation {
             }
         }));
         await this.keepAwake.close();
+    }
+    startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds) {
+        const outPath = join(sessionDir, `${recordingId}.cursor.json`);
+        const args = [
+            '--duration', String(maxDurationSeconds),
+            '--fps', String(fps),
+            '--out', outPath,
+        ];
+        return {
+            child: this.spawnCursorSampler(args),
+            outPath,
+        };
+    }
+    async stopCursorSampler(sampler) {
+        if (!sampler)
+            return;
+        const child = sampler.child;
+        if (child.exitCode !== null || child.signalCode !== null)
+            return;
+        child.kill('SIGTERM');
+        await waitForChildExit(child, 2_000).catch(() => {
+            if (child.exitCode === null && child.signalCode === null)
+                child.kill('SIGKILL');
+        });
+        await waitForChildExit(child, 1_000).catch(() => { });
+    }
+    async cursorTelemetryPathIfPresent(sampler) {
+        if (!sampler)
+            return undefined;
+        return stat(sampler.outPath)
+            .then(() => sampler.outPath)
+            .catch(() => undefined);
     }
     async addCompositeArtifact(params, result, recordingId) {
         if (!params.sessionId || !this.ctx.sessions.get(params.sessionId))
@@ -949,6 +1008,9 @@ async function startNativeSingleWindowRecording(input) {
         await process.abort().catch(() => { });
         throw error;
     }
+}
+function cursorSamplerBinaryPath() {
+    return join(homedir(), '.spectra', 'bin', 'spectra-cursor-sampler');
 }
 async function waitForChildExit(child, timeoutMs) {
     if (child.exitCode !== null || child.signalCode !== null)
