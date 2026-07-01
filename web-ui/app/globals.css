@@ -32,6 +32,20 @@
     --aurora-warning: #fbbf24;                      /* amber */
     --aurora-danger: #fb7185;                       /* rose */
 
+    /* ─── Semantic theme tokens ───────────────────────────────────
+     * Components reference THESE (not --aurora-accent / Tailwind's
+     * --color-indigo-*) so `[data-theme]` overrides always win —
+     * Tailwind v4 utility precedence beats indigo-token overrides,
+     * but a component-referenced custom property always resolves
+     * to whatever is nearest in the cascade.                       */
+    --accent: #818cf8;
+    --accent-strong: #6366f1;
+    --accent-soft: rgba(129, 140, 248, 0.10);
+    --accent-ring: rgba(129, 140, 248, 0.60);
+
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-border: rgba(255, 255, 255, 0.08);
+
     /* ─── shadcn/ui CSS variables — rebound to Aurora Glass ──────── */
     /* Light mode kept for completeness; dashboard ships in dark.    */
     --background: 0 0% 100%;
@@ -46,8 +60,6 @@
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
@@ -72,14 +84,39 @@
     --secondary-foreground: 0 0% 98%;
     --muted: 240 4% 16%;
     --muted-foreground: 240 5% 65%;     /* ≈ zinc-400                  */
-    --accent: 234 89% 74%;              /* indigo accent               */
-    --accent-foreground: 0 0% 98%;
     --destructive: 351 95% 71%;         /* rose #fb7185                */
     --destructive-foreground: 0 0% 98%;
     --border: 240 4% 16%;               /* zinc-800                    */
     --input: 240 4% 16%;
     --ring: 234 89% 74%;                /* indigo focus ring           */
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Theme switcher (?theme=indigo|warm|glass)
+ *
+ * Components reference `--accent` / `--accent-strong` / `--accent-soft` /
+ * `--accent-ring` / `--surface` / `--surface-border` directly via Tailwind
+ * arbitrary values (e.g. `bg-[var(--accent)]`) — NEVER via Tailwind's own
+ * `--color-indigo-*` tokens. That's deliberate: a prior attempt overrode
+ * `--color-indigo-*` under `[data-theme]` and the accent never actually
+ * swapped, because components consumed the `bg-indigo-400` / `text-indigo-300`
+ * utilities directly rather than a token these overrides controlled. Plain,
+ * unlayered `[data-theme="…"]` selectors here always win the cascade against
+ * the `:root` defaults above, so this only works if callers use the
+ * semantic token, not the Tailwind color utility.
+ * ──────────────────────────────────────────────────────────────────── */
+[data-theme="warm"] {
+  --accent: #f0b65e;
+  --accent-strong: #e0a24e;
+  --accent-soft: rgba(240, 182, 94, 0.12);
+  --accent-ring: rgba(240, 182, 94, 0.6);
+}
+
+[data-theme="glass"] {
+  /* Accent stays indigo — glass is a surface treatment, not a new palette. */
+  --surface: rgba(255, 255, 255, 0.08);
+  --surface-border: rgba(255, 255, 255, 0.18);
 }
 
 /* ──────────────────────────────────────────────────────────────────────

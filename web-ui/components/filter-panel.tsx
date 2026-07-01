@@ -113,7 +113,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Projects
         </p>
-        <div className="overflow-hidden rounded-md border border-white/[0.08]">
+        <div className="overflow-hidden rounded-md border border-[var(--surface-border)]">
           <button
             type="button"
             onClick={() => setParam('project', null)}
@@ -122,7 +122,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               'flex w-full items-center justify-between px-3 text-sm transition-colors',
               isCompact ? 'min-h-11' : 'min-h-11 sm:min-h-8',
               !currentProject
-                ? 'bg-indigo-400/10 text-indigo-300 font-medium'
+                ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-medium'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
             )}
           >
@@ -135,10 +135,10 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               onClick={() => setParam('project', project.name)}
               aria-pressed={currentProject === project.name}
               className={cn(
-                'flex w-full items-center justify-between border-t border-white/[0.08] px-3 text-sm transition-colors',
+                'flex w-full items-center justify-between border-t border-[var(--surface-border)] px-3 text-sm transition-colors',
                 isCompact ? 'min-h-11' : 'min-h-11 sm:min-h-8',
                 currentProject === project.name
-                  ? 'bg-indigo-400/10 text-indigo-300 font-medium'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-medium'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
               )}
             >
@@ -155,7 +155,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
         </p>
         <div
           className={cn(
-            'grid overflow-hidden rounded-md border border-white/[0.08]',
+            'grid overflow-hidden rounded-md border border-[var(--surface-border)]',
             isCompact ? 'grid-cols-4' : 'grid-cols-2'
           )}
         >
@@ -168,10 +168,10 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               className={cn(
                 'px-2 text-xs transition-colors',
                 isCompact
-                  ? cn('min-h-11', index > 0 && 'border-l border-white/[0.08]')
-                  : 'min-h-11 odd:border-r odd:border-white/[0.08] [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-white/[0.08] sm:min-h-8',
+                  ? cn('min-h-11', index > 0 && 'border-l border-[var(--surface-border)]')
+                  : 'min-h-11 odd:border-r odd:border-[var(--surface-border)] [&:nth-child(n+3)]:border-t [&:nth-child(n+3)]:border-[var(--surface-border)] sm:min-h-8',
                 currentPlatform === p
-                  ? 'bg-indigo-400/10 text-indigo-300 font-medium'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-medium'
                   : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-300'
               )}
             >
@@ -185,7 +185,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 px-1">
           Type
         </p>
-        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-white/[0.08]">
+        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-[var(--surface-border)]">
           {(['screenshot', 'video'] as const).map((t) => (
             <button
               key={t}
@@ -193,10 +193,10 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
               onClick={() => setParam('type', currentType === t ? null : t)}
               aria-pressed={currentType === t}
               className={cn(
-                'px-2 text-xs capitalize transition-colors first:border-r first:border-white/[0.08]',
+                'px-2 text-xs capitalize transition-colors first:border-r first:border-[var(--surface-border)]',
                 isCompact ? 'min-h-11' : 'min-h-11 sm:min-h-8',
                 currentType === t
-                  ? 'bg-indigo-400/10 text-indigo-300 font-medium'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-medium'
                   : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-300'
               )}
             >
@@ -212,7 +212,7 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
         </p>
         <div
           className={cn(
-            'overflow-hidden rounded-md border border-white/[0.08]',
+            'overflow-hidden rounded-md border border-[var(--surface-border)]',
             isCompact && 'grid grid-cols-2 sm:grid-cols-4'
           )}
         >
@@ -227,12 +227,12 @@ function FilterContent({ projects, density = 'rail', onFilterChange }: FilterCon
                 isCompact
                   ? cn(
                       'min-h-11 text-center text-xs',
-                      index > 0 && 'border-l border-white/[0.08]',
-                      index > 1 && 'border-t border-white/[0.08] sm:border-t-0'
+                      index > 0 && 'border-l border-[var(--surface-border)]',
+                      index > 1 && 'border-t border-[var(--surface-border)] sm:border-t-0'
                     )
-                  : 'border-t border-white/[0.08] text-left first:border-t-0',
+                  : 'border-t border-[var(--surface-border)] text-left first:border-t-0',
                 currentDate === preset.value
-                  ? 'bg-indigo-400/10 text-indigo-300 font-medium'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-medium'
                   : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'
               )}
             >
@@ -278,7 +278,7 @@ export function FilterPanel({ projects, className, display = 'both' }: FilterPan
           {filtersOpen && (
             <div
               id={mobilePanelId}
-              className="w-full max-w-md rounded-md border border-white/[0.08] bg-zinc-950/95 p-3 shadow-lg shadow-black/20 sm:p-4"
+              className="w-full max-w-md rounded-md border border-[var(--surface-border)] bg-zinc-950/95 p-3 shadow-lg shadow-black/20 sm:p-4"
             >
               <FilterContent
                 projects={projects}
