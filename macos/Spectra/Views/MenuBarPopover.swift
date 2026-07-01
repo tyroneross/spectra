@@ -27,9 +27,13 @@ struct MenuBarPopover: View {
 
             Divider()
 
-            // ─── Accessibility-permission panel (conditional) ───
+            // ─── Permission panels (conditional, sequenced) ───
+            // Accessibility first; once handled, Screen Recording surfaces if
+            // still needed — so the two never stack in the popover.
             if vm.showAccessibilityPanel {
                 AccessibilityPanel(vm: vm)
+            } else if vm.showScreenRecordingPanel {
+                ScreenRecordingPanel(vm: vm)
             }
 
             // ─── Helper-offline CTA (conditional) ────────────

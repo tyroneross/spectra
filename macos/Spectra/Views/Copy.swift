@@ -71,6 +71,16 @@ enum SpectraCopy {
     static let accessibilitySkipButton = "Skip for now"
     static let accessibilityGrantedLine = "Permission granted. You can capture other apps now."
 
+    // MARK: - Screen Recording permission panel
+
+    static let screenRecordingPanelTitle = "Enable Screen Recording"
+    static let screenRecordingPanelBody = "To record videos and capture screens, Spectra needs Screen Recording permission. macOS asks once — allow it here, or find Spectra under System Settings → Privacy & Security → Screen Recording."
+    static let screenRecordingAllowButton = "Allow Screen Recording"
+    static let screenRecordingOpenButton = "Open System Settings"
+    static let screenRecordingCheckButton = "Check again"
+    static let screenRecordingSkipButton = "Skip for now"
+    static let screenRecordingGrantedLine = "Screen Recording enabled. You can record now."
+
     // MARK: - Settings (API key)
 
     static let settingsKeyTitle = "Anthropic API key"

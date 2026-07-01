@@ -35,6 +35,7 @@ public final class SpectraViewModel {
     /// over `lastErrorMessage` (which retains raw text for legacy callers).
     public var recoveryError: RecoveryError?
     public var showAccessibilityPanel: Bool = false
+    public var showScreenRecordingPanel: Bool = false
     public var showSettings: Bool = false
     /// Mirrors KeychainStore presence so UI can enable / disable walkthrough
     /// without triggering a biometric prompt every time the popover renders.

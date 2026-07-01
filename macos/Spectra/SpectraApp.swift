@@ -33,6 +33,7 @@ struct SpectraApp: App {
                 .task {
                     await viewModel.checkDaemon()
                     viewModel.showAccessibilityPanel = AccessibilityPanel.shouldShow()
+                    viewModel.showScreenRecordingPanel = ScreenRecordingPanel.shouldShow()
                 }
         } label: {
             // The symbol communicates state: outlined viewfinder = ready,
