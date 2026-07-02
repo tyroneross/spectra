@@ -31,7 +31,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as ts from 'typescript'
 import { z } from 'zod'
-import type { ApiErrorCode, CoreApiOperation } from './wire.js'
+import type { ApiErrorCode, Capability, CoreApiOperation } from './wire.js'
+import { operationCapabilities } from './wire.js'
 import { apiOperations, jsonValueSchema, operationParamSchemas, API_VERSION } from './schemas.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -218,6 +219,13 @@ export type ResultShapeNode =
   | { kind: 'union'; members: ResultShapeNode[] }
   | { kind: 'array'; items: ResultShapeNode }
   | { kind: 'tuple'; elements: ResultShapeNode[] }
+  // A string/number/boolean LITERAL type (`'granted'`, `30`, `true`). Captured
+  // so a result property typed as a literal union (e.g. `PermissionState`,
+  // `RecordingKind`, `mode?: 'claude' | 'algorithmic'`) carries its allowed
+  // VALUE SET into the frozen spec — the conformance result-validator then
+  // checks membership, not just `typeof`. Keyword types (`number`, `string`)
+  // are NOT literals and remain `unresolved` (see resolveTypeNode).
+  | { kind: 'literal'; value: string | number | boolean }
   | { kind: 'unresolved'; typeName: string }
 
 type TsDeclaration = ts.InterfaceDeclaration | ts.TypeAliasDeclaration
@@ -255,6 +263,10 @@ function isExpandableTypeNode(typeNode: ts.TypeNode): boolean {
 function shapeHasStructure(node: ResultShapeNode): boolean {
   if (node.kind === 'interface') return true
   if (node.kind === 'tuple') return true
+  // A literal constrains the value to an exact constant — that IS structure
+  // worth freezing (it's what lets the validator gate an enum value), so a
+  // property typed as a literal or a union-of-literals gets a real `.type`.
+  if (node.kind === 'literal') return true
   if (node.kind === 'union') return node.members.some(shapeHasStructure)
   if (node.kind === 'array') return shapeHasStructure(node.items)
   return false
@@ -344,6 +356,28 @@ function resolveTypeNode(
   depth: number,
 ): ResultShapeNode {
   if (depth > MAX_TS_DEPTH) {
+    return { kind: 'unresolved', typeName: typeNode.getText(sourceFile) }
+  }
+
+  // String / numeric / boolean literal type (`'granted'`, `30`, `-1`, `true`).
+  // Keyword types (`number`, `string`, `boolean`) are NOT LiteralTypeNodes, so
+  // they fall through to `unresolved` below — preserving the existing behavior
+  // (e.g. Bounds's `[number,number,number,number]` tuple of unresolved numbers).
+  // A `null` literal is intentionally left unresolved (permissive) so a
+  // `T | null` union keeps its prior shape rather than gaining a null member.
+  if (ts.isLiteralTypeNode(typeNode)) {
+    const lit = typeNode.literal
+    if (ts.isStringLiteral(lit)) return { kind: 'literal', value: lit.text }
+    if (ts.isNumericLiteral(lit)) return { kind: 'literal', value: Number(lit.text) }
+    if (lit.kind === ts.SyntaxKind.TrueKeyword) return { kind: 'literal', value: true }
+    if (lit.kind === ts.SyntaxKind.FalseKeyword) return { kind: 'literal', value: false }
+    if (
+      ts.isPrefixUnaryExpression(lit) &&
+      lit.operator === ts.SyntaxKind.MinusToken &&
+      ts.isNumericLiteral(lit.operand)
+    ) {
+      return { kind: 'literal', value: -Number(lit.operand.text) }
+    }
     return { kind: 'unresolved', typeName: typeNode.getText(sourceFile) }
   }
 
@@ -479,6 +513,14 @@ export interface EnrichedOperationSpec {
   params: ParamFieldSchema
   result: ResultShapeNode
   errorCodes: ApiErrorCode[]
+  // H2 (M2B) — op→capability map, sourced from wire.ts's operationCapabilities
+  // (the default-deny gate assertOperationAllowed/assertCapabilities enforce
+  // in src/daemon/security.ts). Additive: the enriched spec previously had no
+  // capability information at all, so a future Swift daemon's conformance
+  // suite could not assert it replicates default-deny gating for a given op.
+  // Order is preserved as declared in wire.ts (not re-sorted) so the frozen
+  // spec reflects the literal source array byte-for-byte.
+  capabilities: Capability[]
 }
 
 export interface EnrichedContractSpecBody {
@@ -504,6 +546,7 @@ export function buildEnrichedSpecBody(coreApiSource?: string): EnrichedContractS
       params: describeParamSchema(operationParamSchemas[operation]),
       result: resultShapes[operation] ?? { kind: 'unresolved', typeName: 'not-found-in-core-api' },
       errorCodes: errorCodesFor(operation),
+      capabilities: [...operationCapabilities[operation]],
     }
   }
   return { apiVersion: API_VERSION, operations }

@@ -64,6 +64,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:act"
       ]
     },
     "analyze": {
@@ -143,6 +146,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "analysis:read"
       ]
     },
     "autoRampDemo": {
@@ -248,6 +254,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "demo:write"
       ]
     },
     "closeAllSessions": {
@@ -275,6 +284,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:write"
       ]
     },
     "closeSession": {
@@ -309,6 +321,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:write"
       ]
     },
     "computerUse": {
@@ -468,7 +483,24 @@
               {
                 "name": "axStatus",
                 "optional": false,
-                "typeText": "ComputerUseAxStatus"
+                "typeText": "ComputerUseAxStatus",
+                "type": {
+                  "kind": "union",
+                  "members": [
+                    {
+                      "kind": "literal",
+                      "value": "ok"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "empty"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "no-window"
+                    }
+                  ]
+                }
               },
               {
                 "name": "fallbackReason",
@@ -564,7 +596,20 @@
                       {
                         "name": "source",
                         "optional": true,
-                        "typeText": "'ax' | 'vision'"
+                        "typeText": "'ax' | 'vision'",
+                        "type": {
+                          "kind": "union",
+                          "members": [
+                            {
+                              "kind": "literal",
+                              "value": "ax"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "vision"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "value",
@@ -750,6 +795,10 @@
         "permission_denied",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:read",
+        "ui:act"
       ]
     },
     "createSession": {
@@ -820,7 +869,32 @@
           {
             "name": "platform",
             "optional": false,
-            "typeText": "Platform"
+            "typeText": "Platform",
+            "type": {
+              "kind": "union",
+              "members": [
+                {
+                  "kind": "literal",
+                  "value": "web"
+                },
+                {
+                  "kind": "literal",
+                  "value": "macos"
+                },
+                {
+                  "kind": "literal",
+                  "value": "ios"
+                },
+                {
+                  "kind": "literal",
+                  "value": "watchos"
+                },
+                {
+                  "kind": "literal",
+                  "value": "terminal"
+                }
+              ]
+            }
           },
           {
             "name": "sessionId",
@@ -842,6 +916,10 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:write",
+        "ui:read"
       ]
     },
     "demo": {
@@ -1954,6 +2032,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "demo:write"
       ]
     },
     "discover": {
@@ -2028,6 +2109,11 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "discover:write",
+        "ui:act",
+        "media:capture"
       ]
     },
     "getPermissions": {
@@ -2083,7 +2169,28 @@
                   {
                     "name": "permission",
                     "optional": false,
-                    "typeText": "PermissionKind"
+                    "typeText": "PermissionKind",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "accessibility"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "screen-recording"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "automation"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "developer-tools"
+                        }
+                      ]
+                    }
                   },
                   {
                     "name": "requiredFor",
@@ -2098,7 +2205,36 @@
                   {
                     "name": "state",
                     "optional": false,
-                    "typeText": "PermissionState"
+                    "typeText": "PermissionState",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "granted"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "denied"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "not-determined"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "restricted"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "unsupported"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "unknown"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -2114,6 +2250,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "permissions:read"
       ]
     },
     "getRecording": {
@@ -2154,7 +2293,20 @@
                 {
                   "name": "kind",
                   "optional": false,
-                  "typeText": "RecordingKind"
+                  "typeText": "RecordingKind",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "single-window"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "composite"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "outPath",
@@ -2184,7 +2336,40 @@
                 {
                   "name": "state",
                   "optional": false,
-                  "typeText": "CaptureRunRecordingState"
+                  "typeText": "CaptureRunRecordingState",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "idle"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "arming"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "recording"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "encoding"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "saved"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "failed"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "aborted"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "stoppedAt",
@@ -2210,6 +2395,9 @@
         "not_found",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:read"
       ]
     },
     "getRun": {
@@ -2263,7 +2451,40 @@
                               {
                                 "name": "type",
                                 "optional": false,
-                                "typeText": "ActionType"
+                                "typeText": "ActionType",
+                                "type": {
+                                  "kind": "union",
+                                  "members": [
+                                    {
+                                      "kind": "literal",
+                                      "value": "click"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "type"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "clear"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "select"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "scroll"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "hover"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "focus"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "value",
@@ -2296,7 +2517,28 @@
                         {
                           "name": "plannerSource",
                           "optional": true,
-                          "typeText": "CaptureRunPlannerSource"
+                          "typeText": "CaptureRunPlannerSource",
+                          "type": {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "host-agent"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "standalone-fallback"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "manual"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "unknown"
+                              }
+                            ]
+                          }
                         },
                         {
                           "name": "screenshotPath",
@@ -2395,7 +2637,32 @@
                         {
                           "name": "type",
                           "optional": false,
-                          "typeText": "'screenshot' | 'video' | 'raw-video' | 'snapshot' | 'other'"
+                          "typeText": "'screenshot' | 'video' | 'raw-video' | 'snapshot' | 'other'",
+                          "type": {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "screenshot"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "video"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "raw-video"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "snapshot"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "other"
+                              }
+                            ]
+                          }
                         }
                       ]
                     }
@@ -2437,7 +2704,40 @@
                               {
                                 "name": "type",
                                 "optional": false,
-                                "typeText": "ActionType"
+                                "typeText": "ActionType",
+                                "type": {
+                                  "kind": "union",
+                                  "members": [
+                                    {
+                                      "kind": "literal",
+                                      "value": "click"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "type"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "clear"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "select"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "scroll"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "hover"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "focus"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "value",
@@ -2509,17 +2809,76 @@
                         {
                           "name": "mode",
                           "optional": true,
-                          "typeText": "'claude' | 'algorithmic'"
+                          "typeText": "'claude' | 'algorithmic'",
+                          "type": {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "claude"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "algorithmic"
+                              }
+                            ]
+                          }
                         },
                         {
                           "name": "outcome",
                           "optional": false,
-                          "typeText": "CaptureRunDecisionOutcome"
+                          "typeText": "CaptureRunDecisionOutcome",
+                          "type": {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "auto-executed"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "needs-host-decision"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "manual"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "planned"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "failed"
+                              }
+                            ]
+                          }
                         },
                         {
                           "name": "plannerSource",
                           "optional": false,
-                          "typeText": "CaptureRunPlannerSource"
+                          "typeText": "CaptureRunPlannerSource",
+                          "type": {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "host-agent"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "standalone-fallback"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "manual"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "unknown"
+                              }
+                            ]
+                          }
                         },
                         {
                           "name": "selected",
@@ -2641,7 +3000,28 @@
                       {
                         "name": "source",
                         "optional": false,
-                        "typeText": "CaptureRunPlannerSource"
+                        "typeText": "CaptureRunPlannerSource",
+                        "type": {
+                          "kind": "union",
+                          "members": [
+                            {
+                              "kind": "literal",
+                              "value": "host-agent"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "standalone-fallback"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "manual"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "unknown"
+                            }
+                          ]
+                        }
                       }
                     ]
                   }
@@ -2649,7 +3029,32 @@
                 {
                   "name": "platform",
                   "optional": false,
-                  "typeText": "Platform"
+                  "typeText": "Platform",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "web"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "macos"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "ios"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "watchos"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "terminal"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "recording",
@@ -2707,7 +3112,28 @@
                       {
                         "name": "preset",
                         "optional": true,
-                        "typeText": "CapturePreset"
+                        "typeText": "CapturePreset",
+                        "type": {
+                          "kind": "union",
+                          "members": [
+                            {
+                              "kind": "literal",
+                              "value": "docs"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "demo"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "social"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "app-store"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "rawPath",
@@ -2742,7 +3168,40 @@
                       {
                         "name": "state",
                         "optional": false,
-                        "typeText": "CaptureRunRecordingState"
+                        "typeText": "CaptureRunRecordingState",
+                        "type": {
+                          "kind": "union",
+                          "members": [
+                            {
+                              "kind": "literal",
+                              "value": "idle"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "arming"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "recording"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "encoding"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "saved"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "failed"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "aborted"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "stoppedAt",
@@ -2806,7 +3265,24 @@
                 {
                   "name": "status",
                   "optional": false,
-                  "typeText": "CaptureRunStatus"
+                  "typeText": "CaptureRunStatus",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "active"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "closed"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "failed"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "target",
@@ -2858,6 +3334,9 @@
         "not_found",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:read"
       ]
     },
     "getSession": {
@@ -2914,7 +3393,40 @@
                                   {
                                     "name": "type",
                                     "optional": false,
-                                    "typeText": "ActionType"
+                                    "typeText": "ActionType",
+                                    "type": {
+                                      "kind": "union",
+                                      "members": [
+                                        {
+                                          "kind": "literal",
+                                          "value": "click"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "type"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "clear"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "select"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "scroll"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "hover"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "focus"
+                                        }
+                                      ]
+                                    }
                                   },
                                   {
                                     "name": "value",
@@ -2947,7 +3459,28 @@
                             {
                               "name": "plannerSource",
                               "optional": true,
-                              "typeText": "CaptureRunPlannerSource"
+                              "typeText": "CaptureRunPlannerSource",
+                              "type": {
+                                "kind": "union",
+                                "members": [
+                                  {
+                                    "kind": "literal",
+                                    "value": "host-agent"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "standalone-fallback"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "manual"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "unknown"
+                                  }
+                                ]
+                              }
                             },
                             {
                               "name": "screenshotPath",
@@ -3046,7 +3579,32 @@
                             {
                               "name": "type",
                               "optional": false,
-                              "typeText": "'screenshot' | 'video' | 'raw-video' | 'snapshot' | 'other'"
+                              "typeText": "'screenshot' | 'video' | 'raw-video' | 'snapshot' | 'other'",
+                              "type": {
+                                "kind": "union",
+                                "members": [
+                                  {
+                                    "kind": "literal",
+                                    "value": "screenshot"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "video"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "raw-video"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "snapshot"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "other"
+                                  }
+                                ]
+                              }
                             }
                           ]
                         }
@@ -3088,7 +3646,40 @@
                                   {
                                     "name": "type",
                                     "optional": false,
-                                    "typeText": "ActionType"
+                                    "typeText": "ActionType",
+                                    "type": {
+                                      "kind": "union",
+                                      "members": [
+                                        {
+                                          "kind": "literal",
+                                          "value": "click"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "type"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "clear"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "select"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "scroll"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "hover"
+                                        },
+                                        {
+                                          "kind": "literal",
+                                          "value": "focus"
+                                        }
+                                      ]
+                                    }
                                   },
                                   {
                                     "name": "value",
@@ -3160,17 +3751,76 @@
                             {
                               "name": "mode",
                               "optional": true,
-                              "typeText": "'claude' | 'algorithmic'"
+                              "typeText": "'claude' | 'algorithmic'",
+                              "type": {
+                                "kind": "union",
+                                "members": [
+                                  {
+                                    "kind": "literal",
+                                    "value": "claude"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "algorithmic"
+                                  }
+                                ]
+                              }
                             },
                             {
                               "name": "outcome",
                               "optional": false,
-                              "typeText": "CaptureRunDecisionOutcome"
+                              "typeText": "CaptureRunDecisionOutcome",
+                              "type": {
+                                "kind": "union",
+                                "members": [
+                                  {
+                                    "kind": "literal",
+                                    "value": "auto-executed"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "needs-host-decision"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "manual"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "planned"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "failed"
+                                  }
+                                ]
+                              }
                             },
                             {
                               "name": "plannerSource",
                               "optional": false,
-                              "typeText": "CaptureRunPlannerSource"
+                              "typeText": "CaptureRunPlannerSource",
+                              "type": {
+                                "kind": "union",
+                                "members": [
+                                  {
+                                    "kind": "literal",
+                                    "value": "host-agent"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "standalone-fallback"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "manual"
+                                  },
+                                  {
+                                    "kind": "literal",
+                                    "value": "unknown"
+                                  }
+                                ]
+                              }
                             },
                             {
                               "name": "selected",
@@ -3292,7 +3942,28 @@
                           {
                             "name": "source",
                             "optional": false,
-                            "typeText": "CaptureRunPlannerSource"
+                            "typeText": "CaptureRunPlannerSource",
+                            "type": {
+                              "kind": "union",
+                              "members": [
+                                {
+                                  "kind": "literal",
+                                  "value": "host-agent"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "standalone-fallback"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "manual"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "unknown"
+                                }
+                              ]
+                            }
                           }
                         ]
                       }
@@ -3300,7 +3971,32 @@
                     {
                       "name": "platform",
                       "optional": false,
-                      "typeText": "Platform"
+                      "typeText": "Platform",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "literal",
+                            "value": "web"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "macos"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "ios"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "watchos"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "terminal"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "recording",
@@ -3358,7 +4054,28 @@
                           {
                             "name": "preset",
                             "optional": true,
-                            "typeText": "CapturePreset"
+                            "typeText": "CapturePreset",
+                            "type": {
+                              "kind": "union",
+                              "members": [
+                                {
+                                  "kind": "literal",
+                                  "value": "docs"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "demo"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "social"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "app-store"
+                                }
+                              ]
+                            }
                           },
                           {
                             "name": "rawPath",
@@ -3393,7 +4110,40 @@
                           {
                             "name": "state",
                             "optional": false,
-                            "typeText": "CaptureRunRecordingState"
+                            "typeText": "CaptureRunRecordingState",
+                            "type": {
+                              "kind": "union",
+                              "members": [
+                                {
+                                  "kind": "literal",
+                                  "value": "idle"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "arming"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "recording"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "encoding"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "saved"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "failed"
+                                },
+                                {
+                                  "kind": "literal",
+                                  "value": "aborted"
+                                }
+                              ]
+                            }
                           },
                           {
                             "name": "stoppedAt",
@@ -3457,7 +4207,24 @@
                     {
                       "name": "status",
                       "optional": false,
-                      "typeText": "CaptureRunStatus"
+                      "typeText": "CaptureRunStatus",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "literal",
+                            "value": "active"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "closed"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "failed"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "target",
@@ -3561,7 +4328,32 @@
                 {
                   "name": "platform",
                   "optional": false,
-                  "typeText": "Platform"
+                  "typeText": "Platform",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "web"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "macos"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "ios"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "watchos"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "terminal"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "steps",
@@ -3589,7 +4381,40 @@
                               {
                                 "name": "type",
                                 "optional": false,
-                                "typeText": "ActionType"
+                                "typeText": "ActionType",
+                                "type": {
+                                  "kind": "union",
+                                  "members": [
+                                    {
+                                      "kind": "literal",
+                                      "value": "click"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "type"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "clear"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "select"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "scroll"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "hover"
+                                    },
+                                    {
+                                      "kind": "literal",
+                                      "value": "focus"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "value",
@@ -3708,6 +4533,9 @@
         "not_found",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:read"
       ]
     },
     "health": {
@@ -3774,7 +4602,28 @@
                   {
                     "name": "permission",
                     "optional": false,
-                    "typeText": "PermissionKind"
+                    "typeText": "PermissionKind",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "accessibility"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "screen-recording"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "automation"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "developer-tools"
+                        }
+                      ]
+                    }
                   },
                   {
                     "name": "requiredFor",
@@ -3789,7 +4638,36 @@
                   {
                     "name": "state",
                     "optional": false,
-                    "typeText": "PermissionState"
+                    "typeText": "PermissionState",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "granted"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "denied"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "not-determined"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "restricted"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "unsupported"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "unknown"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -3841,6 +4719,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "daemon:read"
       ]
     },
     "library": {
@@ -4310,7 +5191,41 @@
                     {
                       "name": "platform",
                       "optional": false,
-                      "typeText": "LibraryPlatform"
+                      "typeText": "LibraryPlatform",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "web"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "macos"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "ios"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "watchos"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "terminal"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "unknown"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "selector",
@@ -4345,7 +5260,24 @@
                     {
                       "name": "type",
                       "optional": false,
-                      "typeText": "LibraryCaptureType"
+                      "typeText": "LibraryCaptureType",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "literal",
+                            "value": "screenshot"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "video"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "walkthrough"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "url",
@@ -4425,7 +5357,41 @@
                       {
                         "name": "platform",
                         "optional": false,
-                        "typeText": "LibraryPlatform"
+                        "typeText": "LibraryPlatform",
+                        "type": {
+                          "kind": "union",
+                          "members": [
+                            {
+                              "kind": "union",
+                              "members": [
+                                {
+                                  "kind": "unresolved",
+                                  "typeName": "'web'"
+                                },
+                                {
+                                  "kind": "unresolved",
+                                  "typeName": "'macos'"
+                                },
+                                {
+                                  "kind": "unresolved",
+                                  "typeName": "'ios'"
+                                },
+                                {
+                                  "kind": "unresolved",
+                                  "typeName": "'watchos'"
+                                },
+                                {
+                                  "kind": "unresolved",
+                                  "typeName": "'terminal'"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "unknown"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "starred",
@@ -4450,7 +5416,24 @@
                       {
                         "name": "type",
                         "optional": false,
-                        "typeText": "LibraryCaptureType"
+                        "typeText": "LibraryCaptureType",
+                        "type": {
+                          "kind": "union",
+                          "members": [
+                            {
+                              "kind": "literal",
+                              "value": "screenshot"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "video"
+                            },
+                            {
+                              "kind": "literal",
+                              "value": "walkthrough"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "url",
@@ -4475,7 +5458,32 @@
               {
                 "name": "groupedBy",
                 "optional": false,
-                "typeText": "LibraryGroupBy"
+                "typeText": "LibraryGroupBy",
+                "type": {
+                  "kind": "union",
+                  "members": [
+                    {
+                      "kind": "literal",
+                      "value": "feature"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "date"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "component"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "platform"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "type"
+                    }
+                  ]
+                }
               },
               {
                 "name": "groups",
@@ -4565,7 +5573,41 @@
                     {
                       "name": "platform",
                       "optional": false,
-                      "typeText": "LibraryPlatform"
+                      "typeText": "LibraryPlatform",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "web"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "macos"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "ios"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "watchos"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "terminal"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "unknown"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "selector",
@@ -4600,7 +5642,24 @@
                     {
                       "name": "type",
                       "optional": false,
-                      "typeText": "LibraryCaptureType"
+                      "typeText": "LibraryCaptureType",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "literal",
+                            "value": "screenshot"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "video"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "walkthrough"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "url",
@@ -4719,7 +5778,41 @@
                     {
                       "name": "platform",
                       "optional": false,
-                      "typeText": "LibraryPlatform"
+                      "typeText": "LibraryPlatform",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "union",
+                            "members": [
+                              {
+                                "kind": "literal",
+                                "value": "web"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "macos"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "ios"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "watchos"
+                              },
+                              {
+                                "kind": "literal",
+                                "value": "terminal"
+                              }
+                            ]
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "unknown"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "selector",
@@ -4754,7 +5847,24 @@
                     {
                       "name": "type",
                       "optional": false,
-                      "typeText": "LibraryCaptureType"
+                      "typeText": "LibraryCaptureType",
+                      "type": {
+                        "kind": "union",
+                        "members": [
+                          {
+                            "kind": "literal",
+                            "value": "screenshot"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "video"
+                          },
+                          {
+                            "kind": "literal",
+                            "value": "walkthrough"
+                          }
+                        ]
+                      }
                     },
                     {
                       "name": "url",
@@ -4962,6 +6072,10 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "library:read",
+        "library:write"
       ]
     },
     "listSessions": {
@@ -5008,12 +6122,70 @@
                   {
                     "name": "platform",
                     "optional": false,
-                    "typeText": "Platform"
+                    "typeText": "Platform",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "web"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "macos"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "ios"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "watchos"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "terminal"
+                        }
+                      ]
+                    }
                   },
                   {
                     "name": "recordingState",
                     "optional": false,
-                    "typeText": "CaptureRunRecordingState"
+                    "typeText": "CaptureRunRecordingState",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "idle"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "arming"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "recording"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "encoding"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "saved"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "failed"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "aborted"
+                        }
+                      ]
+                    }
                   },
                   {
                     "name": "steps",
@@ -5034,6 +6206,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:read"
       ]
     },
     "listWindows": {
@@ -5144,6 +6319,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "windows:read"
       ]
     },
     "llmStep": {
@@ -5247,6 +6425,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:act"
       ]
     },
     "observe": {
@@ -5348,7 +6529,32 @@
           {
             "name": "platform",
             "optional": true,
-            "typeText": "Platform"
+            "typeText": "Platform",
+            "type": {
+              "kind": "union",
+              "members": [
+                {
+                  "kind": "literal",
+                  "value": "web"
+                },
+                {
+                  "kind": "literal",
+                  "value": "macos"
+                },
+                {
+                  "kind": "literal",
+                  "value": "ios"
+                },
+                {
+                  "kind": "literal",
+                  "value": "watchos"
+                },
+                {
+                  "kind": "literal",
+                  "value": "terminal"
+                }
+              ]
+            }
           },
           {
             "name": "recording",
@@ -5406,7 +6612,28 @@
                 {
                   "name": "preset",
                   "optional": true,
-                  "typeText": "CapturePreset"
+                  "typeText": "CapturePreset",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "docs"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "demo"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "social"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "app-store"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "rawPath",
@@ -5441,7 +6668,40 @@
                 {
                   "name": "state",
                   "optional": false,
-                  "typeText": "CaptureRunRecordingState"
+                  "typeText": "CaptureRunRecordingState",
+                  "type": {
+                    "kind": "union",
+                    "members": [
+                      {
+                        "kind": "literal",
+                        "value": "idle"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "arming"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "recording"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "encoding"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "saved"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "failed"
+                      },
+                      {
+                        "kind": "literal",
+                        "value": "aborted"
+                      }
+                    ]
+                  }
                 },
                 {
                   "name": "stoppedAt",
@@ -5486,6 +6746,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:read"
       ]
     },
     "recordComposite": {
@@ -5861,6 +7124,10 @@
         "recording_failed",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "media:record",
+        "windows:read"
       ]
     },
     "recordLlmUsage": {
@@ -5909,6 +7176,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "sessions:write"
       ]
     },
     "recordTerminal": {
@@ -5988,6 +7258,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "terminal:record"
       ]
     },
     "replayTerminal": {
@@ -6045,6 +7318,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "terminal:read"
       ]
     },
     "requestPermissions": {
@@ -6109,7 +7385,28 @@
                   {
                     "name": "permission",
                     "optional": false,
-                    "typeText": "PermissionKind"
+                    "typeText": "PermissionKind",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "accessibility"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "screen-recording"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "automation"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "developer-tools"
+                        }
+                      ]
+                    }
                   },
                   {
                     "name": "requiredFor",
@@ -6124,7 +7421,36 @@
                   {
                     "name": "state",
                     "optional": false,
-                    "typeText": "PermissionState"
+                    "typeText": "PermissionState",
+                    "type": {
+                      "kind": "union",
+                      "members": [
+                        {
+                          "kind": "literal",
+                          "value": "granted"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "denied"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "not-determined"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "restricted"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "unsupported"
+                        },
+                        {
+                          "kind": "literal",
+                          "value": "unknown"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -6133,7 +7459,31 @@
           {
             "name": "requested",
             "optional": false,
-            "typeText": "PermissionKind[]"
+            "typeText": "PermissionKind[]",
+            "type": {
+              "kind": "array",
+              "items": {
+                "kind": "union",
+                "members": [
+                  {
+                    "kind": "literal",
+                    "value": "accessibility"
+                  },
+                  {
+                    "kind": "literal",
+                    "value": "screen-recording"
+                  },
+                  {
+                    "kind": "literal",
+                    "value": "automation"
+                  },
+                  {
+                    "kind": "literal",
+                    "value": "developer-tools"
+                  }
+                ]
+              }
+            }
           }
         ]
       },
@@ -6145,6 +7495,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "permissions:request"
       ]
     },
     "screenshot": {
@@ -6263,7 +7616,28 @@
           {
             "name": "preset",
             "optional": true,
-            "typeText": "CapturePreset"
+            "typeText": "CapturePreset",
+            "type": {
+              "kind": "union",
+              "members": [
+                {
+                  "kind": "literal",
+                  "value": "docs"
+                },
+                {
+                  "kind": "literal",
+                  "value": "demo"
+                },
+                {
+                  "kind": "literal",
+                  "value": "social"
+                },
+                {
+                  "kind": "literal",
+                  "value": "app-store"
+                }
+              ]
+            }
           }
         ]
       },
@@ -6275,6 +7649,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "media:capture"
       ]
     },
     "snapshot": {
@@ -6333,6 +7710,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:read"
       ]
     },
     "startRecording": {
@@ -6494,7 +7874,28 @@
           {
             "name": "preset",
             "optional": true,
-            "typeText": "CapturePreset"
+            "typeText": "CapturePreset",
+            "type": {
+              "kind": "union",
+              "members": [
+                {
+                  "kind": "literal",
+                  "value": "docs"
+                },
+                {
+                  "kind": "literal",
+                  "value": "demo"
+                },
+                {
+                  "kind": "literal",
+                  "value": "social"
+                },
+                {
+                  "kind": "literal",
+                  "value": "app-store"
+                }
+              ]
+            }
           },
           {
             "name": "recordingId",
@@ -6519,6 +7920,9 @@
         "recording_failed",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "media:record"
       ]
     },
     "step": {
@@ -6592,6 +7996,9 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:act"
       ]
     },
     "stopRecording": {
@@ -6669,7 +8076,28 @@
           {
             "name": "preset",
             "optional": true,
-            "typeText": "CapturePreset"
+            "typeText": "CapturePreset",
+            "type": {
+              "kind": "union",
+              "members": [
+                {
+                  "kind": "literal",
+                  "value": "docs"
+                },
+                {
+                  "kind": "literal",
+                  "value": "demo"
+                },
+                {
+                  "kind": "literal",
+                  "value": "social"
+                },
+                {
+                  "kind": "literal",
+                  "value": "app-store"
+                }
+              ]
+            }
           },
           {
             "name": "recordingId",
@@ -6698,6 +8126,9 @@
         "recording_failed",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "media:record"
       ]
     },
     "walkthrough": {
@@ -6833,8 +8264,12 @@
         "internal_error",
         "unauthorized",
         "unsupported_api_version"
+      ],
+      "capabilities": [
+        "ui:act",
+        "media:capture"
       ]
     }
   },
-  "hash": "10bac284b5664a8fe96208e906b473a4b4e431ed60eabf73f7f90cdc9fa72794"
+  "hash": "48553ead7b1530fcb0e11dcdc8ebf0fbe7e39b6df792fcb9a5b622e069341d8f"
 }

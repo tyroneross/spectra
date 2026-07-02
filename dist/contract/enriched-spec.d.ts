@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ApiErrorCode, CoreApiOperation } from './wire.js';
+import type { ApiErrorCode, Capability, CoreApiOperation } from './wire.js';
 export type ParamTypeNode = {
     kind: 'string';
 } | {
@@ -60,6 +60,7 @@ export interface ResultPropertyDescriptor {
     name: string;
     optional: boolean;
     typeText: string;
+    type?: ResultShapeNode;
 }
 export type ResultShapeNode = {
     kind: 'interface';
@@ -69,6 +70,15 @@ export type ResultShapeNode = {
     kind: 'union';
     members: ResultShapeNode[];
 } | {
+    kind: 'array';
+    items: ResultShapeNode;
+} | {
+    kind: 'tuple';
+    elements: ResultShapeNode[];
+} | {
+    kind: 'literal';
+    value: string | number | boolean;
+} | {
     kind: 'unresolved';
     typeName: string;
 };
@@ -77,6 +87,7 @@ export interface EnrichedOperationSpec {
     params: ParamFieldSchema;
     result: ResultShapeNode;
     errorCodes: ApiErrorCode[];
+    capabilities: Capability[];
 }
 export interface EnrichedContractSpecBody {
     apiVersion: number;
@@ -85,7 +96,7 @@ export interface EnrichedContractSpecBody {
 export interface EnrichedContractSpec extends EnrichedContractSpecBody {
     hash: string;
 }
-export declare function buildEnrichedSpecBody(): EnrichedContractSpecBody;
+export declare function buildEnrichedSpecBody(coreApiSource?: string): EnrichedContractSpecBody;
 export declare function hashSpecBody(body: EnrichedContractSpecBody): string;
 export declare function buildEnrichedSpec(): EnrichedContractSpec;
 //# sourceMappingURL=enriched-spec.d.ts.map

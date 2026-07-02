@@ -1,0 +1,2814 @@
+[
+  {
+    "operation": "act",
+    "payloadLabel": "minimal",
+    "request": {
+      "action": "click",
+      "elementId": "el-1",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true,
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]"
+      }
+    }
+  },
+  {
+    "operation": "act",
+    "payloadLabel": "full",
+    "request": {
+      "action": "click",
+      "elementId": "el-1",
+      "sessionId": "<ID>",
+      "value": "conformance-value"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true,
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]"
+      }
+    }
+  },
+  {
+    "operation": "analyze",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "state": "empty",
+        "stateConfidence": 0.5,
+        "regions": [
+          {
+            "label": "Actions",
+            "score": 0.781,
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ],
+            "elementCount": 2
+          }
+        ],
+        "topElements": [
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-1",
+            "importance": 0.781,
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ]
+          },
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-2",
+            "importance": 0.781,
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ]
+          }
+        ],
+        "totalElements": 2,
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "operation": "analyze",
+    "payloadLabel": "full",
+    "request": {
+      "sessionId": "<ID>",
+      "viewport": {
+        "devicePixelRatio": 1,
+        "height": 1,
+        "width": 1
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "state": "empty",
+        "stateConfidence": 0.5,
+        "regions": [
+          {
+            "label": "Actions",
+            "score": 0.88,
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ],
+            "elementCount": 2
+          }
+        ],
+        "topElements": [
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-1",
+            "importance": 0.88,
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ]
+          },
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-2",
+            "importance": 0.88,
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ]
+          }
+        ],
+        "totalElements": 2,
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "operation": "autoRampDemo",
+    "payloadLabel": "minimal",
+    "request": {
+      "input": "<PATH>.mp4",
+      "out": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "out": "<PATH>.mp4",
+        "segments": [
+          {
+            "startSec": 0,
+            "durationSec": 1.4,
+            "speed": 1
+          },
+          {
+            "startSec": 1.4,
+            "durationSec": 1.6,
+            "speed": 1.8
+          }
+        ],
+        "inputDuration": "<TIMESTAMP>",
+        "outputDuration": "<TIMESTAMP>"
+      }
+    }
+  },
+  {
+    "operation": "autoRampDemo",
+    "payloadLabel": "full",
+    "request": {
+      "crf": 1,
+      "deadSpeed": 1,
+      "fps": 1,
+      "input": "<PATH>.mp4",
+      "maxWidth": 1,
+      "minDeadSec": 1,
+      "out": "<PATH>.mp4",
+      "padSec": 1,
+      "threshold": 1
+    },
+    "response": {
+      "ok": false,
+      "errorCode": "internal_error",
+      "errorMessage": "<MESSAGE>"
+    }
+  },
+  {
+    "operation": "computerUse",
+    "payloadLabel": "arm:snapshot/minimal",
+    "request": {
+      "action": "snapshot"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "action": "snapshot",
+        "window": {
+          "title": "Fake Window",
+          "bounds": [
+            0,
+            0,
+            300,
+            400
+          ]
+        },
+        "nodes": [
+          {
+            "role": "button",
+            "label": "Fake Button",
+            "value": null,
+            "enabled": true,
+            "focused": false,
+            "actions": [
+              "press"
+            ],
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ],
+            "path": [
+              0
+            ]
+          }
+        ],
+        "nodeCount": 1,
+        "axStatus": "ok",
+        "focusedWindowTitle": "Fake Window",
+        "needsVisionFallback": false
+      }
+    }
+  },
+  {
+    "operation": "computerUse",
+    "payloadLabel": "arm:act/minimal",
+    "request": {
+      "action": "act",
+      "op": {
+        "kind": "click",
+        "label": "Fake Button"
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "action": "act",
+        "success": true,
+        "matched": true
+      }
+    }
+  },
+  {
+    "operation": "computerUse",
+    "payloadLabel": "arm:fill-form/minimal",
+    "request": {
+      "action": "fill-form",
+      "fields": {
+        "conformance-key": "conformance-test-string"
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "action": "fill-form",
+        "fields": [
+          {
+            "label": "conformance-key",
+            "expected": "conformance-test-string",
+            "matched": false,
+            "set": false,
+            "verified": false
+          }
+        ],
+        "allVerified": false,
+        "needsVisionFallback": false
+      }
+    }
+  },
+  {
+    "operation": "computerUse",
+    "payloadLabel": "arm:snapshot/full",
+    "request": {
+      "action": "snapshot",
+      "app": "Fake Conformance App",
+      "pid": "<PID>",
+      "threshold": 1
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "action": "snapshot",
+        "window": {
+          "title": "Fake Window",
+          "bounds": [
+            0,
+            0,
+            300,
+            400
+          ]
+        },
+        "nodes": [
+          {
+            "role": "button",
+            "label": "Fake Button",
+            "value": null,
+            "enabled": true,
+            "focused": false,
+            "actions": [
+              "press"
+            ],
+            "bounds": [
+              0,
+              0,
+              100,
+              24
+            ],
+            "path": [
+              0
+            ]
+          }
+        ],
+        "nodeCount": 1,
+        "axStatus": "ok",
+        "focusedWindowTitle": "Fake Window",
+        "needsVisionFallback": false
+      }
+    }
+  },
+  {
+    "operation": "createSession",
+    "payloadLabel": "minimal",
+    "request": {
+      "target": "<LOCAL_FIXTURE_URL>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "sessionId": "<ID>",
+        "platform": "web",
+        "elementCount": 6,
+        "snapshot": "# Page: <LOCAL_FIXTURE_URL>\n# Platform: web | Elements: 6 | Timestamp: <TIMESTAMP>\n\n[e6] heading \"Spectra Conformance Fixture\" bounds:[0,0,0,0]\n[e7] button \"Fixture Button\" enabled, actions:[press], bounds:[0,0,0,0]\n[e8] text \"Spectra Conformance Fixture\" bounds:[0,0,0,0]\n[e9] text \"Fixture Button\" bounds:[0,0,0,0]\n[<SYNTHETIC_AX_ID>] group \"Spectra Conformance Fixture\" bounds:[0,0,0,0]\n[<SYNTHETIC_AX_ID>] group \"Fixture Button\" bounds:[0,0,0,0]"
+      }
+    }
+  },
+  {
+    "operation": "createSession",
+    "payloadLabel": "full",
+    "request": {
+      "name": "conformance-test-string",
+      "record": true,
+      "target": "<LOCAL_FIXTURE_URL>"
+    },
+    "response": {
+      "ok": false,
+      "errorCode": "internal_error",
+      "errorMessage": "<MESSAGE>"
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:scan/minimal",
+    "request": {
+      "action": "scan",
+      "input": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "perMinute": [
+          {
+            "minute": 0,
+            "changes": 1
+          }
+        ],
+        "activeRanges": [
+          {
+            "startSec": 1,
+            "endSec": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:polish/minimal",
+    "request": {
+      "action": "polish",
+      "out": "<PATH>.mp4",
+      "spec": {
+        "canvas": {
+          "h": 1,
+          "w": 1
+        },
+        "segments": [
+          {
+            "durationSec": 1,
+            "focal": {
+              "h": 1,
+              "w": 1,
+              "x": 1,
+              "y": 1
+            },
+            "input": "<PATH>.mp4",
+            "startSec": 1
+          }
+        ]
+      }
+    },
+    "response": {
+      "ok": false,
+      "errorCode": "internal_error",
+      "errorMessage": "<MESSAGE>"
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:auto-ramp/minimal",
+    "request": {
+      "action": "auto-ramp",
+      "input": "<PATH>.mp4",
+      "out": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "out": "<PATH>.mp4",
+        "segments": [
+          {
+            "startSec": 0,
+            "durationSec": 1.4,
+            "speed": 1
+          },
+          {
+            "startSec": 1.4,
+            "durationSec": 1.6,
+            "speed": 1.8
+          }
+        ],
+        "inputDuration": "<TIMESTAMP>",
+        "outputDuration": "<TIMESTAMP>"
+      }
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:record-composite/minimal",
+    "request": {
+      "action": "record-composite",
+      "appA": "Fake Conformance App",
+      "appB": "Fake Conformance App",
+      "outPath": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "ok": true,
+        "command": "fake-composite-worker --a Fake Conformance App --b Fake Conformance App",
+        "output": "<PATH>.mp4",
+        "blackFrameGuard": {
+          "sampleCount": 1,
+          "meanLuma": 128,
+          "allBlack": false,
+          "skipped": false
+        },
+        "warnings": [],
+        "recordingId": "<ID>"
+      }
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:polish-clip/minimal",
+    "request": {
+      "action": "polish-clip",
+      "clicksJson": "conformance-test-string",
+      "input": "<PATH>.mp4",
+      "out": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": false,
+      "errorCode": "internal_error",
+      "errorMessage": "<MESSAGE>"
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:polish-script/minimal",
+    "request": {
+      "action": "polish-script",
+      "input": "<PATH>.mp4",
+      "out": "<PATH>.mp4",
+      "script": {
+        "beats": [
+          {
+            "endMs": 1,
+            "id": "<ID>",
+            "startMs": 1
+          }
+        ]
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "outPath": "<PATH>.mp4",
+        "width": 1920,
+        "height": 1080,
+        "fps": 60,
+        "durationMs": "<TIMESTAMP>",
+        "frames": 180
+      }
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:run-script/minimal",
+    "request": {
+      "action": "run-script",
+      "cdpUrl": "<LOCAL_FIXTURE_URL>",
+      "script": {
+        "beats": [
+          {
+            "endMs": 1,
+            "id": "<ID>",
+            "startMs": 1
+          }
+        ]
+      }
+    },
+    "response": {
+      "ok": false,
+      "errorCode": "internal_error",
+      "errorMessage": "<MESSAGE>"
+    }
+  },
+  {
+    "operation": "demo",
+    "payloadLabel": "arm:scan/full",
+    "request": {
+      "action": "scan",
+      "input": "<PATH>.mp4",
+      "threshold": 1
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "perMinute": [],
+        "activeRanges": []
+      }
+    }
+  },
+  {
+    "operation": "discover",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "screens": 1,
+        "captures": 1,
+        "sensitive": [],
+        "manifestPath": "<PATH>.json",
+        "outputDir": "<PATH>"
+      }
+    }
+  },
+  {
+    "operation": "discover",
+    "payloadLabel": "full",
+    "request": {
+      "captureStates": true,
+      "clean": true,
+      "maxDepth": 1,
+      "maxScreens": 1,
+      "outputDir": "<PATH>",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "screens": 1,
+        "captures": 1,
+        "sensitive": [],
+        "manifestPath": "<PATH>.json",
+        "outputDir": "<PATH>"
+      }
+    }
+  },
+  {
+    "operation": "getPermissions",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "permission": "screen-recording",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "screenshots",
+              "video capture"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "permission": "automation",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "controlling helper applications",
+              "opening System Settings"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "permission": "developer-tools",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "web CDP debugging"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_DeveloperTools",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "getPermissions",
+    "payloadLabel": "full",
+    "request": {
+      "permissions": [
+        "accessibility"
+      ]
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "getRecording",
+    "payloadLabel": "minimal",
+    "request": {
+      "recordingId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "recording": {
+          "recordingId": "<ID>",
+          "kind": "single-window",
+          "state": "recording",
+          "sessionId": "<ID>",
+          "startedAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>",
+          "outPath": "<PATH>.mp4"
+        }
+      }
+    }
+  },
+  {
+    "operation": "getRecording",
+    "payloadLabel": "full",
+    "request": {
+      "recordingId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "recording": {
+          "recordingId": "<ID>",
+          "kind": "single-window",
+          "state": "recording",
+          "sessionId": "<ID>",
+          "startedAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>",
+          "outPath": "<PATH>.mp4"
+        }
+      }
+    }
+  },
+  {
+    "operation": "getRun",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "run": {
+          "schemaVersion": 1,
+          "runId": "<ID>",
+          "sessionId": "<ID>",
+          "name": "conformance-web-readonly",
+          "platform": "web",
+          "target": {
+            "url": "https://fake.local/conformance-readonly"
+          },
+          "planner": {
+            "source": "host-agent",
+            "note": "Host-routed by default; standalone planning remains fallback-only."
+          },
+          "status": "active",
+          "recording": {
+            "state": "idle"
+          },
+          "stats": {
+            "steps": 2,
+            "screenshots": 2,
+            "videos": 0,
+            "errors": 0
+          },
+          "decisions": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "stepIndex": 0,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            },
+            {
+              "stepIndex": 1,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            }
+          ],
+          "artifacts": [
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 0
+            },
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 1
+            }
+          ],
+          "events": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "session.created",
+              "summary": "session created: conformance-web-readonly"
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 0,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1"
+                },
+                "decisionId": "<ID>"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 1,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1",
+                  "value": "seed-value"
+                },
+                "decisionId": "<ID>"
+              }
+            }
+          ],
+          "createdAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>"
+        }
+      }
+    }
+  },
+  {
+    "operation": "getRun",
+    "payloadLabel": "full",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "run": {
+          "schemaVersion": 1,
+          "runId": "<ID>",
+          "sessionId": "<ID>",
+          "name": "conformance-web-readonly",
+          "platform": "web",
+          "target": {
+            "url": "https://fake.local/conformance-readonly"
+          },
+          "planner": {
+            "source": "host-agent",
+            "note": "Host-routed by default; standalone planning remains fallback-only."
+          },
+          "status": "active",
+          "recording": {
+            "state": "idle"
+          },
+          "stats": {
+            "steps": 2,
+            "screenshots": 2,
+            "videos": 0,
+            "errors": 0
+          },
+          "decisions": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "stepIndex": 0,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            },
+            {
+              "stepIndex": 1,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            }
+          ],
+          "artifacts": [
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 0
+            },
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 1
+            }
+          ],
+          "events": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "session.created",
+              "summary": "session created: conformance-web-readonly"
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 0,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1"
+                },
+                "decisionId": "<ID>"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 1,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1",
+                  "value": "seed-value"
+                },
+                "decisionId": "<ID>"
+              }
+            }
+          ],
+          "createdAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>"
+        }
+      }
+    }
+  },
+  {
+    "operation": "getSession",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "session": {
+          "id": "<ID>",
+          "name": "conformance-web-readonly",
+          "platform": "web",
+          "target": {
+            "url": "https://fake.local/conformance-readonly"
+          },
+          "steps": [
+            {
+              "index": 0,
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "timestamp": "<TIMESTAMP>",
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            },
+            {
+              "index": 1,
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "timestamp": "<TIMESTAMP>",
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            }
+          ],
+          "createdAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>",
+          "storageRoot": "<PATH>"
+        },
+        "run": {
+          "schemaVersion": 1,
+          "runId": "<ID>",
+          "sessionId": "<ID>",
+          "name": "conformance-web-readonly",
+          "platform": "web",
+          "target": {
+            "url": "https://fake.local/conformance-readonly"
+          },
+          "planner": {
+            "source": "host-agent",
+            "note": "Host-routed by default; standalone planning remains fallback-only."
+          },
+          "status": "active",
+          "recording": {
+            "state": "idle"
+          },
+          "stats": {
+            "steps": 2,
+            "screenshots": 2,
+            "videos": 0,
+            "errors": 0
+          },
+          "decisions": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "stepIndex": 0,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            },
+            {
+              "stepIndex": 1,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            }
+          ],
+          "artifacts": [
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 0
+            },
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 1
+            }
+          ],
+          "events": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "session.created",
+              "summary": "session created: conformance-web-readonly"
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 0,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1"
+                },
+                "decisionId": "<ID>"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 1,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1",
+                  "value": "seed-value"
+                },
+                "decisionId": "<ID>"
+              }
+            }
+          ],
+          "createdAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>"
+        }
+      }
+    }
+  },
+  {
+    "operation": "getSession",
+    "payloadLabel": "full",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "session": {
+          "id": "<ID>",
+          "name": "conformance-web-readonly",
+          "platform": "web",
+          "target": {
+            "url": "https://fake.local/conformance-readonly"
+          },
+          "steps": [
+            {
+              "index": 0,
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "timestamp": "<TIMESTAMP>",
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            },
+            {
+              "index": 1,
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "timestamp": "<TIMESTAMP>",
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            }
+          ],
+          "createdAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>",
+          "storageRoot": "<PATH>"
+        },
+        "run": {
+          "schemaVersion": 1,
+          "runId": "<ID>",
+          "sessionId": "<ID>",
+          "name": "conformance-web-readonly",
+          "platform": "web",
+          "target": {
+            "url": "https://fake.local/conformance-readonly"
+          },
+          "planner": {
+            "source": "host-agent",
+            "note": "Host-routed by default; standalone planning remains fallback-only."
+          },
+          "status": "active",
+          "recording": {
+            "state": "idle"
+          },
+          "stats": {
+            "steps": 2,
+            "screenshots": 2,
+            "videos": 0,
+            "errors": 0
+          },
+          "decisions": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "outcome": "manual",
+              "selected": {
+                "id": "<ID>",
+                "role": "button",
+                "label": "Fake Element el-1"
+              },
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "stepIndex": 0,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            },
+            {
+              "stepIndex": 1,
+              "timestamp": "<TIMESTAMP>",
+              "tool": "spectra_act",
+              "plannerSource": "manual",
+              "action": {
+                "type": "click",
+                "elementId": "el-1",
+                "value": "seed-value"
+              },
+              "snapshotBefore": "<PATH>.json",
+              "snapshotAfter": "<PATH>.json",
+              "screenshotPath": "<PATH>.png",
+              "success": true,
+              "duration": "<TIMESTAMP>",
+              "decisionId": "<ID>"
+            }
+          ],
+          "artifacts": [
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 0
+            },
+            {
+              "id": "<ID>",
+              "type": "screenshot",
+              "path": "<PATH>.png",
+              "format": "png",
+              "createdAt": "<TIMESTAMP>",
+              "stepIndex": 1
+            }
+          ],
+          "events": [
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "session.created",
+              "summary": "session created: conformance-web-readonly"
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 0,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1"
+                },
+                "decisionId": "<ID>"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "decision.recorded",
+              "summary": "manual: spectra_act",
+              "data": {
+                "decisionId": "<ID>",
+                "outcome": "manual"
+              }
+            },
+            {
+              "id": "<ID>",
+              "timestamp": "<TIMESTAMP>",
+              "type": "action.completed",
+              "summary": "success: click el-1",
+              "data": {
+                "stepIndex": 1,
+                "action": {
+                  "type": "click",
+                  "elementId": "el-1",
+                  "value": "seed-value"
+                },
+                "decisionId": "<ID>"
+              }
+            }
+          ],
+          "createdAt": "<TIMESTAMP>",
+          "updatedAt": "<TIMESTAMP>"
+        }
+      }
+    }
+  },
+  {
+    "operation": "health",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "ok": true,
+        "apiVersion": 2,
+        "daemonVersion": "0.3.2",
+        "pid": "<PID>",
+        "uptimeSec": "<TIMESTAMP>",
+        "startedAt": "<TIMESTAMP>",
+        "aquaSession": true,
+        "windowServer": {
+          "connected": true
+        }
+      }
+    }
+  },
+  {
+    "operation": "health",
+    "payloadLabel": "full",
+    "request": {
+      "includePermissions": true
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "ok": true,
+        "apiVersion": 2,
+        "daemonVersion": "0.3.2",
+        "pid": "<PID>",
+        "uptimeSec": "<TIMESTAMP>",
+        "startedAt": "<TIMESTAMP>",
+        "aquaSession": true,
+        "windowServer": {
+          "connected": true
+        },
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "permission": "screen-recording",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "screenshots",
+              "video capture"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "permission": "automation",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "controlling helper applications",
+              "opening System Settings"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "permission": "developer-tools",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "web CDP debugging"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_DeveloperTools",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:add/minimal",
+    "request": {
+      "action": "add",
+      "sourcePath": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "added": "<ID>",
+        "path": "<PATH>.mp4",
+        "entry": {
+          "id": "<ID>",
+          "created_at": "<TIMESTAMP>",
+          "type": "screenshot",
+          "format": "mp4",
+          "size_bytes": 111048,
+          "source": "spectra",
+          "platform": "unknown",
+          "title": "fixture-input.mp4"
+        }
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:find/minimal",
+    "request": {
+      "action": "find"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "count": 1,
+        "captures": [
+          {
+            "id": "<ID>",
+            "title": "fixture-input.mp4",
+            "type": "screenshot",
+            "platform": "unknown",
+            "created_at": "<TIMESTAMP>",
+            "summary": "<ID> | screenshot | unknown | - | fixture-input.mp4"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:gallery/minimal",
+    "request": {
+      "action": "gallery"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "total": 1,
+        "groupedBy": "feature",
+        "groups": [
+          {
+            "key": "(none)",
+            "count": 1,
+            "captures": [
+              {
+                "id": "<ID>",
+                "title": "fixture-input.mp4",
+                "type": "screenshot",
+                "platform": "unknown",
+                "created_at": "<TIMESTAMP>"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:get/minimal",
+    "request": {
+      "action": "get",
+      "id": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "found": false,
+        "id": "<ID>"
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:tag/minimal",
+    "request": {
+      "action": "tag",
+      "id": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "updated": false,
+        "id": "<ID>"
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:delete/minimal",
+    "request": {
+      "action": "delete",
+      "id": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "removed": false,
+        "id": "<ID>"
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:status/minimal",
+    "request": {
+      "action": "status"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "library_version": 1,
+        "total": 1,
+        "by_type": {
+          "screenshot": 1
+        },
+        "by_platform": {
+          "unknown": 1
+        },
+        "by_feature": {},
+        "total_size_bytes": 111048,
+        "starred_count": 0,
+        "oldest": "<TIMESTAMP>",
+        "newest": "<TIMESTAMP>",
+        "total_size_mb": 0.11
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:export/minimal",
+    "request": {
+      "action": "export",
+      "outDir": "<PATH>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "exported": 1,
+        "outDir": "<PATH>",
+        "filesCopied": 1,
+        "manifestPath": "<PATH>.md"
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:migrate-from-showcase/minimal",
+    "request": {
+      "action": "migrate-from-showcase"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "sourcePath": "<PATH>.showcase",
+        "found": 0,
+        "imported": 0,
+        "skipped": 0,
+        "mediaCopied": 0,
+        "mediaMissing": 0,
+        "issues": [
+          "Showcase index.json not found at <PATH>"
+        ]
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:add/full",
+    "request": {
+      "action": "add",
+      "component": "conformance-test-string",
+      "deviceName": "conformance-test-string",
+      "durationMs": "<TIMESTAMP>",
+      "feature": "conformance-test-string",
+      "gitBranch": "conformance-test-string",
+      "gitCommit": "conformance-test-string",
+      "platform": "web",
+      "selector": "conformance-test-string",
+      "sourcePath": "<PATH>.mp4",
+      "starred": true,
+      "tags": [
+        "conformance-test-string"
+      ],
+      "title": "conformance-test-string",
+      "type": "screenshot",
+      "url": "conformance-test-string",
+      "viewport": "conformance-test-string",
+      "walkthrough": {
+        "step_count": 1,
+        "steps": [
+          "conformance-test-string"
+        ]
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "added": "<ID>",
+        "path": "<PATH>.mp4",
+        "entry": {
+          "id": "<ID>",
+          "created_at": "<TIMESTAMP>",
+          "type": "screenshot",
+          "format": "mp4",
+          "size_bytes": 111048,
+          "duration_ms": "<TIMESTAMP>",
+          "source": "spectra",
+          "platform": "web",
+          "url": "conformance-test-string",
+          "viewport": "conformance-test-string",
+          "selector": "conformance-test-string",
+          "device_name": "conformance-test-string",
+          "title": "conformance-test-string",
+          "feature": "conformance-test-string",
+          "component": "conformance-test-string",
+          "tags": [
+            "conformance-test-string"
+          ],
+          "starred": true,
+          "walkthrough": {
+            "step_count": 1,
+            "steps": [
+              "conformance-test-string"
+            ]
+          },
+          "git_branch": "conformance-test-string",
+          "git_commit": "conformance-test-string"
+        }
+      }
+    }
+  },
+  {
+    "operation": "listSessions",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "sessions": [
+          {
+            "id": "<ID>",
+            "name": "conformance-web-fixture",
+            "platform": "web",
+            "steps": 2,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-macos-fixture",
+            "platform": "macos",
+            "steps": 0,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-web-readonly",
+            "platform": "web",
+            "steps": 2,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-macos-recording",
+            "platform": "macos",
+            "steps": 0,
+            "recordingState": "recording",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "127.0.0.1-conformance-fixture",
+            "platform": "web",
+            "steps": 0,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-test-string",
+            "platform": "web",
+            "steps": 0,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "listSessions",
+    "payloadLabel": "full",
+    "request": {
+      "includeClosed": true
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "sessions": [
+          {
+            "id": "<ID>",
+            "name": "conformance-web-fixture",
+            "platform": "web",
+            "steps": 2,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-macos-fixture",
+            "platform": "macos",
+            "steps": 0,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-web-readonly",
+            "platform": "web",
+            "steps": 2,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-macos-recording",
+            "platform": "macos",
+            "steps": 0,
+            "recordingState": "recording",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "127.0.0.1-conformance-fixture",
+            "platform": "web",
+            "steps": 0,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          },
+          {
+            "id": "<ID>",
+            "name": "conformance-test-string",
+            "platform": "web",
+            "steps": 0,
+            "recordingState": "idle",
+            "createdAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "listWindows",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "windows": [
+          {
+            "windowId": "<PID>",
+            "appName": "Fake Conformance App",
+            "bundleIdentifier": "dev.spectra.conformance-fake",
+            "processId": "<PID>",
+            "title": "Fake Window",
+            "x": 0,
+            "y": 0,
+            "width": 800,
+            "height": 600,
+            "onScreen": true,
+            "active": true,
+            "layer": 0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "listWindows",
+    "payloadLabel": "full",
+    "request": {
+      "app": "Fake Conformance App",
+      "onScreenOnly": true,
+      "title": "conformance-test-string"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "windows": []
+      }
+    }
+  },
+  {
+    "operation": "llmStep",
+    "payloadLabel": "minimal",
+    "request": {
+      "actions": [
+        {
+          "elementId": "el-1",
+          "type": "click"
+        }
+      ],
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "sessionId": "<ID>",
+        "stepsExecuted": 1,
+        "stepsTotal": 1,
+        "success": true,
+        "results": [
+          {
+            "index": 0,
+            "type": "click",
+            "elementId": "el-1",
+            "success": true,
+            "durationMs": "<TIMESTAMP>"
+          }
+        ],
+        "finalSnapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]"
+      }
+    }
+  },
+  {
+    "operation": "llmStep",
+    "payloadLabel": "full",
+    "request": {
+      "actions": [
+        {
+          "elementId": "el-1",
+          "intent": "conformance-test-string",
+          "type": "click",
+          "value": "conformance-value",
+          "waitAfterMs": 1
+        }
+      ],
+      "continueOnError": true,
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "sessionId": "<ID>",
+        "stepsExecuted": 1,
+        "stepsTotal": 1,
+        "success": true,
+        "results": [
+          {
+            "index": 0,
+            "intent": "conformance-test-string",
+            "type": "click",
+            "elementId": "el-1",
+            "success": true,
+            "durationMs": "<TIMESTAMP>"
+          }
+        ],
+        "finalSnapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]"
+      }
+    }
+  },
+  {
+    "operation": "observe",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]",
+        "elementCount": 2,
+        "url": "https://fake.local/conformance",
+        "appName": "Fake Conformance App",
+        "sessionId": "<ID>",
+        "platform": "web",
+        "recording": {
+          "state": "idle"
+        }
+      }
+    }
+  },
+  {
+    "operation": "observe",
+    "payloadLabel": "full",
+    "request": {
+      "analyze": true,
+      "screenshot": true,
+      "sessionId": "<ID>",
+      "viewport": {
+        "devicePixelRatio": 1,
+        "height": 1,
+        "width": 1
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]",
+        "elementCount": 2,
+        "url": "https://fake.local/conformance",
+        "appName": "Fake Conformance App",
+        "screenshot": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "sessionId": "<ID>",
+        "platform": "web",
+        "recording": {
+          "state": "idle"
+        },
+        "analysis": {
+          "state": "empty",
+          "stateConfidence": 0.5,
+          "regions": [
+            {
+              "label": "Actions",
+              "score": 0.88,
+              "bounds": [
+                0,
+                0,
+                100,
+                24
+              ],
+              "elementCount": 2
+            }
+          ],
+          "topElements": [
+            {
+              "id": "<ID>",
+              "role": "button",
+              "label": "Fake Element el-1",
+              "importance": 0.88,
+              "bounds": [
+                0,
+                0,
+                100,
+                24
+              ]
+            },
+            {
+              "id": "<ID>",
+              "role": "button",
+              "label": "Fake Element el-2",
+              "importance": 0.88,
+              "bounds": [
+                0,
+                0,
+                100,
+                24
+              ]
+            }
+          ],
+          "totalElements": 2,
+          "consoleErrors": []
+        }
+      }
+    }
+  },
+  {
+    "operation": "recordComposite",
+    "payloadLabel": "minimal",
+    "request": {
+      "appA": "Fake Conformance App",
+      "appB": "Fake Conformance App",
+      "outPath": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "ok": true,
+        "command": "fake-composite-worker --a Fake Conformance App --b Fake Conformance App",
+        "output": "<PATH>.mp4",
+        "blackFrameGuard": {
+          "sampleCount": 1,
+          "meanLuma": 128,
+          "allBlack": false,
+          "skipped": false
+        },
+        "warnings": [],
+        "recordingId": "<ID>"
+      }
+    }
+  },
+  {
+    "operation": "recordComposite",
+    "payloadLabel": "full",
+    "request": {
+      "appA": "Fake Conformance App",
+      "appB": "Fake Conformance App",
+      "async": true,
+      "caption": "conformance-test-string",
+      "crf": 1,
+      "cursor": true,
+      "durationSeconds": 1,
+      "fps": 1,
+      "labelA": "conformance-test-string",
+      "labelB": "conformance-test-string",
+      "maxWidth": 1,
+      "outPath": "<PATH>.mp4",
+      "sessionId": "<ID>",
+      "spotlight": "none",
+      "titleA": "conformance-test-string",
+      "titleB": "conformance-test-string"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "ok": true,
+        "accepted": true,
+        "async": true,
+        "recordingId": "<ID>",
+        "state": "recording",
+        "startedAt": "<TIMESTAMP>",
+        "sessionId": "<ID>",
+        "poll": {
+          "operation": "getRecording",
+          "params": {
+            "recordingId": "<ID>"
+          }
+        }
+      }
+    }
+  },
+  {
+    "operation": "recordLlmUsage",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>",
+      "usage": {
+        "promptTokens": 1,
+        "completionTokens": 1
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true,
+        "path": "<PATH>.json",
+        "entries": 1
+      }
+    }
+  },
+  {
+    "operation": "recordLlmUsage",
+    "payloadLabel": "full",
+    "request": {
+      "sessionId": "<ID>",
+      "usage": {
+        "promptTokens": 1,
+        "completionTokens": 1
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true,
+        "path": "<PATH>.json",
+        "entries": 2
+      }
+    }
+  },
+  {
+    "operation": "recordTerminal",
+    "payloadLabel": "minimal",
+    "request": {
+      "command": "echo spectra-conformance"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "castFile": "<PATH>.cast",
+        "exitCode": 0,
+        "duration": "<TIMESTAMP>",
+        "outputSize": 20,
+        "lines": 1,
+        "fileChanges": 0,
+        "timeline": [
+          {
+            "time": "<TIMESTAMP>",
+            "source": "terminal",
+            "event": "started: echo spectra-conformance"
+          },
+          {
+            "time": "<TIMESTAMP>",
+            "source": "terminal",
+            "event": "exited with code 0 after <DURATION>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "recordTerminal",
+    "payloadLabel": "full",
+    "request": {
+      "command": "echo spectra-conformance",
+      "outputDir": "<PATH>",
+      "timeout": 1,
+      "watch_files": []
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "castFile": "<PATH>.cast",
+        "exitCode": 0,
+        "duration": "<TIMESTAMP>",
+        "outputSize": 0,
+        "lines": 0,
+        "fileChanges": 0,
+        "timeline": [
+          {
+            "time": "<TIMESTAMP>",
+            "source": "terminal",
+            "event": "started: echo spectra-conformance"
+          },
+          {
+            "time": "<TIMESTAMP>",
+            "source": "terminal",
+            "event": "exited with code 0 after <DURATION>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "replayTerminal",
+    "payloadLabel": "minimal",
+    "request": {
+      "file": "<PATH>.cast"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "summary": "Recorded: 2023-11-14T22:13:20.000Z\nTerminal: 80x24\nDuration: 0.40s\nEvents: 4 (3 output, 1 input)\nOutput size: 0.1 KB\nFirst output: Spectra conformance fixture terminal\nLast output:  $",
+        "events": [
+          {
+            "time": "<TIMESTAMP>",
+            "type": "output",
+            "data": "Spectra conformance fixture terminal\r\n"
+          },
+          {
+            "time": "<TIMESTAMP>",
+            "type": "input",
+            "data": "echo spectra-conformance\r\n"
+          },
+          {
+            "time": "<TIMESTAMP>",
+            "type": "output",
+            "data": "spectra-conformance\r\n"
+          },
+          {
+            "time": "<TIMESTAMP>",
+            "type": "output",
+            "data": "$ "
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "replayTerminal",
+    "payloadLabel": "full",
+    "request": {
+      "commands_only": true,
+      "file": "<PATH>.cast",
+      "search": "conformance-test-string"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "summary": "Recorded: 2023-11-14T22:13:20.000Z\nTerminal: 80x24\nDuration: 0.40s\nEvents: 4 (3 output, 1 input)\nOutput size: 0.1 KB\nFirst output: Spectra conformance fixture terminal\nLast output:  $",
+        "commands": [
+          "echo spectra-conformance"
+        ]
+      }
+    }
+  },
+  {
+    "operation": "requestPermissions",
+    "payloadLabel": "minimal",
+    "request": {
+      "permissions": [
+        "accessibility"
+      ]
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ],
+        "requested": [
+          "accessibility"
+        ]
+      }
+    }
+  },
+  {
+    "operation": "requestPermissions",
+    "payloadLabel": "full",
+    "request": {
+      "openSettings": true,
+      "permissions": [
+        "accessibility"
+      ],
+      "prompt": true
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ],
+        "requested": [
+          "accessibility"
+        ]
+      }
+    }
+  },
+  {
+    "operation": "screenshot",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "path": "<PATH>.png",
+        "format": "png",
+        "cleanApplied": false
+      }
+    }
+  },
+  {
+    "operation": "screenshot",
+    "payloadLabel": "full",
+    "request": {
+      "aspectRatio": "conformance-test-string",
+      "clean": true,
+      "elementId": "el-1",
+      "mode": "full",
+      "preset": "docs",
+      "quality": "lossless",
+      "region": "conformance-test-string",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "path": "<PATH>.png",
+        "format": "png",
+        "cleanApplied": false,
+        "preset": "docs"
+      }
+    }
+  },
+  {
+    "operation": "snapshot",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]",
+        "elementCount": 2,
+        "url": "https://fake.local/conformance",
+        "appName": "Fake Conformance App"
+      }
+    }
+  },
+  {
+    "operation": "snapshot",
+    "payloadLabel": "full",
+    "request": {
+      "screenshot": true,
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]",
+        "elementCount": 2,
+        "url": "https://fake.local/conformance",
+        "appName": "Fake Conformance App",
+        "screenshot": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+      }
+    }
+  },
+  {
+    "operation": "startRecording",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "recordingId": "<ID>",
+        "startedAt": "<TIMESTAMP>",
+        "fps": 60,
+        "codec": "h264",
+        "bitrate": "8M"
+      }
+    }
+  },
+  {
+    "operation": "startRecording",
+    "payloadLabel": "full",
+    "request": {
+      "bitrate": "4M",
+      "captureAudio": true,
+      "captureCursor": true,
+      "codec": "h264",
+      "composite": {
+        "displayHeight": 1,
+        "displayWidth": 1,
+        "enabled": true,
+        "left": {
+          "height": 1,
+          "width": 1,
+          "x": 1,
+          "y": 1
+        },
+        "right": {
+          "height": 1,
+          "width": 1,
+          "x": 1,
+          "y": 1
+        }
+      },
+      "fps": 30,
+      "hardware": true,
+      "preset": "docs",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": false,
+      "errorCode": "conflict",
+      "errorMessage": "<MESSAGE>"
+    }
+  },
+  {
+    "operation": "step",
+    "payloadLabel": "minimal",
+    "request": {
+      "intent": "conformance-test-string",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]",
+        "candidates": [
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-1"
+          },
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-2"
+          }
+        ],
+        "visionFallback": true,
+        "screenshot": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+      }
+    }
+  },
+  {
+    "operation": "step",
+    "payloadLabel": "full",
+    "request": {
+      "intent": "conformance-test-string",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "snapshot": "# Page: https://fake.local/conformance\n# Platform: web | Elements: 2 | Timestamp: <TIMESTAMP>\n\n[el-1] button \"Fake Element el-1\" enabled, actions:[click], bounds:[0,0,100,24]\n[el-2] button \"Fake Element el-2\" enabled, actions:[click], bounds:[0,0,100,24]",
+        "candidates": [
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-1"
+          },
+          {
+            "id": "<ID>",
+            "role": "button",
+            "label": "Fake Element el-2"
+          }
+        ],
+        "visionFallback": true,
+        "screenshot": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+      }
+    }
+  },
+  {
+    "operation": "stopRecording",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "recordingId": "<ID>",
+        "path": "<PATH>.mp4",
+        "format": "mp4",
+        "durationMs": "<TIMESTAMP>",
+        "sizeBytes": 4096,
+        "codec": "h264",
+        "fps": 60,
+        "width": 800,
+        "height": 600,
+        "droppedFrames": 0,
+        "alreadyStopped": false
+      }
+    }
+  },
+  {
+    "operation": "stopRecording",
+    "payloadLabel": "full",
+    "request": {
+      "preset": "docs",
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "preset": "docs",
+        "alreadyStopped": true,
+        "error": "No active recording for session <ID>"
+      }
+    }
+  },
+  {
+    "operation": "walkthrough",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>",
+      "steps": [
+        {
+          "intent": "conformance-test-string"
+        }
+      ]
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": false,
+        "stepsCompleted": 0,
+        "stepsTotal": 1,
+        "results": [
+          {
+            "index": 0,
+            "intent": "conformance-test-string",
+            "autoExecuted": false,
+            "success": false,
+            "elementCount": 2,
+            "state": "empty",
+            "screenshotPath": "<PATH>.png"
+          }
+        ],
+        "duration_ms": "<TIMESTAMP>"
+      }
+    }
+  },
+  {
+    "operation": "walkthrough",
+    "payloadLabel": "full",
+    "request": {
+      "clean": true,
+      "sessionId": "<ID>",
+      "steps": [
+        {
+          "capture": true,
+          "intent": "conformance-test-string",
+          "waitMs": 1
+        }
+      ]
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": false,
+        "stepsCompleted": 0,
+        "stepsTotal": 1,
+        "results": [
+          {
+            "index": 0,
+            "intent": "conformance-test-string",
+            "autoExecuted": false,
+            "success": false,
+            "elementCount": 2,
+            "state": "empty",
+            "screenshotPath": "<PATH>.png"
+          }
+        ],
+        "duration_ms": "<TIMESTAMP>"
+      }
+    }
+  },
+  {
+    "operation": "closeSession",
+    "payloadLabel": "minimal",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true
+      }
+    }
+  },
+  {
+    "operation": "closeSession",
+    "payloadLabel": "full",
+    "request": {
+      "sessionId": "<ID>"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true
+      }
+    }
+  },
+  {
+    "operation": "closeAllSessions",
+    "payloadLabel": "void",
+    "response": {
+      "ok": true,
+      "result": {
+        "success": true
+      }
+    }
+  }
+]

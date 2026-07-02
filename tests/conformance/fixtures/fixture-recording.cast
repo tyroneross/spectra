@@ -1,0 +1,5 @@
+{"version":2,"width":80,"height":24,"timestamp":1700000000,"env":{"SHELL":"/bin/zsh","TERM":"xterm-256color"}}
+[0.1,"o","Spectra conformance fixture terminal\r\n"]
+[0.2,"i","echo spectra-conformance\r\n"]
+[0.3,"o","spectra-conformance\r\n"]
+[0.4,"o","$ "]

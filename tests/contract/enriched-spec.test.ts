@@ -172,6 +172,20 @@ describe('enriched contract spec — freeze / drift gate', () => {
     expect(committed.operations.stopRecording.errorCodes).toContain('recording_failed')
     expect(committed.operations.computerUse.errorCodes).toContain('permission_denied')
   })
+
+  it('H2 (M2B): captures the op→capability map from wire.ts operationCapabilities — additive, no prior capability info existed', () => {
+    // Every operation carries its declared capability list, in source order
+    // (not re-sorted) — this is what lets a future Swift daemon's
+    // conformance suite assert it replicates the same default-deny gating
+    // src/daemon/security.ts enforces for the TS daemon.
+    expect(committed.operations.act.capabilities).toEqual(['ui:act'])
+    expect(committed.operations.createSession.capabilities).toEqual(['sessions:write', 'ui:read'])
+    expect(committed.operations.discover.capabilities).toEqual(['discover:write', 'ui:act', 'media:capture'])
+    expect(committed.operations.closeAllSessions.capabilities).toEqual(['sessions:write'])
+    for (const op of apiOperations) {
+      expect(committed.operations[op].capabilities.length).toBeGreaterThan(0)
+    }
+  })
 })
 
 describe('mutation check — enriched spec detects semantics the legacy snapshot misses', () => {

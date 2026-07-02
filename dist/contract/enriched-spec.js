@@ -30,6 +30,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as ts from 'typescript';
 import { z } from 'zod';
+import { operationCapabilities } from './wire.js';
 import { apiOperations, jsonValueSchema, operationParamSchemas, API_VERSION } from './schemas.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const coreApiPath = join(here, 'core-api.ts');
@@ -141,8 +142,8 @@ function describeZodCore(schema, depth) {
     }
     return { kind: 'unresolved', note: schema.constructor?.name ?? 'unknown-zod-type' };
 }
-function parseCoreApiSource() {
-    const text = readFileSync(coreApiPath, 'utf8');
+function parseCoreApiSource(sourceText) {
+    const text = sourceText ?? readFileSync(coreApiPath, 'utf8');
     const sourceFile = ts.createSourceFile(coreApiPath, text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
     const declarations = new Map();
     for (const statement of sourceFile.statements) {
@@ -152,7 +153,68 @@ function parseCoreApiSource() {
     }
     return { sourceFile, declarations };
 }
-function resolveInterfaceProperties(node, sourceFile, declarations, visitedHeritage) {
+// A type node is "expandable" when it (optionally through an array wrapper)
+// is a reference to a *declared* name, a union, or an inline type literal —
+// i.e. resolveTypeNode has a real chance of returning structure for it
+// rather than falling through to `unresolved`. Plain keyword types (string,
+// number, boolean, ...) are intentionally left alone: attaching a `type`
+// node that just repeats `typeText` in a different shape would be noise,
+// not signal.
+function isExpandableTypeNode(typeNode) {
+    if (ts.isArrayTypeNode(typeNode))
+        return isExpandableTypeNode(typeNode.elementType);
+    return ts.isTypeReferenceNode(typeNode) || ts.isUnionTypeNode(typeNode) || ts.isTypeLiteralNode(typeNode);
+}
+// Whether a resolved ResultShapeNode actually carries structure worth
+// attaching to a property descriptor (as opposed to a bare `unresolved`,
+// which adds nothing `typeText` didn't already say). `tuple` counts
+// unconditionally — arity itself (e.g. Bounds's 4 positions) is the
+// structural fact, even when every element resolves to an opaque keyword
+// like `number`.
+function shapeHasStructure(node) {
+    if (node.kind === 'interface')
+        return true;
+    if (node.kind === 'tuple')
+        return true;
+    // A literal constrains the value to an exact constant — that IS structure
+    // worth freezing (it's what lets the validator gate an enum value), so a
+    // property typed as a literal or a union-of-literals gets a real `.type`.
+    if (node.kind === 'literal')
+        return true;
+    if (node.kind === 'union')
+        return node.members.some(shapeHasStructure);
+    if (node.kind === 'array')
+        return shapeHasStructure(node.items);
+    return false;
+}
+function buildPropertyDescriptor(member, sourceFile, declarations, depth) {
+    const name = member.name.getText(sourceFile);
+    const optional = member.questionToken !== undefined;
+    const typeText = member.type ? member.type.getText(sourceFile) : 'unknown';
+    const descriptor = { name, optional, typeText };
+    // The H1 fix: recurse into the property's own type node (one MAX_TS_DEPTH
+    // step deeper) instead of stopping at typeText. Reuses the same
+    // declarations map (scoped to core-api.ts's own statements — external/
+    // node_modules types are never in that map, so they stay `unresolved` by
+    // construction) and the same depth guard resolveTypeNode already enforces.
+    if (member.type && isExpandableTypeNode(member.type)) {
+        const resolved = resolveTypeNode(member.type, sourceFile, declarations, depth + 1);
+        if (shapeHasStructure(resolved)) {
+            descriptor.type = resolved;
+        }
+    }
+    return descriptor;
+}
+function buildPropertyDescriptors(members, sourceFile, declarations, depth) {
+    const properties = [];
+    for (const member of members) {
+        if (ts.isPropertySignature(member) && member.name) {
+            properties.push(buildPropertyDescriptor(member, sourceFile, declarations, depth));
+        }
+    }
+    return properties.sort((a, b) => a.name.localeCompare(b.name));
+}
+function resolveInterfaceProperties(node, sourceFile, declarations, visitedHeritage, depth) {
     const props = new Map();
     if (node.heritageClauses) {
         for (const clause of node.heritageClauses) {
@@ -163,7 +225,7 @@ function resolveInterfaceProperties(node, sourceFile, declarations, visitedHerit
                 visitedHeritage.add(name);
                 const parent = declarations.get(name);
                 if (parent && ts.isInterfaceDeclaration(parent)) {
-                    for (const prop of resolveInterfaceProperties(parent, sourceFile, declarations, visitedHeritage)) {
+                    for (const prop of resolveInterfaceProperties(parent, sourceFile, declarations, visitedHeritage, depth)) {
                         props.set(prop.name, prop);
                     }
                 }
@@ -172,12 +234,7 @@ function resolveInterfaceProperties(node, sourceFile, declarations, visitedHerit
     }
     for (const member of node.members) {
         if (ts.isPropertySignature(member) && member.name) {
-            const name = member.name.getText(sourceFile);
-            props.set(name, {
-                name,
-                optional: member.questionToken !== undefined,
-                typeText: member.type ? member.type.getText(sourceFile) : 'unknown',
-            });
+            props.set(member.name.getText(sourceFile), buildPropertyDescriptor(member, sourceFile, declarations, depth));
         }
     }
     return [...props.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -187,24 +244,53 @@ function resolveTypeNode(typeNode, sourceFile, declarations, depth) {
     if (depth > MAX_TS_DEPTH) {
         return { kind: 'unresolved', typeName: typeNode.getText(sourceFile) };
     }
+    // String / numeric / boolean literal type (`'granted'`, `30`, `-1`, `true`).
+    // Keyword types (`number`, `string`, `boolean`) are NOT LiteralTypeNodes, so
+    // they fall through to `unresolved` below — preserving the existing behavior
+    // (e.g. Bounds's `[number,number,number,number]` tuple of unresolved numbers).
+    // A `null` literal is intentionally left unresolved (permissive) so a
+    // `T | null` union keeps its prior shape rather than gaining a null member.
+    if (ts.isLiteralTypeNode(typeNode)) {
+        const lit = typeNode.literal;
+        if (ts.isStringLiteral(lit))
+            return { kind: 'literal', value: lit.text };
+        if (ts.isNumericLiteral(lit))
+            return { kind: 'literal', value: Number(lit.text) };
+        if (lit.kind === ts.SyntaxKind.TrueKeyword)
+            return { kind: 'literal', value: true };
+        if (lit.kind === ts.SyntaxKind.FalseKeyword)
+            return { kind: 'literal', value: false };
+        if (ts.isPrefixUnaryExpression(lit) &&
+            lit.operator === ts.SyntaxKind.MinusToken &&
+            ts.isNumericLiteral(lit.operand)) {
+            return { kind: 'literal', value: -Number(lit.operand.text) };
+        }
+        return { kind: 'unresolved', typeName: typeNode.getText(sourceFile) };
+    }
     if (ts.isUnionTypeNode(typeNode)) {
         return {
             kind: 'union',
             members: typeNode.types.map((member) => resolveTypeNode(member, sourceFile, declarations, depth + 1)),
         };
     }
+    if (ts.isArrayTypeNode(typeNode)) {
+        return {
+            kind: 'array',
+            items: resolveTypeNode(typeNode.elementType, sourceFile, declarations, depth + 1),
+        };
+    }
+    if (ts.isTupleTypeNode(typeNode)) {
+        return {
+            kind: 'tuple',
+            elements: typeNode.elements.map((element) => resolveTypeNode(element, sourceFile, declarations, depth + 1)),
+        };
+    }
     if (ts.isTypeLiteralNode(typeNode)) {
-        const properties = [];
-        for (const member of typeNode.members) {
-            if (ts.isPropertySignature(member) && member.name) {
-                properties.push({
-                    name: member.name.getText(sourceFile),
-                    optional: member.questionToken !== undefined,
-                    typeText: member.type ? member.type.getText(sourceFile) : 'unknown',
-                });
-            }
-        }
-        return { kind: 'interface', typeName: '(inline)', properties: properties.sort((a, b) => a.name.localeCompare(b.name)) };
+        return {
+            kind: 'interface',
+            typeName: '(inline)',
+            properties: buildPropertyDescriptors(typeNode.members, sourceFile, declarations, depth),
+        };
     }
     if (ts.isTypeReferenceNode(typeNode)) {
         const name = typeNode.typeName.getText(sourceFile);
@@ -215,7 +301,7 @@ function resolveTypeNode(typeNode, sourceFile, declarations, depth) {
             return {
                 kind: 'interface',
                 typeName: name,
-                properties: resolveInterfaceProperties(declaration, sourceFile, declarations, new Set([name])),
+                properties: resolveInterfaceProperties(declaration, sourceFile, declarations, new Set([name]), depth),
             };
         }
         if (ts.isTypeAliasDeclaration(declaration)) {
@@ -225,8 +311,8 @@ function resolveTypeNode(typeNode, sourceFile, declarations, depth) {
     }
     return { kind: 'unresolved', typeName: typeNode.getText(sourceFile) };
 }
-function extractResultShapes() {
-    const { sourceFile, declarations } = parseCoreApiSource();
+function extractResultShapes(sourceText) {
+    const { sourceFile, declarations } = parseCoreApiSource(sourceText);
     const coreApiDecl = declarations.get('CoreApi');
     if (!coreApiDecl || !ts.isInterfaceDeclaration(coreApiDecl)) {
         throw new Error('enriched-spec: could not locate `interface CoreApi` in core-api.ts');
@@ -297,8 +383,13 @@ function errorCodesFor(operation) {
     const extra = OPERATION_SPECIFIC_ERROR_CODES[operation] ?? [];
     return [...new Set([...UNIVERSAL_ERROR_CODES, ...extra])].sort();
 }
-export function buildEnrichedSpecBody() {
-    const resultShapes = extractResultShapes();
+// `coreApiSource` is test-only: pass an in-memory alternate core-api.ts text
+// to prove the resolver reacts to a nested-type mutation without touching
+// the real file on disk (see the H1 mutation-regression test in
+// tests/contract/enriched-spec.test.ts). Production callers (buildEnrichedSpec,
+// the CLI runner below) always omit it, which reads the real file.
+export function buildEnrichedSpecBody(coreApiSource) {
+    const resultShapes = extractResultShapes(coreApiSource);
     const operations = {};
     for (const operation of apiOperations) {
         operations[operation] = {
@@ -306,6 +397,7 @@ export function buildEnrichedSpecBody() {
             params: describeParamSchema(operationParamSchemas[operation]),
             result: resultShapes[operation] ?? { kind: 'unresolved', typeName: 'not-found-in-core-api' },
             errorCodes: errorCodesFor(operation),
+            capabilities: [...operationCapabilities[operation]],
         };
     }
     return { apiVersion: API_VERSION, operations };
