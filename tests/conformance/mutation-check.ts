@@ -81,16 +81,17 @@ async function runOpCheck(
   }
 }
 
-// The ops proven to bite: `health` (void-param baseline) plus two CORE
-// session-dependent ops whose success shapes only became testable after the D1
-// ordering fix — so a mutation to their result "wouldn't have failed the gate
-// before D1" (M2B acceptance requirement). snapshot (required `snapshot`) and
-// getSession (required `session`) both have required result fields a drop/rename
-// mutation violates. startRecording, stopRecording, and screenshot are ALL
-// intentionally excluded — their results are all-optional, so no mutation is
-// structurally catchable (a `{}` response would pass); the corpus dual-run is
-// their only value backstop (finding, backlogged — see fakes.ts).
-const PROOF_OPS = ['health', 'snapshot', 'getSession'] as const
+// The ops proven to bite: `health` (void-param baseline) + CORE session-
+// dependent ops with required result fields a drop-first-key mutation violates:
+// snapshot (required `snapshot`), getSession (required `session`), and — after
+// the M2B backlog tightening — startRecording (required recordingId/startedAt/
+// fps/codec/bitrate; genuinely single-success-path, all failures throw).
+// `stopRecording` and `screenshot` stay EXCLUDED: each has TWO success shapes
+// (completed vs alreadyStopped; image vs soft-error-as-ok:true), so their fields
+// can't be required on a flat interface without false-RED'ing a conforming
+// daemon — the durable fix is a discriminated union, backlogged (see core-api.ts
+// + fakes.ts).
+const PROOF_OPS = ['health', 'snapshot', 'getSession', 'startRecording'] as const
 
 async function main(): Promise<void> {
   console.log('=== M2B mutation check: does the conformance oracle actually bite? ===\n')

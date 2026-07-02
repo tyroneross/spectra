@@ -7853,12 +7853,12 @@
         "properties": [
           {
             "name": "bitrate",
-            "optional": true,
+            "optional": false,
             "typeText": "string"
           },
           {
             "name": "codec",
-            "optional": true,
+            "optional": false,
             "typeText": "string"
           },
           {
@@ -7868,7 +7868,7 @@
           },
           {
             "name": "fps",
-            "optional": true,
+            "optional": false,
             "typeText": "number"
           },
           {
@@ -7899,12 +7899,12 @@
           },
           {
             "name": "recordingId",
-            "optional": true,
+            "optional": false,
             "typeText": "string"
           },
           {
             "name": "startedAt",
-            "optional": true,
+            "optional": false,
             "typeText": "TimestampMs"
           }
         ]
@@ -8030,7 +8030,7 @@
         "properties": [
           {
             "name": "alreadyStopped",
-            "optional": true,
+            "optional": false,
             "typeText": "boolean"
           },
           {
@@ -8271,5 +8271,5 @@
       ]
     }
   },
-  "hash": "48553ead7b1530fcb0e11dcdc8ebf0fbe7e39b6df792fcb9a5b622e069341d8f"
+  "hash": "9cb2716876d8886a5807d660a65bee72c4c0e1913749a39bdafc1532ecb7f6c7"
 }

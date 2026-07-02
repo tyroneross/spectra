@@ -477,12 +477,12 @@ export interface StartRecordingParams {
     composite?: RecordingCompositeOptions;
 }
 export interface StartRecordingResult {
-    recordingId?: string;
+    recordingId: string;
+    startedAt: TimestampMs;
+    fps: number;
+    codec: string;
+    bitrate: string;
     preset?: CapturePreset;
-    startedAt?: TimestampMs;
-    fps?: number;
-    codec?: string;
-    bitrate?: string;
     error?: string;
 }
 export interface StopRecordingParams {
@@ -490,6 +490,7 @@ export interface StopRecordingParams {
     preset?: CapturePreset;
 }
 export interface StopRecordingResult {
+    alreadyStopped: boolean;
     recordingId?: string;
     preset?: CapturePreset;
     path?: string;
@@ -501,7 +502,6 @@ export interface StopRecordingResult {
     width?: number;
     height?: number;
     droppedFrames?: number;
-    alreadyStopped?: boolean;
     error?: string;
 }
 export interface BlackFrameGuard {

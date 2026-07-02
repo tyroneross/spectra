@@ -1809,7 +1809,7 @@
         "mediaCopied": 0,
         "mediaMissing": 0,
         "issues": [
-          "Showcase index.json not found at <PATH>"
+          "Showcase index.json not found at <PATH>.json"
         ]
       }
     }

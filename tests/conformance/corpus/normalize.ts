@@ -207,9 +207,13 @@ export function normalize(value: unknown, key?: string): unknown {
     // only fires on a WHOLE-value path; this catches the temp path inside a
     // sentence. Scoped to the OS temp roots (var/folders, /tmp) so it can't
     // swallow contract-meaningful text — same class as the PATH_KEYS rule.
+    // The extension of the LAST segment is PRESERVED (via normalizePathValue) so
+    // a drift to a DIFFERENT file inside a temp path (e.g. `index.json` →
+    // `index.yaml`) still shows up in the diff instead of both collapsing to a
+    // bare `<PATH>`.
     const withoutTempPaths = withoutCaptureIds.replace(
       /\/(?:private\/)?(?:var\/folders|tmp)\/[^\s"']+/g,
-      '<PATH>',
+      (match) => normalizePathValue(match),
     )
     const withoutFixtureUrl = withoutTempPaths.replace(/https?:\/\/127\.0\.0\.1:\d+\/[^\s"'\\]*/g, '<LOCAL_FIXTURE_URL>')
     // D2 fix: the previous `\bex[0-9a-z]+\b` matched ordinary English words

@@ -274,23 +274,24 @@ export class ConformanceCoreApi extends CoreApiImplementation {
     return this.withMutation('getSession', () => super.getSession(...args))
   }
 
-  // snapshot is wrapped so mutation-check.ts can prove the oracle bites on a
-  // CORE (session-dependent) op's SUCCESS shape — not just health's. Before the
-  // D1 ordering fix, snapshot only ever reached the error path in the suite, so
-  // a result-shape mutation would have gone unobserved; wrapping it (together
-  // with getSession above, the second D1-unmasked proof op) is what makes the
-  // "mutation on a core op now fails the gate" acceptance check meaningful.
+  // snapshot/startRecording are wrapped so mutation-check.ts can prove the oracle
+  // bites on CORE (session-dependent) ops' SUCCESS shapes — not just health's.
+  // Before the D1 ordering fix these only reached the error path.
   //
-  // NOTE (finding — ALL-OPTIONAL RESULTS): startRecording is deliberately NOT a
-  // mutation-proof op — every field of StartRecordingResult is optional (see
-  // contract.spec.json), so NO drop/rename mutation can be caught structurally
-  // (a port returning `{}` would pass). The SAME blind spot applies to
-  // `stopRecording` (StopRecordingResult) and `screenshot` (ScreenshotResult) —
-  // all three have zero required result fields. That is a real contract-coverage
-  // gap in core-api.ts (read-only for M2B), backlogged (tighten required fields),
-  // not maskable here — the corpus dual-run is their only value backstop.
-  // getSession (required `session`) is the correct second core-op proof.
+  // NOTE (all-optional-result follow-up): the M2B backlog tightening made
+  // StartRecordingResult carry required fields (recordingId/startedAt/fps/codec/
+  // bitrate; single success path, all failures throw), so a drop-field mutation
+  // on it now BITES. `stopRecording` and `screenshot` are NOT mutation-proof ops:
+  // each has TWO success shapes (completed vs alreadyStopped; image vs soft-error-
+  // as-ok:true at capture.ts:136), so requiring their fields on a flat interface
+  // would false-RED a conforming daemon — the durable fix is a discriminated
+  // union, backlogged (see core-api.ts). getSession (required `session`) remains
+  // a proof op too.
   override async snapshot(...args: Parameters<CoreApiImplementation['snapshot']>) {
     return this.withMutation('snapshot', () => super.snapshot(...args))
+  }
+
+  override async startRecording(...args: Parameters<CoreApiImplementation['startRecording']>) {
+    return this.withMutation('startRecording', () => super.startRecording(...args))
   }
 }

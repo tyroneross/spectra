@@ -524,6 +524,16 @@ export interface ScreenshotParams {
 }
 
 export interface ScreenshotResult {
+  // ALL-OPTIONAL by necessity: handleCapture (src/mcp/tools/capture.ts) has a
+  // SOFT-ERROR success return (`mode:'element'` with an elementId absent from the
+  // snapshot → `return { error }` at capture.ts:136) that ships as ok:true (the
+  // daemon only converts THROWN errors to error envelopes). So path/format/
+  // cleanApplied are present on the image-success branches but ABSENT on the
+  // soft-error branch — the same two-success-shape problem as StopRecordingResult.
+  // Requiring them would false-RED a conforming daemon on that reachable path
+  // (caught by the M2B Fable gate). Durable fix = discriminated union
+  // (ImageResult | SoftError), backlogged; until then this stays optional and
+  // screenshot is NOT a mutation-proof op (excluded from PROOF_OPS).
   path?: string
   format?: string
   preset?: CapturePreset
@@ -561,12 +571,19 @@ export interface StartRecordingParams {
 }
 
 export interface StartRecordingResult {
-  recordingId?: string
+  // Required: core-impl.startRecording ALWAYS returns these on its single
+  // success path (recordingId via randomUUID; startedAt via Date.now; fps/codec/
+  // bitrate via param-or-default) — verified against core-impl.ts + the fake
+  // path (M2B follow-up). Making them required closes the "daemon returns {}
+  // passes the oracle" hole for this op.
+  recordingId: string
+  startedAt: TimestampMs
+  fps: number
+  codec: string
+  bitrate: string
   preset?: CapturePreset
-  startedAt?: TimestampMs
-  fps?: number
-  codec?: string
-  bitrate?: string
+  // Vestigial: no current startRecording return populates `error` (all failures
+  // throw DaemonApiError). Kept optional; candidate for removal (backlog).
   error?: string
 }
 
@@ -576,6 +593,17 @@ export interface StopRecordingParams {
 }
 
 export interface StopRecordingResult {
+  // `alreadyStopped` is the ONLY field set on BOTH success branches
+  // (core-impl.ts: the no-active-recording branch and the completed-stop
+  // branch), so it is the only field safe to require on this flat interface —
+  // requiring it closes the "{} passes" hole. The completed-branch fields below
+  // (recordingId/path/format/...) are ALWAYS present when alreadyStopped===false
+  // but absent when true; the durable strong fix is to split this into a
+  // discriminated union on `alreadyStopped` so the completed branch can require
+  // its full field set. That is a caller-rippling contract-shape change —
+  // surfaced as a backlog follow-up, not done here (would need a caller audit
+  // to avoid breaking narrowing in src/).
+  alreadyStopped: boolean
   recordingId?: string
   preset?: CapturePreset
   path?: string
@@ -587,7 +615,6 @@ export interface StopRecordingResult {
   width?: number
   height?: number
   droppedFrames?: number
-  alreadyStopped?: boolean
   error?: string
 }
 
