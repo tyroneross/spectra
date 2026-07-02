@@ -57,21 +57,52 @@ enum DaemonBuild {
     static let version = "0.3.2-swift-g1"
 }
 
+/// Run a command and return trimmed stdout (nil on failure). Used for the real
+/// aquaSession / WindowServer probes below (mirrors TS health.ts's launchctl +
+/// pgrep shell-outs).
+private func runCommand(_ path: String, _ args: [String]) -> String? {
+    let proc = Process()
+    proc.executableURL = URL(fileURLWithPath: path)
+    proc.arguments = args
+    let out = Pipe()
+    proc.standardOutput = out
+    proc.standardError = Pipe()
+    do { try proc.run() } catch { return nil }
+    proc.waitUntilExit()
+    let data = out.fileHandleForReading.readDataToEndOfFile()
+    return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
 func registerHealth(_ registry: HandlerRegistry) {
-    registry.register("health", capabilities: [.daemonRead]) { _, ctx in
-        // HealthResult required: apiVersion(2), aquaSession, daemonVersion, ok,
-        // pid, uptimeSec, windowServer{connected, error?}. permissions/startedAt
-        // optional (permissions filled by the permissions group later).
-        let uptimeSec = Int(Date().timeIntervalSince(ctx.startedAt))
-        let displayConnected = CGMainDisplayID() != 0
-        return [
+    registry.register("health", capabilities: [.daemonRead]) { params, ctx in
+        // Mirrors src/daemon/health.ts EXACTLY (not fabricated): aquaSession via
+        // `launchctl managername` == "aqua"; windowServer via `pgrep -x WindowServer`
+        // (only when aqua, else connected:false + error); ok = windowServer.connected.
+        // Hardcoding ok:true/aquaSession:false masks the daemon's real GUI-session
+        // health signal — the Fable gate's FAIL trigger. `includePermissions`
+        // returns the real TCC statuses from the same source as getPermissions.
+        let aquaSession = runCommand("/bin/launchctl", ["managername"])?.lowercased() == "aqua"
+        var windowServer: [String: Any]
+        if aquaSession {
+            let running = (runCommand("/usr/bin/pgrep", ["-x", "WindowServer"])?.isEmpty == false)
+            windowServer = running ? ["connected": true] : ["connected": false, "error": "WindowServer process not found"]
+        } else {
+            windowServer = ["connected": false, "error": "launchctl manager is not Aqua; daemon is likely outside the GUI session"]
+        }
+        let connected = (windowServer["connected"] as? Bool) ?? false
+
+        var result: [String: Any] = [
             "apiVersion": Wire.apiVersion,
-            "aquaSession": false,
+            "aquaSession": aquaSession,
             "daemonVersion": DaemonBuild.version,
-            "ok": true,
+            "ok": connected,
             "pid": Int(ProcessInfo.processInfo.processIdentifier),
-            "uptimeSec": uptimeSec,
-            "windowServer": ["connected": displayConnected] as [String: Any],
-        ] as [String: Any]
+            "uptimeSec": Int(Date().timeIntervalSince(ctx.startedAt)),
+            "windowServer": windowServer,
+        ]
+        if let obj = params as? [String: Any], obj["includePermissions"] as? Bool == true {
+            result["permissions"] = permissionStatuses(filter: nil)
+        }
+        return result
     }
 }

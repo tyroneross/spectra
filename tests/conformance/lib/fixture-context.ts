@@ -14,7 +14,7 @@ import { cpSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { callOperation } from './socket-client.js'
-import type { DaemonEndpoint } from './daemon-endpoint.js'
+import type { DaemonEndpoint, DaemonSessionIds } from './daemon-endpoint.js'
 import type { GeneratorContext } from './payload-generator.js'
 import { FAKE_ELEMENT_ID } from './fakes.js'
 
@@ -72,6 +72,99 @@ function startLocalWebFixtureServer(): Promise<{ url: string }> {
   })
 }
 
+// ─── External-daemon Tier-1 wire seeding ───────────────────────────────────
+// (docs/plans/m3-external-daemon-seeding.md) — reproduces the in-process
+// daemon-runner.ts fixture shape (a `web` session + a pristine `readonly`
+// session pre-seeded with 2 conformant `act` steps) using ONLY real,
+// spec-conformant operation calls over the socket, since an external (Swift)
+// daemon has no in-process seam to inject a FakeDriver-backed session the way
+// daemon-runner.ts does.
+
+/** Real AX-tree line format is `serializeSnapshot`'s `[<id>] <role> "<label>"
+ * ...` (src/core/serialize.ts) — e.g. `[e42] button "Fixture Button" ...` for
+ * a real CDP-driven snapshot of the fixture page's `<button>`. Matches the
+ * FIRST `button`-role line to recover a real, driver-assigned element id. */
+const BUTTON_SNAPSHOT_LINE_RE = /^\[([^\]]+)\]\s+button\b/m
+
+/** Calls `createSession` over the wire and returns its `sessionId`, or
+ * `'unavailable'` if the call fails or the response is malformed — mirrors
+ * the pre-existing best-effort extraction this branch already used, so a
+ * daemon hiccup during fixture bootstrap surfaces as downstream
+ * session_not_found failures (informative) rather than crashing every test
+ * in the file (uninformative). */
+async function createExternalSession(socketPath: string, target: string): Promise<string> {
+  try {
+    const created = await callOperation({ socketPath, operation: 'createSession', params: { target } })
+    const body = created.body as { ok?: boolean; result?: { sessionId?: string } }
+    return body.ok ? body.result?.sessionId ?? 'unavailable' : 'unavailable'
+  } catch {
+    return 'unavailable'
+  }
+}
+
+/** Snapshots `sessionId` and returns a real, driver-assigned actionable
+ * element id (the fixture page's `<button>`) — or `fallback` (the
+ * FAKE_ELEMENT_ID hint) if the snapshot call fails, the session is
+ * unavailable, or no button-role line is found. Never throws: Tier-1 seeding
+ * is best-effort against a real external daemon whose snapshot behavior this
+ * harness does not control. */
+async function findActionableElementId(socketPath: string, sessionId: string, fallback: string): Promise<string> {
+  try {
+    const snap = await callOperation({ socketPath, operation: 'snapshot', params: { sessionId } })
+    const body = snap.body as { ok?: boolean; result?: { snapshot?: string } }
+    const text = body.ok ? body.result?.snapshot : undefined
+    if (typeof text === 'string') {
+      const match = BUTTON_SNAPSHOT_LINE_RE.exec(text)
+      if (match) return match[1]
+    }
+  } catch {
+    // Best-effort — fall through to the hint below.
+  }
+  return fallback
+}
+
+/** Best-effort `act` call used only for Tier-1 seeding — swallows errors so
+ * one failed seed step (e.g. the external daemon rejects the recovered
+ * element id) never crashes fixture-context bootstrap for the whole suite;
+ * the readonly session simply ends up with fewer than 2 seeded steps, which
+ * getSession/getRun will still validate (just against a smaller step array). */
+async function seedAct(socketPath: string, sessionId: string, elementId: string, value?: string): Promise<void> {
+  try {
+    await callOperation({
+      socketPath,
+      operation: 'act',
+      params: { sessionId, elementId, action: 'click', ...(value !== undefined ? { value } : {}) },
+    })
+  } catch {
+    // Best-effort seeding — see doc comment above.
+  }
+}
+
+/** Tier-1 wire seeding for an external daemon: a plain `web` session, and a
+ * SECOND, dedicated `readonly` session seeded with 2 conformant `act` steps
+ * (a bare click, then click-with-value) so getSession/getRun validate a real
+ * nested SessionStep[]/CaptureRunAction[] shape — not an empty array. Tier-2
+ * (recordingId) is intentionally NOT seeded here: recording seeding needs
+ * native capture permission on the daemon's host, which this harness cannot
+ * grant deterministically; recordingId stays undefined for external daemons
+ * (see GeneratorContext.recordingId doc comment) and startRecording/
+ * getRecording/stopRecording are excluded from external-mode verification
+ * (lib/external-mode.ts EXTERNAL_ONLY_SKIP_OPS). */
+async function seedExternalSessions(socketPath: string, localWebFixtureUrl: string): Promise<DaemonSessionIds> {
+  const web = await createExternalSession(socketPath, localWebFixtureUrl)
+  const readonly = await createExternalSession(socketPath, localWebFixtureUrl)
+
+  const elementId = await findActionableElementId(socketPath, readonly, FAKE_ELEMENT_ID)
+  await seedAct(socketPath, readonly, elementId)
+  await seedAct(socketPath, readonly, elementId, 'seed-value')
+
+  // macos is not independently wire-seedable here (no native AX driver seam
+  // over the wire) and every op that would route to it (MACOS_SESSION_OPS —
+  // startRecording/stopRecording) is in EXTERNAL_ONLY_SKIP_OPS, so aliasing it
+  // to the web session (as the pre-Tier-1 collapse already did) is safe.
+  return { web, macos: web, readonly }
+}
+
 export function withSessionOverride(operation: string, ctx: GeneratorContext, params: unknown): unknown {
   const override = MACOS_SESSION_OPS.has(operation)
     ? ctx.macosSessionId
@@ -98,20 +191,21 @@ export async function buildFixtureContext(
 
   let sessionIds = endpoint.sessionIds
   if (!sessionIds) {
-    // External daemon (SPECTRA_DAEMON_SOCKET) with no pre-seeded fixture
-    // session — obtain one live via the real createSession operation. Best
-    // effort: the external (future Swift) daemon has no in-process seam to
-    // seed a pristine read-only session, so readonly falls back to the same
-    // live session (external-daemon parity runs are corpus-diff driven, not
-    // gated on the read-op nested-shape isolation the in-process fixture adds).
-    const created = await callOperation({
-      socketPath: endpoint.socketPath,
-      operation: 'createSession',
-      params: { target: localWebFixtureUrl },
-    })
-    const body = created.body as { result?: { sessionId?: string } }
-    const id = body.result?.sessionId ?? 'unavailable'
-    sessionIds = { web: id, macos: id, readonly: id }
+    // Tier-2 option A (docs/plans/m3-external-daemon-seeding.md): an external
+    // daemon that SELF-SEEDS a deterministic conformance session — e.g. the
+    // Swift G1 daemon-core booted with SPECTRA_CONFORMANCE_SEED=1, which seeds a
+    // fixed `conformance-seed` session but does NOT implement createSession (G1
+    // is control-plane only, so Tier-1 wire seeding via createSession isn't
+    // available). Point read-op routing at that known session id.
+    const seedSession = process.env.SPECTRA_CONFORMANCE_SEED_SESSION
+    if (seedSession) {
+      sessionIds = { web: seedSession, macos: seedSession, readonly: seedSession }
+    } else {
+      // Tier-1 wire seeding for an external daemon that DOES implement
+      // createSession (e.g. the TS daemon in external-mode.test.ts) — see
+      // seedExternalSessions above.
+      sessionIds = await seedExternalSessions(endpoint.socketPath, localWebFixtureUrl)
+    }
   }
 
   return {

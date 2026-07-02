@@ -589,7 +589,14 @@ final class SessionStore: @unchecked Sendable {
     /// tracked session, matching the TS fallback).
     private func sessionDirLocked(_ sessionId: String) -> String {
         if let storageRoot = sessions[sessionId]?.storageRoot { return storageRoot }
-        let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-        return (home as NSString).appendingPathComponent(".spectra/sessions/\(sessionId)")
+        // Honor SPECTRA_HOME first (storage-isolation contract — matches
+        // LibraryStore.resolveStorageRoot and the oracle harness, which sets
+        // SPECTRA_HOME to an isolated tmp dir). HOME-only would leak llm-usage
+        // writes to the real ~/.spectra under a SPECTRA_HOME-only isolation.
+        let env = ProcessInfo.processInfo.environment
+        let root = env["SPECTRA_HOME"].flatMap { $0.isEmpty ? nil : $0 }
+            ?? (env["HOME"].map { ($0 as NSString).appendingPathComponent(".spectra") })
+            ?? (NSHomeDirectory() as NSString).appendingPathComponent(".spectra")
+        return (root as NSString).appendingPathComponent("sessions/\(sessionId)")
     }
 }

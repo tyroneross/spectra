@@ -54,7 +54,9 @@ private func probePermission(_ kind: String) -> String {
     case "screen-recording":
         return CGPreflightScreenCaptureAccess() ? "granted" : "denied"
     case "automation", "developer-tools":
-        return "not-determined"
+        // macOS has no public, non-prompting, daemon-safe probe for these two —
+        // the TS daemon reports "unknown" (core-impl.ts), NOT "not-determined".
+        return "unknown"
     default:
         return "unsupported"
     }
@@ -66,16 +68,19 @@ private func permissionStatus(_ kind: String, now: Int) -> [String: Any] {
         "permission": kind,
         "state": state,
         "requiredFor": requiredForByKind[kind] ?? [],
-        // A prompt is meaningfully possible only when we're not already
-        // granted and the kind isn't outright unsupported on this platform.
-        "canPrompt": state == "not-determined" || state == "denied",
+        // canPrompt: the TS daemon reports `true` on darwin regardless of state
+        // (the settings pane can always be opened) — match that, not a
+        // state-dependent guess.
+        "canPrompt": true,
         "lastCheckedAt": now,
     ]
     if let url = settingsUrl(for: kind) { dict["settingsUrl"] = url }
     return dict
 }
 
-private func permissionStatuses(filter: [String]?) -> [[String: Any]] {
+/// Real per-kind TCC status list. Non-private so the health op can honor
+/// `includePermissions` from the same source of truth.
+func permissionStatuses(filter: [String]?) -> [[String: Any]] {
     let kinds = filter ?? allPermissionKinds
     let now = JSON.nowMillis()
     return kinds.map { permissionStatus($0, now: now) }
@@ -152,12 +157,11 @@ func registerPermissionOps(_ registry: HandlerRegistry) {
     }
 
     registry.register("requestPermissions", capabilities: [.permissionsRequest]) { params, _ in
-        guard let obj = params as? [String: Any],
-              let raw = obj["permissions"] as? [Any],
-              !raw.isEmpty
-        else {
-            throw DaemonApiError(.badRequest, "requestPermissions requires a non-empty permissions array", status: 400)
-        }
+        // The contract's `permissions` array has no .nonempty() constraint — the
+        // TS daemon accepts [] and returns {permissions:[], requested:[]}. Do the
+        // same (don't invent a constraint). A non-array `permissions` is a genuine
+        // shape error, but absent/[] is valid.
+        let raw = (params as? [String: Any])?["permissions"] as? [Any] ?? []
         let requested = raw.compactMap { $0 as? String }
         // Headless daemon: never pop a GUI consent prompt. Mirror the TS
         // daemon's result shape by returning the real (un-prompted) TCC

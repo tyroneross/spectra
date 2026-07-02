@@ -85,10 +85,22 @@ enum JSON {
         guard let obj = top as? [String: Any] else {
             throw DaemonApiError(.badRequest, "Request envelope must be a JSON object", status: 400)
         }
-        if let v = obj["apiVersion"] as? Int, v != Wire.apiVersion {
-            throw DaemonApiError(.unsupportedApiVersion, "Daemon speaks apiVersion \(Wire.apiVersion), got \(v)", status: 400)
+        // apiVersion: REQUIRED and must equal 2 (mirrors server.ts validateEnvelope
+        // → unsupported_api_version on anything !== 2, incl. absent or non-numeric).
+        let rawVersion = obj["apiVersion"]
+        let version = (rawVersion as? NSNumber)?.intValue ?? (rawVersion as? Int)
+        guard let version, version == Wire.apiVersion else {
+            throw DaemonApiError(
+                .unsupportedApiVersion,
+                "Daemon speaks apiVersion \(Wire.apiVersion), got \(rawVersion.map { "\($0)" } ?? "none")",
+                status: 400
+            )
         }
-        return (obj["requestId"] as? String, obj["params"])
+        // requestId: REQUIRED (server.ts rejects an envelope without it — bad_request).
+        guard let requestId = obj["requestId"] as? String else {
+            throw DaemonApiError(.badRequest, "Request envelope is missing required `requestId`", status: 400)
+        }
+        return (requestId, obj["params"])
     }
 
     /// Serialize a success envelope: {apiVersion, requestId, ok:true, result, timestamp}.

@@ -24,7 +24,14 @@ import { startConformanceDaemon, type DaemonEndpoint } from '../lib/daemon-endpo
 import { callOperation } from '../lib/socket-client.js'
 import { validPayloads, type GeneratorContext } from '../lib/payload-generator.js'
 import { buildFixtureContext, withSessionOverride } from '../lib/fixture-context.js'
+import { SWIFT_G1_VERIFIABLE_OPS, externalSkipReason } from '../lib/external-mode.js'
 import { normalizeEntry, type CorpusEntry } from './normalize.js'
+
+// M3 external-daemon gating — see conformance.test.ts's identical constant for
+// why this reads the env var directly rather than `endpoint.external` (the
+// per-entry `it`/`it.skip` calls below are registered synchronously, before
+// `beforeAll` resolves `endpoint`).
+const isExternalDaemon = Boolean(process.env.SPECTRA_DAEMON_SOCKET)
 
 const here = dirname(fileURLToPath(import.meta.url))
 const corpusPath = join(here, 'golden-corpus.json')
@@ -118,10 +125,14 @@ describe('dual-run corpus diff — replaying the recorded corpus against a live 
   for (const entry of corpus) {
     const shapeOnly = CORPUS_SHAPE_ONLY_OPS.has(entry.operation)
     const retries = KNOWN_RACY_OPS.has(entry.operation) ? 3 : 0
-    const label = shapeOnly
-      ? `${entry.operation} [${entry.payloadLabel}] — replays to a spec-valid envelope with matching ok-ness (byte-diff N/A: real-Chrome/stateful)`
-      : `${entry.operation} [${entry.payloadLabel}] — regenerated request matches the recorded normalized response`
-    it(label, { timeout: 30_000, retry: retries }, async () => {
+    const skipExternally = isExternalDaemon && !SWIFT_G1_VERIFIABLE_OPS.has(entry.operation)
+    const test = skipExternally ? it.skip : it
+    const label =
+      (shapeOnly
+        ? `${entry.operation} [${entry.payloadLabel}] — replays to a spec-valid envelope with matching ok-ness (byte-diff N/A: real-Chrome/stateful)`
+        : `${entry.operation} [${entry.payloadLabel}] — regenerated request matches the recorded normalized response`) +
+      (skipExternally ? ` — SKIPPED: ${externalSkipReason(entry.operation)}` : '')
+    test(label, { timeout: 30_000, retry: retries }, async () => {
       const opSpec = spec.operations[entry.operation]
       const payload = validPayloads(opSpec.params, genCtx).find((p) => p.label === entry.payloadLabel)
       if (!payload) {

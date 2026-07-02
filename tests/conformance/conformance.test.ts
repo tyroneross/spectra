@@ -32,6 +32,7 @@ import { invalidPayloads, validPayloads, type GeneratorContext } from './lib/pay
 import { validateShape } from './lib/result-validator.js'
 import { buildFixtureContext, withSessionOverride } from './lib/fixture-context.js'
 import { orderedOperationNames } from './lib/op-order.js'
+import { SWIFT_G1_VERIFIABLE_OPS, externalSkipReason } from './lib/external-mode.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const specPath = join(here, '..', '..', 'src', 'contract', 'contract.spec.json')
@@ -71,6 +72,14 @@ const operationNames = process.env.SPECTRA_CONFORMANCE_BREAK_ORDER
     Object.keys(spec.operations).sort()
   : orderedOperationNames(spec.operations)
 
+// M3 external-daemon gating (lib/external-mode.ts). Read directly from the
+// env var — NOT `endpoint.external` — because `describe`/`it` registration
+// below happens SYNCHRONOUSLY at collection time, before `beforeAll` (which
+// resolves `endpoint`) has run; the env var is the same condition
+// daemon-endpoint.ts's `startConformanceDaemon` itself branches on, so this
+// stays in lockstep with what `endpoint.external` will be at runtime.
+const isExternalDaemon = Boolean(process.env.SPECTRA_DAEMON_SOCKET)
+
 // Populated by the per-op valid-payload test as it runs: the set of ops that
 // produced at least one ok:true (success-shape) response against the fake-
 // seeded reference daemon. Consumed by the sessionDestroyerGuard test.
@@ -83,7 +92,14 @@ describe('conformance oracle — socket-level contract conformance (all 30 ops)'
 
   for (const operation of operationNames) {
     describe(`operation: ${operation}`, () => {
-      it('valid payloads produce a spec-conformant envelope + result/error shape', async () => {
+      // G1 external gate: the SWIFT G1 milestone daemon implements only the
+      // control-plane ops in SWIFT_G1_VERIFIABLE_OPS — everything else is
+      // skipped (never false-RED) when talking to an external daemon.
+      const skipExternally = isExternalDaemon && !SWIFT_G1_VERIFIABLE_OPS.has(operation)
+      const test = skipExternally ? it.skip : it
+      const skipSuffix = skipExternally ? ` — SKIPPED: ${externalSkipReason(operation)}` : ''
+
+      test(`valid payloads produce a spec-conformant envelope + result/error shape${skipSuffix}`, async () => {
         const opSpec = spec.operations[operation]
         const payloads = validPayloads(opSpec.params, genCtx)
         expect(payloads.length).toBeGreaterThan(0)
@@ -120,7 +136,7 @@ describe('conformance oracle — socket-level contract conformance (all 30 ops)'
         expect(failures, failures.join('\n')).toEqual([])
       }, 30_000)
 
-      it('malformed (missing-required-field) payloads never escape the declared error taxonomy', async () => {
+      test(`malformed (missing-required-field) payloads never escape the declared error taxonomy${skipSuffix}`, async () => {
         const opSpec = spec.operations[operation]
         const payloads = invalidPayloads(opSpec.params, genCtx)
         if (payloads.length === 0) return // op has no required fields to strip
@@ -180,7 +196,13 @@ describe('conformance oracle — socket-level contract conformance (all 30 ops)'
   const EXPECTED_ERROR_ONLY_OPS = new Set<string>([])
 
   it('D1 guard: every succeedable op exercised its success (ok:true) path', () => {
-    const regressed = operationNames.filter(
+    // In external mode, ops outside SWIFT_G1_VERIFIABLE_OPS were it.skip()-ed
+    // above and never ran at all — excluded here so the guard checks only the
+    // ops that actually executed, not the ones deliberately gated off.
+    const checkedOps = isExternalDaemon
+      ? operationNames.filter((op) => SWIFT_G1_VERIFIABLE_OPS.has(op))
+      : operationNames
+    const regressed = checkedOps.filter(
       (op) => !succeededOps.has(op) && !EXPECTED_ERROR_ONLY_OPS.has(op),
     )
     expect(
