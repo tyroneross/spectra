@@ -57,6 +57,24 @@ async function runOpCheck(
   const scratchDir = mkdtempSync(join(tmpdir(), 'spectra-conformance-mutation-check-'))
   try {
     const genCtx = await buildFixtureContext(endpoint, scratchDir)
+
+    // stopRecording only reaches its COMPLETED union branch (the one with
+    // required fields) when the target session has an ACTIVE recording. The
+    // fresh daemon seeds its recording on a dedicated session and leaves the
+    // macos fixture (where stopRecording is routed) clean — which would hit the
+    // minimal `alreadyStopped` branch whose first key is the optional `preset`,
+    // so the generic drop-first-key mutation wouldn't violate anything. Start a
+    // recording on macos first so the mutation lands on the completed branch's
+    // required `recordingId` and is caught. (Not mutated — the mutate hook is
+    // scoped to `operation`, i.e. stopRecording, not this setup call.)
+    if (operation === 'stopRecording') {
+      await callOperation({
+        socketPath: endpoint.socketPath,
+        operation: 'startRecording',
+        params: { sessionId: genCtx.macosSessionId },
+      })
+    }
+
     const opSpec = spec.operations[operation]
     const payload = validPayloads(opSpec.params, genCtx)[0]
     const params = withSessionOverride(operation, genCtx, payload.params)
@@ -82,16 +100,13 @@ async function runOpCheck(
 }
 
 // The ops proven to bite: `health` (void-param baseline) + CORE session-
-// dependent ops with required result fields a drop-first-key mutation violates:
-// snapshot (required `snapshot`), getSession (required `session`), and — after
-// the M2B backlog tightening — startRecording (required recordingId/startedAt/
-// fps/codec/bitrate; genuinely single-success-path, all failures throw).
-// `stopRecording` and `screenshot` stay EXCLUDED: each has TWO success shapes
-// (completed vs alreadyStopped; image vs soft-error-as-ok:true), so their fields
-// can't be required on a flat interface without false-RED'ing a conforming
-// daemon — the durable fix is a discriminated union, backlogged (see core-api.ts
-// + fakes.ts).
-const PROOF_OPS = ['health', 'snapshot', 'getSession', 'startRecording'] as const
+// dependent ops whose result shape a drop-first-key mutation violates:
+// snapshot (required `snapshot`), getSession (required `session`), startRecording
+// (required recordingId/startedAt/fps/codec/bitrate; single success path), and —
+// now that their results are DISCRIMINATED UNIONS (Completed|AlreadyStopped;
+// Image|SoftError) — stopRecording and screenshot (a mutated completed/image
+// result matches neither union member → caught). All 6 red-before/green-after.
+const PROOF_OPS = ['health', 'snapshot', 'getSession', 'startRecording', 'stopRecording', 'screenshot'] as const
 
 async function main(): Promise<void> {
   console.log('=== M2B mutation check: does the conformance oracle actually bite? ===\n')

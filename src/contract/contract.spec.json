@@ -7559,85 +7559,96 @@
         ]
       },
       "result": {
-        "kind": "interface",
-        "typeName": "ScreenshotResult",
-        "properties": [
+        "kind": "union",
+        "members": [
           {
-            "name": "cleanApplied",
-            "optional": true,
-            "typeText": "boolean"
-          },
-          {
-            "name": "crop",
-            "optional": true,
-            "typeText": "Bounds",
-            "type": {
-              "kind": "tuple",
-              "elements": [
-                {
-                  "kind": "unresolved",
-                  "typeName": "number"
-                },
-                {
-                  "kind": "unresolved",
-                  "typeName": "number"
-                },
-                {
-                  "kind": "unresolved",
-                  "typeName": "number"
-                },
-                {
-                  "kind": "unresolved",
-                  "typeName": "number"
+            "kind": "interface",
+            "typeName": "ScreenshotImageResult",
+            "properties": [
+              {
+                "name": "cleanApplied",
+                "optional": false,
+                "typeText": "boolean"
+              },
+              {
+                "name": "crop",
+                "optional": true,
+                "typeText": "Bounds",
+                "type": {
+                  "kind": "tuple",
+                  "elements": [
+                    {
+                      "kind": "unresolved",
+                      "typeName": "number"
+                    },
+                    {
+                      "kind": "unresolved",
+                      "typeName": "number"
+                    },
+                    {
+                      "kind": "unresolved",
+                      "typeName": "number"
+                    },
+                    {
+                      "kind": "unresolved",
+                      "typeName": "number"
+                    }
+                  ]
                 }
-              ]
-            }
-          },
-          {
-            "name": "error",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "format",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "label",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "path",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "preset",
-            "optional": true,
-            "typeText": "CapturePreset",
-            "type": {
-              "kind": "union",
-              "members": [
-                {
-                  "kind": "literal",
-                  "value": "docs"
-                },
-                {
-                  "kind": "literal",
-                  "value": "demo"
-                },
-                {
-                  "kind": "literal",
-                  "value": "social"
-                },
-                {
-                  "kind": "literal",
-                  "value": "app-store"
+              },
+              {
+                "name": "format",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "label",
+                "optional": true,
+                "typeText": "string"
+              },
+              {
+                "name": "path",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "preset",
+                "optional": true,
+                "typeText": "CapturePreset",
+                "type": {
+                  "kind": "union",
+                  "members": [
+                    {
+                      "kind": "literal",
+                      "value": "docs"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "demo"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "social"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "app-store"
+                    }
+                  ]
                 }
-              ]
-            }
+              }
+            ]
+          },
+          {
+            "kind": "interface",
+            "typeName": "ScreenshotSoftError",
+            "properties": [
+              {
+                "name": "error",
+                "optional": false,
+                "typeText": "string"
+              }
+            ]
           }
         ]
       },
@@ -8025,94 +8036,136 @@
         ]
       },
       "result": {
-        "kind": "interface",
-        "typeName": "StopRecordingResult",
-        "properties": [
+        "kind": "union",
+        "members": [
           {
-            "name": "alreadyStopped",
-            "optional": false,
-            "typeText": "boolean"
-          },
-          {
-            "name": "codec",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "droppedFrames",
-            "optional": true,
-            "typeText": "number"
-          },
-          {
-            "name": "durationMs",
-            "optional": true,
-            "typeText": "number"
-          },
-          {
-            "name": "error",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "format",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "fps",
-            "optional": true,
-            "typeText": "number"
-          },
-          {
-            "name": "height",
-            "optional": true,
-            "typeText": "number"
-          },
-          {
-            "name": "path",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "preset",
-            "optional": true,
-            "typeText": "CapturePreset",
-            "type": {
-              "kind": "union",
-              "members": [
-                {
-                  "kind": "literal",
-                  "value": "docs"
-                },
-                {
-                  "kind": "literal",
-                  "value": "demo"
-                },
-                {
-                  "kind": "literal",
-                  "value": "social"
-                },
-                {
-                  "kind": "literal",
-                  "value": "app-store"
+            "kind": "interface",
+            "typeName": "StopRecordingCompleted",
+            "properties": [
+              {
+                "name": "alreadyStopped",
+                "optional": false,
+                "typeText": "false"
+              },
+              {
+                "name": "codec",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "droppedFrames",
+                "optional": true,
+                "typeText": "number"
+              },
+              {
+                "name": "durationMs",
+                "optional": false,
+                "typeText": "TimestampMs"
+              },
+              {
+                "name": "format",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "fps",
+                "optional": false,
+                "typeText": "number"
+              },
+              {
+                "name": "height",
+                "optional": true,
+                "typeText": "number"
+              },
+              {
+                "name": "path",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "preset",
+                "optional": true,
+                "typeText": "CapturePreset",
+                "type": {
+                  "kind": "union",
+                  "members": [
+                    {
+                      "kind": "literal",
+                      "value": "docs"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "demo"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "social"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "app-store"
+                    }
+                  ]
                 }
-              ]
-            }
+              },
+              {
+                "name": "recordingId",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "sizeBytes",
+                "optional": true,
+                "typeText": "number"
+              },
+              {
+                "name": "width",
+                "optional": true,
+                "typeText": "number"
+              }
+            ]
           },
           {
-            "name": "recordingId",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
-            "name": "sizeBytes",
-            "optional": true,
-            "typeText": "number"
-          },
-          {
-            "name": "width",
-            "optional": true,
-            "typeText": "number"
+            "kind": "interface",
+            "typeName": "StopRecordingAlreadyStopped",
+            "properties": [
+              {
+                "name": "alreadyStopped",
+                "optional": false,
+                "typeText": "true"
+              },
+              {
+                "name": "error",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "preset",
+                "optional": true,
+                "typeText": "CapturePreset",
+                "type": {
+                  "kind": "union",
+                  "members": [
+                    {
+                      "kind": "literal",
+                      "value": "docs"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "demo"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "social"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "app-store"
+                    }
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
@@ -8271,5 +8324,5 @@
       ]
     }
   },
-  "hash": "9cb2716876d8886a5807d660a65bee72c4c0e1913749a39bdafc1532ecb7f6c7"
+  "hash": "f2c155d8f103e5751e1815682e0b031acd2c590fc87affec2d60c2bba1c3e72b"
 }

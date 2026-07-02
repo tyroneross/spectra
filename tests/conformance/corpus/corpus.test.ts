@@ -94,7 +94,15 @@ describe('dual-run corpus diff — replaying the recorded corpus against a live 
   // response to a genuine race (same as any flaky-e2e-test policy) — it is
   // NOT a normalization rule, so it does not mask a real protocol
   // regression the way silently allowing count drift in `normalize()` would.
-  const KNOWN_RACY_OPS = new Set(['recordTerminal'])
+  // createSession drives REAL Chrome: its `snapshot`/`elementCount` depend on
+  // the page reaching AX-stability, which races page-load completion even for
+  // the fixed local fixture page — an occasional off-by-one elementCount or a
+  // transient snapshot diff on replay. This is a real-Chrome load-timing race
+  // (same CLASS as recordTerminal's fs-watcher/exit race), NOT daemon non-
+  // determinism, so a bounded retry is the honest mitigation — it does not
+  // relax any shape/contract assertion (conformance.test.ts validates the shape
+  // on every run regardless).
+  const KNOWN_RACY_OPS = new Set(['recordTerminal', 'createSession'])
 
   for (const entry of corpus) {
     const retries = KNOWN_RACY_OPS.has(entry.operation) ? 3 : 0

@@ -274,24 +274,30 @@ export class ConformanceCoreApi extends CoreApiImplementation {
     return this.withMutation('getSession', () => super.getSession(...args))
   }
 
-  // snapshot/startRecording are wrapped so mutation-check.ts can prove the oracle
-  // bites on CORE (session-dependent) ops' SUCCESS shapes — not just health's.
-  // Before the D1 ordering fix these only reached the error path.
+  // snapshot/startRecording/stopRecording/screenshot are wrapped so
+  // mutation-check.ts can prove the oracle bites on CORE (session-dependent) ops'
+  // SUCCESS shapes — not just health's. Before the D1 ordering fix these only
+  // reached the error path.
   //
-  // NOTE (all-optional-result follow-up): the M2B backlog tightening made
-  // StartRecordingResult carry required fields (recordingId/startedAt/fps/codec/
-  // bitrate; single success path, all failures throw), so a drop-field mutation
-  // on it now BITES. `stopRecording` and `screenshot` are NOT mutation-proof ops:
-  // each has TWO success shapes (completed vs alreadyStopped; image vs soft-error-
-  // as-ok:true at capture.ts:136), so requiring their fields on a flat interface
-  // would false-RED a conforming daemon — the durable fix is a discriminated
-  // union, backlogged (see core-api.ts). getSession (required `session`) remains
-  // a proof op too.
+  // stopRecording + screenshot are mutation-proof again: their results are now
+  // DISCRIMINATED UNIONS in core-api.ts (Completed|AlreadyStopped; Image|SoftError)
+  // so the completed/image branches require their full field sets — a drop-field
+  // mutation on the completed/image result matches NEITHER union member and is
+  // caught. startRecording is single-success-path (required fields); getSession
+  // requires `session`. All are red-before/green-after in mutation-check.
   override async snapshot(...args: Parameters<CoreApiImplementation['snapshot']>) {
     return this.withMutation('snapshot', () => super.snapshot(...args))
   }
 
   override async startRecording(...args: Parameters<CoreApiImplementation['startRecording']>) {
     return this.withMutation('startRecording', () => super.startRecording(...args))
+  }
+
+  override async stopRecording(...args: Parameters<CoreApiImplementation['stopRecording']>) {
+    return this.withMutation('stopRecording', () => super.stopRecording(...args))
+  }
+
+  override async screenshot(...args: Parameters<CoreApiImplementation['screenshot']>) {
+    return this.withMutation('screenshot', () => super.screenshot(...args))
   }
 }

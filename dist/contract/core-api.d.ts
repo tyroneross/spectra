@@ -443,15 +443,18 @@ export interface ScreenshotParams {
     clean?: boolean;
     quality?: CaptureQuality;
 }
-export interface ScreenshotResult {
-    path?: string;
-    format?: string;
+export interface ScreenshotImageResult {
+    path: string;
+    format: string;
+    cleanApplied: boolean;
     preset?: CapturePreset;
     crop?: Bounds;
     label?: string;
-    cleanApplied?: boolean;
-    error?: string;
 }
+export interface ScreenshotSoftError {
+    error: string;
+}
+export type ScreenshotResult = ScreenshotImageResult | ScreenshotSoftError;
 export interface RecordingCompositePane {
     x: number;
     y: number;
@@ -489,21 +492,26 @@ export interface StopRecordingParams {
     sessionId: string;
     preset?: CapturePreset;
 }
-export interface StopRecordingResult {
-    alreadyStopped: boolean;
-    recordingId?: string;
+export interface StopRecordingCompleted {
+    alreadyStopped: false;
+    recordingId: string;
+    path: string;
+    format: string;
+    durationMs: TimestampMs;
+    codec: string;
+    fps: number;
     preset?: CapturePreset;
-    path?: string;
-    format?: string;
-    durationMs?: number;
     sizeBytes?: number;
-    codec?: string;
-    fps?: number;
     width?: number;
     height?: number;
     droppedFrames?: number;
-    error?: string;
 }
+export interface StopRecordingAlreadyStopped {
+    alreadyStopped: true;
+    error: string;
+    preset?: CapturePreset;
+}
+export type StopRecordingResult = StopRecordingCompleted | StopRecordingAlreadyStopped;
 export interface BlackFrameGuard {
     sampleCount: number;
     meanLuma: number | null;

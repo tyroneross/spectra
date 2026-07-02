@@ -523,25 +523,25 @@ export interface ScreenshotParams {
   quality?: CaptureQuality
 }
 
-export interface ScreenshotResult {
-  // ALL-OPTIONAL by necessity: handleCapture (src/mcp/tools/capture.ts) has a
-  // SOFT-ERROR success return (`mode:'element'` with an elementId absent from the
-  // snapshot → `return { error }` at capture.ts:136) that ships as ok:true (the
-  // daemon only converts THROWN errors to error envelopes). So path/format/
-  // cleanApplied are present on the image-success branches but ABSENT on the
-  // soft-error branch — the same two-success-shape problem as StopRecordingResult.
-  // Requiring them would false-RED a conforming daemon on that reachable path
-  // (caught by the M2B Fable gate). Durable fix = discriminated union
-  // (ImageResult | SoftError), backlogged; until then this stays optional and
-  // screenshot is NOT a mutation-proof op (excluded from PROOF_OPS).
-  path?: string
-  format?: string
+// screenshot also has two success shapes: an IMAGE result (full-mode + intel-mode
+// both return path/format/cleanApplied — verified capture.ts:122,183-190) and a
+// SOFT-ERROR result (`return { error }` at capture.ts:136, shipped as ok:true).
+// Modeled as a union (no shared literal discriminant — the validator matches by
+// member shape) so the image branch requires its fields and `{}` matches neither
+// → the oracle catches a daemon returning `{}` on screenshot success.
+export interface ScreenshotImageResult {
+  path: string
+  format: string
+  cleanApplied: boolean
   preset?: CapturePreset
+  // crop/label only on the intelligence-mode branch (element/region/auto).
   crop?: Bounds
   label?: string
-  cleanApplied?: boolean
-  error?: string
 }
+export interface ScreenshotSoftError {
+  error: string
+}
+export type ScreenshotResult = ScreenshotImageResult | ScreenshotSoftError
 
 export interface RecordingCompositePane {
   x: number
@@ -592,31 +592,34 @@ export interface StopRecordingParams {
   preset?: CapturePreset
 }
 
-export interface StopRecordingResult {
-  // `alreadyStopped` is the ONLY field set on BOTH success branches
-  // (core-impl.ts: the no-active-recording branch and the completed-stop
-  // branch), so it is the only field safe to require on this flat interface —
-  // requiring it closes the "{} passes" hole. The completed-branch fields below
-  // (recordingId/path/format/...) are ALWAYS present when alreadyStopped===false
-  // but absent when true; the durable strong fix is to split this into a
-  // discriminated union on `alreadyStopped` so the completed branch can require
-  // its full field set. That is a caller-rippling contract-shape change —
-  // surfaced as a backlog follow-up, not done here (would need a caller audit
-  // to avoid breaking narrowing in src/).
-  alreadyStopped: boolean
-  recordingId?: string
+// stopRecording has two distinct success shapes (both returned, not thrown),
+// modeled as a DISCRIMINATED UNION on `alreadyStopped` so the oracle can require
+// the completed branch's full field set while the already-stopped branch stays
+// minimal — a flat all-optional interface let a daemon returning `{}` pass.
+// Required fields are exactly those core-impl.ts sets UNCONDITIONALLY on each
+// branch (verified: recordingId/path/format/durationMs/codec/fps always via
+// fallbacks at :562-573; sizeBytes/width/height/droppedFrames can be undefined
+// on a real stat/probe miss, so they stay optional).
+export interface StopRecordingCompleted {
+  alreadyStopped: false
+  recordingId: string
+  path: string
+  format: string
+  durationMs: TimestampMs
+  codec: string
+  fps: number
   preset?: CapturePreset
-  path?: string
-  format?: string
-  durationMs?: number
   sizeBytes?: number
-  codec?: string
-  fps?: number
   width?: number
   height?: number
   droppedFrames?: number
-  error?: string
 }
+export interface StopRecordingAlreadyStopped {
+  alreadyStopped: true
+  error: string
+  preset?: CapturePreset
+}
+export type StopRecordingResult = StopRecordingCompleted | StopRecordingAlreadyStopped
 
 export interface BlackFrameGuard {
   sampleCount: number
