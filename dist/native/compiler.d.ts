@@ -3,6 +3,7 @@ declare const BINARY_PATH: string;
 declare const COMPOSITE_BINARY_PATH: string;
 declare const SCREEN_RECORDING_PREFLIGHT_PATH: string;
 declare const CURSOR_SAMPLER_BINARY_PATH: string;
+declare const TEXT_RENDER_BINARY_PATH: string;
 declare const DAEMON_LAUNCHER_PATH: string;
 declare const TEST_APP_PATH: string;
 /**
@@ -18,15 +19,18 @@ export declare function isStale(): boolean;
 export declare function isCompositeStale(): boolean;
 export declare function isScreenRecordingPreflightStale(): boolean;
 export declare function isCursorSamplerStale(): boolean;
+export declare function isTextRenderStale(): boolean;
 export declare function compile(): void;
 export declare function compileComposite(): void;
 export declare function compileScreenRecordingPreflight(): void;
 export declare function compileDaemonLauncher(): string;
 export declare function compileCursorSampler(): string;
+export declare function compileTextRender(): void;
 export declare function ensureBinary(): string;
 export declare function ensureCompositeBinary(): string;
 export declare function ensureScreenRecordingPreflightBinary(): string;
 export declare function ensureCursorSamplerBinary(): string;
+export declare function ensureTextRenderBinary(): string;
 export declare function compileTestApp(): string;
-export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, };
+export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, TEXT_RENDER_BINARY_PATH, };
 //# sourceMappingURL=compiler.d.ts.map

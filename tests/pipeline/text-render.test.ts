@@ -28,8 +28,8 @@ print(*img.getpixel((int(sys.argv[2]), int(sys.argv[3]))))
 }
 
 let workDir: string | null = null
-const pilAvailability = await textRendererAvailability()
-const pilIt = pilAvailability.available ? it : it.skip
+const rendererAvailability = await textRendererAvailability()
+const rendererIt = rendererAvailability.available ? it : it.skip
 
 async function makeWorkDir(): Promise<string> {
   workDir = await mkdtemp(join(tmpdir(), 'spectra-text-render-'))
@@ -44,8 +44,8 @@ afterEach(async () => {
   }
 })
 
-describe('Pillow text renderer', () => {
-  pilIt('renders and caches step-card and caption PNGs', async () => {
+describe('CoreText text renderer', () => {
+  rendererIt('renders and caches step-card and caption PNGs', async () => {
     const cacheDir = await makeWorkDir()
     const firstCard = await renderStepCardPng({
       stepLabel: '1',
@@ -83,7 +83,7 @@ describe('Pillow text renderer', () => {
     expect(caption).toContain('caption-')
   })
 
-  it('returns undefined instead of throwing when Pillow is unavailable', async () => {
+  it('returns undefined instead of throwing when the renderer is unavailable', async () => {
     setTextRendererAvailabilityForTests({ available: false, reason: 'test override' })
 
     await expect(renderStepCardPng({ stepText: 'Search everything' })).resolves.toBeUndefined()
@@ -102,7 +102,7 @@ describe('Pillow text renderer', () => {
     expect(CAPTION_BANNER_SPEC.captionGapRatio).toBe(0.015)
   })
 
-  pilIt('renders a step-card banner whose pixels match the banner/chip/text spec colors', async () => {
+  rendererIt('renders a step-card banner whose pixels match the banner/chip/text spec colors', async () => {
     const cacheDir = await makeWorkDir()
     const outW = 1920
     const outH = 1080
@@ -172,7 +172,7 @@ describe('Pillow text renderer', () => {
       expect(() => resolveBannerStyle('neon' as unknown as 'cool')).toThrow(/Unknown caption banner style/)
     })
 
-    pilIt('cache key differs by style, producing distinct PNG paths', async () => {
+    rendererIt('cache key differs by style, producing distinct PNG paths', async () => {
       const cacheDir = await makeWorkDir()
       const cool = await renderStepCardPng({
         stepLabel: '1',
@@ -205,7 +205,7 @@ describe('Pillow text renderer', () => {
       expect(unset).toBe(cool)
     })
 
-    pilIt('renders each preset with its own banner/chip colors', async () => {
+    rendererIt('renders each preset with its own banner/chip colors', async () => {
       const cacheDir = await makeWorkDir()
       const outW = 640
       const outH = 360

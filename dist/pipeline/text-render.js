@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { access, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { ensureTextRenderBinary } from '../native/compiler.js';
 const CACHE_VERSION = 2;
 const DEFAULT_OUT_W = 1920;
 const DEFAULT_OUT_H = 1080;
@@ -17,8 +18,8 @@ const DEFAULT_CACHE_DIR = join(tmpdir(), 'spectra-text-render');
  * Canonical caption banner / step-chip / caption-text spec, measured from the
  * reference clip demo-candidates/polished/rally__personas-two-agents__MERGED_CAPTIONED.mp4
  * (1600x900). Ratios are canonical; pixel values scale with outW/outH.
- * Shared by text-render.ts (Pillow), framing.ts, and annotations.ts (ffmpeg) so
- * all three renderers agree on one look.
+ * Shared by text-render.ts (native CoreText), framing.ts, and annotations.ts
+ * (ffmpeg) so all three renderers agree on one look.
  */
 export const CAPTION_BANNER_SPEC = {
     /** Banner height as a fraction of frame height. */
@@ -164,18 +165,35 @@ async function renderCachedPng(request, outPath) {
     if (await exists(outPath))
         return outPath;
     await mkdir(dirname(outPath), { recursive: true });
-    const rendered = await runPython(PYTHON_RENDER_SCRIPT, JSON.stringify(request));
+    const rendered = await runCoreTextRenderer([], JSON.stringify(request));
     return rendered.ok ? outPath : undefined;
 }
+/**
+ * Probes the native CoreText renderer (native/swift/text-render/TextRender.swift,
+ * compiled/resolved via src/native/compiler.ts's ensureTextRenderBinary()).
+ * This replaced the python3/Pillow tier that used to be REQUIRED here --
+ * CoreText is native, ships no external runtime dependency, and needs no
+ * window server (headless CGBitmapContext rendering). When the helper can't
+ * be resolved or fails its font-load self-check, callers fall back to the
+ * ffmpeg drawbox/bitmap-font tier that already lives in annotations.ts --
+ * this function returning `available: false` is what triggers that fallback.
+ */
 async function probeTextRenderer() {
-    const result = await runPython(PYTHON_PROBE_SCRIPT, '');
+    const result = await runCoreTextRenderer(['--probe'], '');
     return result.ok
         ? { available: true }
-        : { available: false, reason: result.stderr || 'python3, Pillow, or Helvetica.ttc is unavailable' };
+        : { available: false, reason: result.stderr || 'native CoreText text renderer is unavailable' };
 }
-async function runPython(script, stdin) {
+async function runCoreTextRenderer(args, stdin) {
+    let binaryPath;
+    try {
+        binaryPath = ensureTextRenderBinary();
+    }
+    catch (error) {
+        return { ok: false, stderr: error instanceof Error ? error.message : String(error) };
+    }
     return new Promise((resolve) => {
-        const proc = spawn('python3', ['-c', script], { stdio: 'pipe' });
+        const proc = spawn(binaryPath, args, { stdio: 'pipe' });
         const stderrChunks = [];
         let settled = false;
         const settle = (result) => {
@@ -215,164 +233,4 @@ function nonNegativeInteger(value, name) {
     }
     return value;
 }
-const PYTHON_PROBE_SCRIPT = String.raw `
-from PIL import Image, ImageDraw, ImageFont
-ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 40, index=1)
-`;
-const PYTHON_RENDER_SCRIPT = String.raw `
-import json
-import os
-import sys
-from PIL import Image, ImageDraw, ImageFont
-
-# Parsed up front (rather than at the bottom of the script) so the
-# style-derived banner/chip constants below can read request['style'] --
-# style is per-request (varies by caption-banner preset), unlike the other
-# constants here which used to be fixed at script-generation time.
-request = json.load(sys.stdin)
-
-def load_font(path, size, index):
-    return ImageFont.truetype(path, int(size), index=int(index))
-
-def text_size(draw, text, font):
-    box = draw.textbbox((0, 0), text, font=font)
-    return box, box[2] - box[0], box[3] - box[1]
-
-def fit_font(draw, path, size, index, text, max_width, min_size):
-    current = int(size)
-    while current > int(min_size):
-        font = load_font(path, current, index)
-        _, width, _ = text_size(draw, text, font)
-        if width <= max_width:
-            return font
-        current -= 2
-    return load_font(path, max(int(min_size), current), index)
-
-def draw_centered_text(draw, x, center_y, text, font, fill):
-    box, _, height = text_size(draw, text, font)
-    y = center_y - (height / 2) - box[1]
-    draw.text((x, y), text, font=font, fill=fill)
-
-# Style-overridable (per BANNER_STYLE_PRESETS in text-render.ts); falls back
-# to the canonical 'cool' CAPTION_BANNER_SPEC values when style is absent
-# (frame-background/frame-mask requests, or any caller that skips it).
-_style = request.get('style') or {}
-_banner_bg = _style.get('bannerBackground', {'r': ${CAPTION_BANNER_SPEC.bannerBackground.r}, 'g': ${CAPTION_BANNER_SPEC.bannerBackground.g}, 'b': ${CAPTION_BANNER_SPEC.bannerBackground.b}})
-_chip_color = _style.get('chipColor', {'r': ${CAPTION_BANNER_SPEC.chipColor.r}, 'g': ${CAPTION_BANNER_SPEC.chipColor.g}, 'b': ${CAPTION_BANNER_SPEC.chipColor.b}})
-
-BANNER_HEIGHT_RATIO = float(_style.get('bannerHeightRatio', ${CAPTION_BANNER_SPEC.bannerHeightRatio}))
-BANNER_BG = (int(_banner_bg['r']), int(_banner_bg['g']), int(_banner_bg['b']), round(255 * float(_style.get('bannerBackgroundAlpha', ${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}))))
-CHIP_SIDE_RATIO = ${CAPTION_BANNER_SPEC.chipSideRatio} * float(_style.get('chipScale', 1.0))
-CHIP_RADIUS_RATIO = ${CAPTION_BANNER_SPEC.chipCornerRadiusRatio}
-CHIP_COLOR = (int(_chip_color['r']), int(_chip_color['g']), int(_chip_color['b']), 255)
-CHIP_INSET_X_RATIO = ${CAPTION_BANNER_SPEC.chipInsetXRatio}
-CAPTION_TEXT_COLOR = (${CAPTION_BANNER_SPEC.captionTextColor.r}, ${CAPTION_BANNER_SPEC.captionTextColor.g}, ${CAPTION_BANNER_SPEC.captionTextColor.b}, 255)
-CAPTION_GAP_RATIO = ${CAPTION_BANNER_SPEC.captionGapRatio}
-
-def render_step_card(request, draw, image):
-    # Bottom-anchored, full-width caption banner with an optional numbered
-    # squircle chip. x/y from the request are no longer used for layout
-    # (kept in the request shape for cache-key/back-compat purposes only) --
-    # the banner is always full width, flush to the bottom of the frame.
-    out_w = int(request['outW'])
-    out_h = int(request['outH'])
-    font_size = int(request['fontSize'])
-    text = request['stepText']
-    label = request.get('stepLabel')
-
-    banner_h = max(1, round(out_h * BANNER_HEIGHT_RATIO))
-    banner_y = out_h - banner_h
-    draw.rectangle((0, banner_y, out_w, out_h), fill=BANNER_BG)
-    center_y = banner_y + banner_h / 2
-
-    chip_inset_x = round(out_w * CHIP_INSET_X_RATIO)
-    text_start_x = chip_inset_x
-
-    if label:
-        chip_side = max(1, round(out_h * CHIP_SIDE_RATIO))
-        chip_radius = max(1, round(chip_side * CHIP_RADIUS_RATIO))
-        chip_x = chip_inset_x
-        chip_y = banner_y + (banner_h - chip_side) / 2
-        draw.rounded_rectangle(
-            (chip_x, chip_y, chip_x + chip_side, chip_y + chip_side),
-            radius=chip_radius,
-            fill=CHIP_COLOR,
-        )
-        label_font = load_font(request['fontPath'], max(10, round(chip_side * 0.62)), request['fontIndex'])
-        label_box, label_w, label_h = text_size(draw, label, label_font)
-        label_x = chip_x + (chip_side - label_w) / 2 - label_box[0]
-        label_y = chip_y + (chip_side - label_h) / 2 - label_box[1]
-        draw.text((label_x, label_y), label, font=label_font, fill=(255, 255, 255, 255))
-        text_start_x = chip_x + chip_side + round(out_w * CAPTION_GAP_RATIO)
-
-    max_text_width = max(20, out_w - text_start_x - chip_inset_x)
-    font = fit_font(draw, request['fontPath'], font_size, request['fontIndex'], text, max_text_width, 20)
-    text_box, _, _ = text_size(draw, text, font)
-    draw_centered_text(draw, text_start_x - text_box[0], center_y, text, font, CAPTION_TEXT_COLOR)
-
-def render_caption(request, draw, image):
-    # Bottom-anchored, full-width caption banner. No step chip (no label is
-    # available on this code path) -- text stays horizontally centered.
-    out_w = int(request['outW'])
-    out_h = int(request['outH'])
-    text = request['text']
-
-    banner_h = max(1, round(out_h * BANNER_HEIGHT_RATIO))
-    banner_y = out_h - banner_h
-    draw.rectangle((0, banner_y, out_w, out_h), fill=BANNER_BG)
-    center_y = banner_y + banner_h / 2
-
-    inset_x = round(out_w * CHIP_INSET_X_RATIO)
-    max_text_width = max(20, out_w - inset_x * 2)
-    font = fit_font(draw, request['fontPath'], int(request['fontSize']), request['fontIndex'], text, max_text_width, 32)
-    box, text_w, _ = text_size(draw, text, font)
-    x = (out_w - text_w) / 2 - box[0]
-    draw_centered_text(draw, x, center_y, text, font, CAPTION_TEXT_COLOR)
-
-image = Image.new('RGBA', (int(request['outW']), int(request['outH'])), (0, 0, 0, 0))
-draw = ImageDraw.Draw(image)
-
-if request['kind'] == 'step-card':
-    render_step_card(request, draw, image)
-elif request['kind'] == 'caption':
-    render_caption(request, draw, image)
-elif request['kind'] == 'frame-background':
-    from PIL import ImageFilter
-    out_w = int(request['outW'])
-    out_h = int(request['outH'])
-    content_w = int(request['contentW'])
-    content_h = int(request['contentH'])
-    content_x = int(request['contentX'])
-    content_y = int(request['contentY'])
-    radius = int(request['cornerRadius'])
-    top = (18, 20, 26, 255)
-    bottom = (32, 36, 46, 255)
-    for y in range(out_h):
-        p = y / max(1, out_h - 1)
-        color = tuple(round(top[i] + (bottom[i] - top[i]) * p) for i in range(4))
-        draw.line((0, y, out_w, y), fill=color)
-    for offset, alpha, sigma in ((14, 0.20, 24), (10, 0.26, 18), (24, 0.14, 8)):
-        shadow_alpha = Image.new('L', (out_w, out_h), 0)
-        shadow_draw = ImageDraw.Draw(shadow_alpha)
-        shadow_draw.rounded_rectangle(
-            (content_x, content_y + offset, content_x + content_w, content_y + offset + content_h),
-            radius=radius,
-            fill=int(255 * alpha),
-        )
-        shadow_alpha = shadow_alpha.filter(ImageFilter.GaussianBlur(radius=float(sigma)))
-        shadow = Image.new('RGBA', (out_w, out_h), (0, 0, 0, 255))
-        image.alpha_composite(Image.composite(shadow, Image.new('RGBA', (out_w, out_h), (0, 0, 0, 0)), shadow_alpha))
-elif request['kind'] == 'frame-mask':
-    content_w = int(request['contentW'])
-    content_h = int(request['contentH'])
-    radius = int(request['cornerRadius'])
-    image = Image.new('L', (content_w, content_h), 0)
-    draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((0, 0, content_w - 1, content_h - 1), radius=radius, fill=255)
-else:
-    raise ValueError('unknown render kind')
-
-os.makedirs(os.path.dirname(request['outPath']), exist_ok=True)
-image.save(request['outPath'])
-`;
 //# sourceMappingURL=text-render.js.map

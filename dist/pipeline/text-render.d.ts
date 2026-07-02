@@ -39,8 +39,8 @@ export interface FrameChromePngResult {
  * Canonical caption banner / step-chip / caption-text spec, measured from the
  * reference clip demo-candidates/polished/rally__personas-two-agents__MERGED_CAPTIONED.mp4
  * (1600x900). Ratios are canonical; pixel values scale with outW/outH.
- * Shared by text-render.ts (Pillow), framing.ts, and annotations.ts (ffmpeg) so
- * all three renderers agree on one look.
+ * Shared by text-render.ts (native CoreText), framing.ts, and annotations.ts
+ * (ffmpeg) so all three renderers agree on one look.
  */
 export declare const CAPTION_BANNER_SPEC: {
     /** Banner height as a fraction of frame height. */
