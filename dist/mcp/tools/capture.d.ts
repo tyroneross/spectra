@@ -1,5 +1,6 @@
 import type { ToolContext } from '../context.js';
 import type { CaptureMode, CapturePreset } from '../../core/types.js';
+import type { ScreenshotResult } from '../../contract/core-api.js';
 export interface CaptureParams {
     sessionId: string;
     type: 'screenshot';
@@ -11,14 +12,5 @@ export interface CaptureParams {
     clean?: boolean;
     quality?: 'lossless' | 'high' | 'medium';
 }
-export interface CaptureResult {
-    path?: string;
-    format?: string;
-    preset?: CapturePreset;
-    crop?: [number, number, number, number];
-    label?: string;
-    cleanApplied?: boolean;
-    error?: string;
-}
-export declare function handleCapture(params: CaptureParams, ctx: ToolContext): Promise<CaptureResult>;
+export declare function handleCapture(params: CaptureParams, ctx: ToolContext): Promise<ScreenshotResult>;
 //# sourceMappingURL=capture.d.ts.map

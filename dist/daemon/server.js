@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { API_VERSION, eventsRoute, primarySocketPath, } from '../contract/wire.js';
+import { operationParamSchemas } from '../contract/schemas.js';
 import { createCoreApi } from './core-impl.js';
 import { DaemonApiError, toDaemonApiError } from './errors.js';
 import { allCapabilities, assertCapabilities, assertLoopbackTcpRequest, assertOperationAllowed, expandHomePath, getOrCreateBearerToken, isCoreApiOperation, prepareUnixSocketPath, verifyBearerCaller, verifyUnixCaller, } from './security.js';
@@ -140,6 +141,13 @@ async function handleRequest(context) {
         envelope = await readRequestEnvelope(req);
         validateEnvelope(envelope, operation);
         assertOperationAllowed(operation, caller);
+        // Server-side param validation (was client-side-only — a trust-boundary gap
+        // the conformance oracle documented). Validate against the same per-op zod
+        // schema the enriched spec is generated from, so a malformed request yields
+        // a deterministic `bad_request` instead of reaching the handler and either
+        // succeeding on `undefined` or surfacing as `internal_error`. Throws inside
+        // this try so the existing catch maps it to a clean error envelope.
+        envelope.params = validateOperationParams(operation, envelope.params);
     }
     catch (error) {
         const apiError = toDaemonApiError(error);
@@ -162,6 +170,35 @@ async function handleRequest(context) {
         const apiError = toDaemonApiError(error);
         sendError(res, apiError.status, apiError, envelope.requestId, caller, caller.surface);
     }
+}
+/**
+ * Validate a request's params against the operation's declared zod schema (the
+ * same `operationParamSchemas` the enriched contract spec is generated from), so
+ * validation lives at the server trust boundary rather than only client-side.
+ * Returns the parsed params (extra keys stripped by zod's default mode — no
+ * `.strict()` is used, so a caller sending harmless extra fields is not
+ * rejected). Throws `DaemonApiError('bad_request')` on a genuine schema failure.
+ *
+ * Absent-params handling: the wire envelope allows `params` to be omitted
+ * (`z.unknown().optional()`). A `z.void().optional()` op (e.g. closeAllSessions)
+ * accepts `undefined` but REJECTS `{}`; an all-optional `z.object({...})` op
+ * (health/listWindows/…) REJECTS `undefined` but accepts `{}`. So try the raw
+ * value first (preserves the void case), and only if that fails AND the caller
+ * sent nothing, retry with `{}` (satisfies the all-optional-object case). This
+ * never masks a genuinely-missing REQUIRED field — retrying `{}` for e.g.
+ * createSession still fails because `target` is required.
+ */
+function validateOperationParams(operation, rawParams) {
+    const schema = operationParamSchemas[operation];
+    let parsed = schema.safeParse(rawParams);
+    if (!parsed.success && rawParams === undefined) {
+        parsed = schema.safeParse({});
+    }
+    if (!parsed.success) {
+        const issueStrings = parsed.error.issues.map((issue) => `${issue.path.join('.') || '<root>'} ${issue.message}`);
+        throw new DaemonApiError('bad_request', `Invalid params for ${operation}: ${issueStrings.join('; ')}`, { status: 400, retryable: false, details: { issues: issueStrings } });
+    }
+    return parsed.data;
 }
 async function verifyCaller(context) {
     if (context.transport === 'tcp') {

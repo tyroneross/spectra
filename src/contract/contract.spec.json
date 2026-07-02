@@ -7873,11 +7873,6 @@
             "typeText": "string"
           },
           {
-            "name": "error",
-            "optional": true,
-            "typeText": "string"
-          },
-          {
             "name": "fps",
             "optional": false,
             "typeText": "number"
@@ -8324,5 +8319,5 @@
       ]
     }
   },
-  "hash": "f2c155d8f103e5751e1815682e0b031acd2c590fc87affec2d60c2bba1c3e72b"
+  "hash": "772d70a62f741cec6538f818b1236997d2278518b5d77143e70565a50209d2be"
 }

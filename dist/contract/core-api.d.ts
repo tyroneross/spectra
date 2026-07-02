@@ -486,7 +486,6 @@ export interface StartRecordingResult {
     codec: string;
     bitrate: string;
     preset?: CapturePreset;
-    error?: string;
 }
 export interface StopRecordingParams {
     sessionId: string;

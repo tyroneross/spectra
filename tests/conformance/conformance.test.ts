@@ -136,15 +136,18 @@ describe('conformance oracle — socket-level contract conformance (all 30 ops)'
             continue
           }
           const envelope = envelopeCheck.data
-          // NOTE (finding, see tests/conformance/README.md): the real daemon
-          // does NOT schema-validate params server-side today — validation
-          // lives client-side in src/client/daemon-client.ts. So a missing
-          // required field does not reliably produce `bad_request`; it may
-          // succeed (if the handler tolerates `undefined`) or surface as
-          // `internal_error` via the server.ts catch-all. Either is
-          // contract-conformant (internal_error is universal); the ONLY
-          // thing that would be a genuine finding is an envelope that fails
-          // schema validation, or (for an error) a code outside errorCodes.
+          // The daemon now VALIDATES params server-side at the dispatch boundary
+          // (server.ts validateOperationParams, against operationParamSchemas —
+          // the same schemas the enriched spec is generated from). A missing
+          // required field therefore returns a deterministic `bad_request`
+          // (400), not a lucky success or an internal_error catch-all — and it
+          // no longer reaches the handler to mutate session state (which is why
+          // the malformed-`act` pollution the readonly fixture guards against is
+          // now prevented at the source too). The assertion below still only
+          // requires the code be WITHIN the declared errorCodes taxonomy
+          // (`bad_request` is universal), so it holds regardless; a genuine
+          // finding is an envelope that fails schema validation, or an error
+          // code outside errorCodes.
           if (!envelope.ok && !opSpec.errorCodes.includes(envelope.error.code)) {
             failures.push(
               `[${payload.label}] error code "${envelope.error.code}" not in declared errorCodes ${JSON.stringify(opSpec.errorCodes)}`,

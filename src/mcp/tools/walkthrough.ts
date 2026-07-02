@@ -99,7 +99,9 @@ export async function handleWalkthrough(
           },
           ctx,
         )
-        if (captureResponse.path) {
+        // handleCapture now returns the ScreenshotResult union (Image|SoftError);
+        // narrow to the image branch before reading `path`.
+        if ('path' in captureResponse && captureResponse.path) {
           stepResult.screenshotPath = captureResponse.path
         }
         // If we didn't already get state from snapshot, try to get it now

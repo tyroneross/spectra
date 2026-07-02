@@ -582,9 +582,6 @@ export interface StartRecordingResult {
   codec: string
   bitrate: string
   preset?: CapturePreset
-  // Vestigial: no current startRecording return populates `error` (all failures
-  // throw DaemonApiError). Kept optional; candidate for removal (backlog).
-  error?: string
 }
 
 export interface StopRecordingParams {

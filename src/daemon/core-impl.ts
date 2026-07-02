@@ -319,7 +319,7 @@ export class CoreApiImplementation implements CoreApi {
   }
 
   async screenshot(params: ScreenshotParams): Promise<ScreenshotResult> {
-    return handleCapture({ ...params, type: 'screenshot' }, this.ctx) as Promise<ScreenshotResult>
+    return handleCapture({ ...params, type: 'screenshot' }, this.ctx)
   }
 
   async startRecording(params: StartRecordingParams): Promise<StartRecordingResult> {

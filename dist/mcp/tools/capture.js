@@ -21,6 +21,12 @@ function sessionStorageDir(ctx, sessionId) {
     }
     return join(getStoragePath(), 'sessions', sessionId);
 }
+// handleCapture returns the ScreenshotResult DISCRIMINATED UNION directly
+// (Image | SoftError) — not a flat all-optional shape. This makes tsc ENFORCE
+// that every return matches a union branch (previously the core-impl.ts
+// `as Promise<ScreenshotResult>` cast bypassed that check, so a future partial
+// return would have stayed compile-green and only failed at conformance/Swift
+// time). CapturePreset is re-exported via ScreenshotResult's own fields.
 /** Parse an aspect ratio string like "16:9" or "4:3" into a numeric ratio (w/h). */
 function parseAspectRatio(value) {
     const parts = value.split(':');

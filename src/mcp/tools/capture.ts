@@ -10,6 +10,7 @@ import { prepareForCapture, restoreAfterCapture } from '../../media/clean.js'
 import { resolveScreenshotCaptureOptions } from '../../media/presets.js'
 import type { Viewport } from '../../intelligence/types.js'
 import type { CaptureMode, CapturePreset } from '../../core/types.js'
+import type { ScreenshotResult } from '../../contract/core-api.js'
 
 /**
  * Resolve the per-session storage directory. Prefers the SessionManager's
@@ -41,15 +42,12 @@ export interface CaptureParams {
   quality?: 'lossless' | 'high' | 'medium'
 }
 
-export interface CaptureResult {
-  path?: string
-  format?: string
-  preset?: CapturePreset
-  crop?: [number, number, number, number]
-  label?: string
-  cleanApplied?: boolean
-  error?: string
-}
+// handleCapture returns the ScreenshotResult DISCRIMINATED UNION directly
+// (Image | SoftError) — not a flat all-optional shape. This makes tsc ENFORCE
+// that every return matches a union branch (previously the core-impl.ts
+// `as Promise<ScreenshotResult>` cast bypassed that check, so a future partial
+// return would have stayed compile-green and only failed at conformance/Swift
+// time). CapturePreset is re-exported via ScreenshotResult's own fields.
 
 /** Parse an aspect ratio string like "16:9" or "4:3" into a numeric ratio (w/h). */
 function parseAspectRatio(value: string): number | undefined {
@@ -70,7 +68,7 @@ function buildMetadata(values: Record<string, unknown>): Record<string, unknown>
   return Object.keys(metadata).length > 0 ? metadata : undefined
 }
 
-export async function handleCapture(params: CaptureParams, ctx: ToolContext): Promise<CaptureResult> {
+export async function handleCapture(params: CaptureParams, ctx: ToolContext): Promise<ScreenshotResult> {
   const driver = ctx.drivers.get(params.sessionId)
   if (!driver) throw new Error(`Session ${params.sessionId} not found`)
 
