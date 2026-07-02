@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 #
-# Sign Spectra's local native helpers with a stable development identity.
-# Override with SPECTRA_CODESIGN_IDENTITY; set SPECTRA_CODESIGN=0 to skip.
+# Sign Spectra's local native helpers.
+#
+# GUARDRAIL: the DEFAULT is AD-HOC signing (`--sign -`), which needs NO keychain
+# and never prompts — ad-hoc-signed binaries run fine for local dev/automation.
+# A real Apple Development / Developer ID identity is used ONLY when the user
+# explicitly sets SPECTRA_CODESIGN_IDENTITY (for a release/notarize build). Agents
+# must not sign with the user's Apple identity automatically. SPECTRA_CODESIGN=0
+# skips signing entirely.
 
 set -euo pipefail
 
-DEFAULT_IDENTITY="Apple Development: tyrone.ross@icloud.com (7AK2KDLAVP)"
+DEFAULT_IDENTITY="-"  # ad-hoc; set SPECTRA_CODESIGN_IDENTITY="Apple Development: …" for release
 TARGET="${1:-}"
 
 if [[ -z "$TARGET" ]]; then

@@ -60,6 +60,14 @@ export class BrowserManager {
       '--no-default-browser-check',
       '--disable-background-networking',
       '--disable-sync',
+      // GUARDRAIL: never touch the macOS login keychain. Without these, Chrome
+      // tries to store its "Safe Storage" key in the login keychain on launch,
+      // which pops a blocking "Keychain Not Found — store Chrome / Reset To
+      // Defaults" dialog for every automation launch. `basic` uses an in-profile
+      // plaintext store; `--use-mock-keychain` forces a mock on macOS. Automation
+      // Chrome holds no real secrets, so this is safe and required.
+      '--password-store=basic',
+      '--use-mock-keychain',
     ]
     if (headless) {
       args.push('--headless=new')

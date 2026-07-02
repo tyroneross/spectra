@@ -13,9 +13,15 @@ const SCREEN_RECORDING_PREFLIGHT_PATH = join(BIN_DIR, 'spectra-screen-recording-
 const SCREEN_RECORDING_PREFLIGHT_HASH_PATH = join(BIN_DIR, '.screen-recording-preflight-source-hash');
 const CURSOR_SAMPLER_BINARY_PATH = join(BIN_DIR, 'spectra-cursor-sampler');
 const CURSOR_SAMPLER_HASH_PATH = join(BIN_DIR, '.cursor-sampler-source-hash');
+const TEXT_RENDER_BINARY_PATH = join(BIN_DIR, 'spectra-text-render');
+const TEXT_RENDER_HASH_PATH = join(BIN_DIR, '.text-render-source-hash');
 const DAEMON_LAUNCHER_PATH = join(BIN_DIR, 'spectra-daemon-launcher');
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app');
-const DEFAULT_CODESIGN_IDENTITY = 'Apple Development: tyrone.ross@icloud.com (7AK2KDLAVP)';
+// GUARDRAIL: default to AD-HOC signing ('-') — no keychain access, no prompt.
+// The user's real Apple Development identity is used ONLY when they explicitly
+// set SPECTRA_CODESIGN_IDENTITY (release/notarize). Agents never auto-sign with
+// the user's Apple identity. SPECTRA_CODESIGN=0 skips signing entirely.
+const DEFAULT_CODESIGN_IDENTITY = '-';
 const COMPILE_LOCK_STALE_MS = 60_000;
 const COMPILE_LOCK_WAIT_MS = 30_000;
 // Find project root by looking for native/swift/ directory
@@ -53,6 +59,13 @@ function findCursorSamplerSource() {
     const swiftDir = join(findSwiftSource(), 'cursor-sampler');
     if (!existsSync(swiftDir)) {
         throw new Error(`Cursor sampler Swift source not found at ${swiftDir}`);
+    }
+    return swiftDir;
+}
+function findTextRenderSource() {
+    const swiftDir = join(findSwiftSource(), 'text-render');
+    if (!existsSync(swiftDir)) {
+        throw new Error(`Text render Swift source not found at ${swiftDir}`);
     }
     return swiftDir;
 }
@@ -240,6 +253,19 @@ export function isCursorSamplerStale() {
     const storedHash = readFileSync(CURSOR_SAMPLER_HASH_PATH, 'utf-8').trim();
     return currentHash !== storedHash;
 }
+export function isTextRenderStale() {
+    if (!existsSync(TEXT_RENDER_BINARY_PATH))
+        return true;
+    if (!existsSync(TEXT_RENDER_HASH_PATH))
+        return true;
+    if (!hasExpectedSignature(TEXT_RENDER_BINARY_PATH))
+        return true;
+    const swiftDir = findTextRenderSource();
+    const files = getSwiftFiles(swiftDir);
+    const currentHash = computeSourceHash(files);
+    const storedHash = readFileSync(TEXT_RENDER_HASH_PATH, 'utf-8').trim();
+    return currentHash !== storedHash;
+}
 export function compile() {
     const swiftDir = findSwiftSource();
     const files = getSwiftFiles(swiftDir);
@@ -381,6 +407,38 @@ export function compileCursorSampler() {
     writeFileSync(CURSOR_SAMPLER_HASH_PATH, hash);
     return CURSOR_SAMPLER_BINARY_PATH;
 }
+export function compileTextRender() {
+    const swiftDir = findTextRenderSource();
+    const files = getSwiftFiles(swiftDir);
+    mkdirSync(BIN_DIR, { recursive: true });
+    try {
+        execSync('which swiftc', { stdio: 'pipe' });
+    }
+    catch {
+        throw new Error('swiftc not found. Install Xcode Command Line Tools:\n'
+            + '  xcode-select --install');
+    }
+    const cmd = [
+        'swiftc', ...files,
+        '-framework', 'Foundation',
+        '-framework', 'CoreGraphics',
+        '-framework', 'CoreText',
+        '-framework', 'CoreImage',
+        '-framework', 'ImageIO',
+        '-framework', 'UniformTypeIdentifiers',
+        '-o', TEXT_RENDER_BINARY_PATH,
+    ].join(' ');
+    try {
+        execSync(cmd, { stdio: 'pipe' });
+    }
+    catch (err) {
+        const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);
+        throw new Error(`Text render Swift compilation failed:\n${msg}`);
+    }
+    signNativeBinary(TEXT_RENDER_BINARY_PATH);
+    const hash = computeSourceHash(files);
+    writeFileSync(TEXT_RENDER_HASH_PATH, hash);
+}
 export function ensureBinary() {
     const embedded = resolveEmbeddedHelper('spectra-native');
     if (embedded)
@@ -428,6 +486,18 @@ export function ensureCursorSamplerBinary() {
         });
     }
     return CURSOR_SAMPLER_BINARY_PATH;
+}
+export function ensureTextRenderBinary() {
+    const embedded = resolveEmbeddedHelper('spectra-text-render');
+    if (embedded)
+        return embedded;
+    if (isTextRenderStale()) {
+        withCompileLock('text-render', () => {
+            if (isTextRenderStale())
+                compileTextRender();
+        });
+    }
+    return TEXT_RENDER_BINARY_PATH;
 }
 function withCompileLock(name, fn) {
     mkdirSync(BIN_DIR, { recursive: true });
@@ -503,5 +573,5 @@ export function compileTestApp() {
     execSync(cmd, { stdio: 'pipe' });
     return TEST_APP_PATH;
 }
-export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, };
+export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, TEXT_RENDER_BINARY_PATH, };
 //# sourceMappingURL=compiler.js.map
