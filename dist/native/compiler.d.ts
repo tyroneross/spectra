@@ -5,6 +5,15 @@ declare const SCREEN_RECORDING_PREFLIGHT_PATH: string;
 declare const CURSOR_SAMPLER_BINARY_PATH: string;
 declare const DAEMON_LAUNCHER_PATH: string;
 declare const TEST_APP_PATH: string;
+/**
+ * Locate `Contents/Helpers/` of an installed Spectra.app bundle, if any.
+ * Override with `SPECTRA_APP_BUNDLE_HELPERS_DIR` (points straight at the
+ * Helpers dir) or `SPECTRA_APP_BUNDLE_PATH` (points at the .app) -- useful
+ * for tests/dev without a real install. Falls back to the standard
+ * `/Applications` locations. Returns null when nothing is found, which is
+ * the case in every environment today (nothing has shipped the bundle yet).
+ */
+export declare function resolveBundleHelpersDir(): string | null;
 export declare function isStale(): boolean;
 export declare function isCompositeStale(): boolean;
 export declare function isScreenRecordingPreflightStale(): boolean;

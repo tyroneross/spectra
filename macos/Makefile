@@ -19,7 +19,19 @@ RELEASE_DIR  = release
 APP_NAME     = Spectra
 TEAM_ID      = Q6TB8685V9
 
-.PHONY: build build-adhoc dmg dmg-adhoc clean run test test-adhoc size verify
+.PHONY: build build-adhoc dmg dmg-adhoc clean run test test-adhoc size verify embed-helpers
+
+# Native helper executables embedded into Contents/Helpers/ (native-Swift
+# migration M1). These are the SAME binaries produced today by the bare-exec
+# pipeline (`npm run build:native` / `build:composite` / `build:cursor-sampler`
+# / `build:window-bounds` / `build:daemon-helper`, from the repo root) at
+# ~/.spectra/bin — this target only copies + (re)signs whatever already
+# exists there. It does not build/compile Swift itself, so it never touches
+# native/swift/ sources.
+SPECTRA_HELPERS = spectra-native spectra-composite-capture \
+	spectra-screen-recording-preflight spectra-cursor-sampler \
+	spectra-daemon-launcher spectra-window-bounds
+SPECTRA_BIN_DIR = $(HOME)/.spectra/bin
 
 # Debug build, for local run from Xcode-style invocations
 run:
@@ -94,6 +106,39 @@ _dmg-package:
 		-ov -format UDZO \
 		"$(RELEASE_DIR)/$(APP_NAME).dmg"
 	@echo "DMG: $(RELEASE_DIR)/$(APP_NAME).dmg"
+
+# Copy already-built native helper executables from ~/.spectra/bin into the
+# built app's Contents/Helpers/, then re-sign each with the app's own signing
+# identity (when signing is enabled) so it inherits Spectra.app's TCC identity.
+# Invoked as a postBuildScripts phase from project.yml (env vars like
+# CODESIGNING_FOLDER_PATH / CODE_SIGNING_ALLOWED / EXPANDED_CODE_SIGN_IDENTITY
+# come from the enclosing xcodebuild script-phase environment). Safe to run
+# standalone too (e.g. `make embed-helpers` after `make build`) — falls back
+# to $(DERIVED)/Build/Products/$(CONFIG)/$(APP_NAME).app when the Xcode-only
+# env vars aren't set. Additive/idempotent; never fails the enclosing build —
+# a helper not yet built at $(SPECTRA_BIN_DIR) is skipped with a warning.
+embed-helpers:
+	@if [ -n "$${CODESIGNING_FOLDER_PATH:-}" ]; then \
+		dest="$${CODESIGNING_FOLDER_PATH}/Contents/Helpers"; \
+	elif [ -n "$${TARGET_BUILD_DIR:-}" ] && [ -n "$${CONTENTS_FOLDER_PATH:-}" ]; then \
+		dest="$${TARGET_BUILD_DIR}/$${CONTENTS_FOLDER_PATH}/Helpers"; \
+	else \
+		dest="$(DERIVED)/Build/Products/$(CONFIG)/$(APP_NAME).app/Contents/Helpers"; \
+	fi; \
+	mkdir -p "$$dest"; \
+	for h in $(SPECTRA_HELPERS); do \
+		src="$(SPECTRA_BIN_DIR)/$$h"; \
+		if [ -x "$$src" ]; then \
+			cp -f "$$src" "$$dest/$$h"; \
+			if [ "$${CODE_SIGNING_ALLOWED:-YES}" != "NO" ] && [ -n "$${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then \
+				codesign --force --timestamp=none --options runtime \
+					--sign "$${EXPANDED_CODE_SIGN_IDENTITY}" "$$dest/$$h"; \
+			fi; \
+			echo "embed-helpers: embedded $$h -> $$dest/$$h"; \
+		else \
+			echo "embed-helpers: SKIP $$h (not built at $$src -- run the repo-root npm build:* scripts first)"; \
+		fi; \
+	done
 
 # codesign --verify the most-recent build product
 verify:

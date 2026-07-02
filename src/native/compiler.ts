@@ -1,7 +1,9 @@
 // src/native/compiler.ts
 import { execFileSync, execSync, spawnSync } from 'node:child_process'
 import {
+  accessSync,
   closeSync,
+  constants as fsConstants,
   existsSync,
   mkdirSync,
   openSync,
@@ -129,6 +131,69 @@ function signNativeBinary(binaryPath: string): void {
     const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
     throw new Error(`codesign failed for ${binaryPath}:\n${msg}`)
   }
+}
+
+// ─── Bundle-first helper resolution (native-Swift migration M1, additive) ──
+//
+// Once a signed Spectra.app bundle exists with the M1 postBuildScripts embed
+// phase (macos/project.yml + macos/Makefile's `embed-helpers`), it carries
+// its own copies of these helpers under Contents/Helpers/, ideally signed
+// with the SAME identity as the running app -- which is what lets a helper
+// inherit the app's Screen-Recording/Accessibility TCC grant on macOS 26.1
+// instead of needing its own bare-exec grant. When a bundle is found on
+// disk, PREFER its embedded copy. When it is not (the plugin/dev/CI path --
+// the default everywhere today, including this environment), resolution is
+// unchanged: compile-if-stale into ~/.spectra/bin and return that path. This
+// is purely additive -- no existing call site's behavior changes unless a
+// bundle actually exists on disk.
+
+const BUNDLE_HELPERS_DIR_ENV = 'SPECTRA_APP_BUNDLE_HELPERS_DIR'
+const BUNDLE_PATH_ENV = 'SPECTRA_APP_BUNDLE_PATH'
+const DEFAULT_BUNDLE_CANDIDATES = [
+  '/Applications/Spectra.app',
+  join(homedir(), 'Applications', 'Spectra.app'),
+]
+
+function isExecutableFile(path: string): boolean {
+  if (!existsSync(path)) return false
+  try {
+    accessSync(path, fsConstants.X_OK)
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Locate `Contents/Helpers/` of an installed Spectra.app bundle, if any.
+ * Override with `SPECTRA_APP_BUNDLE_HELPERS_DIR` (points straight at the
+ * Helpers dir) or `SPECTRA_APP_BUNDLE_PATH` (points at the .app) -- useful
+ * for tests/dev without a real install. Falls back to the standard
+ * `/Applications` locations. Returns null when nothing is found, which is
+ * the case in every environment today (nothing has shipped the bundle yet).
+ */
+export function resolveBundleHelpersDir(): string | null {
+  const explicitDir = process.env[BUNDLE_HELPERS_DIR_ENV]?.trim()
+  if (explicitDir && existsSync(explicitDir)) return explicitDir
+
+  const explicitBundle = process.env[BUNDLE_PATH_ENV]?.trim()
+  const candidates = explicitBundle
+    ? [explicitBundle, ...DEFAULT_BUNDLE_CANDIDATES]
+    : DEFAULT_BUNDLE_CANDIDATES
+
+  for (const bundlePath of candidates) {
+    const helpersDir = join(bundlePath, 'Contents', 'Helpers')
+    if (existsSync(helpersDir)) return helpersDir
+  }
+  return null
+}
+
+/** Bundle-embedded copy of `helperName`, only if a bundle carries it. */
+function resolveEmbeddedHelper(helperName: string): string | null {
+  const helpersDir = resolveBundleHelpersDir()
+  if (!helpersDir) return null
+  const candidate = join(helpersDir, helperName)
+  return isExecutableFile(candidate) ? candidate : null
 }
 
 export function isStale(): boolean {
@@ -365,6 +430,8 @@ export function compileCursorSampler(): string {
 }
 
 export function ensureBinary(): string {
+  const embedded = resolveEmbeddedHelper('spectra-native')
+  if (embedded) return embedded
   if (isStale()) {
     withCompileLock('native', () => {
       if (isStale()) compile()
@@ -374,6 +441,8 @@ export function ensureBinary(): string {
 }
 
 export function ensureCompositeBinary(): string {
+  const embedded = resolveEmbeddedHelper('spectra-composite-capture')
+  if (embedded) return embedded
   if (isCompositeStale()) {
     withCompileLock('composite', () => {
       if (isCompositeStale()) compileComposite()
@@ -383,6 +452,8 @@ export function ensureCompositeBinary(): string {
 }
 
 export function ensureScreenRecordingPreflightBinary(): string {
+  const embedded = resolveEmbeddedHelper('spectra-screen-recording-preflight')
+  if (embedded) return embedded
   if (isScreenRecordingPreflightStale()) {
     withCompileLock('screen-recording-preflight', () => {
       if (isScreenRecordingPreflightStale()) compileScreenRecordingPreflight()
@@ -392,6 +463,8 @@ export function ensureScreenRecordingPreflightBinary(): string {
 }
 
 export function ensureCursorSamplerBinary(): string {
+  const embedded = resolveEmbeddedHelper('spectra-cursor-sampler')
+  if (embedded) return embedded
   if (isCursorSamplerStale()) {
     withCompileLock('cursor-sampler', () => {
       if (isCursorSamplerStale()) compileCursorSampler()

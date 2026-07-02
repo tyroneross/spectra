@@ -193,6 +193,7 @@
 			buildPhases = (
 				10EBE85AA9984C829C2B95DA /* Sources */,
 				6AE36DAD9B087AA9882CC4C6 /* Resources */,
+				DC8600CB679BBC71C514F8D9 /* Embed Native Helpers */,
 			);
 			buildRules = (
 			);
@@ -272,6 +273,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		DC8600CB679BBC71C514F8D9 /* Embed Native Helpers */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Native Helpers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nmake -C \"${SRCROOT}\" embed-helpers\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		10EBE85AA9984C829C2B95DA /* Sources */ = {

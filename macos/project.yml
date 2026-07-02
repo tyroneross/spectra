@@ -62,6 +62,22 @@ targets:
         CFBundleVersion: "1"
         NSAppleEventsUsageDescription: "Spectra controls applications for UI capture and walkthrough."
         NSHumanReadableCopyright: "Copyright (c) 2026 Tyrone Ross, Jr"
+    # Additive bundling step (native-Swift migration M1): embeds whichever
+    # already-built native helper executables exist at ~/.spectra/bin (produced
+    # by the existing `npm run build:native` / `build:composite` / etc. bare-exec
+    # pipeline — unchanged) into Contents/Helpers/ of the built app, so a signed
+    # Spectra.app carries its own capture/AX/vision helpers and they can inherit
+    # the app's Screen-Recording/AX TCC identity. Runs LAST (postBuildScripts),
+    # before Xcode's own automatic bundle codesign, so the copied+resigned files
+    # are covered by the app's final signature. Never fails the build: a helper
+    # missing from ~/.spectra/bin (not yet built) is skipped with a warning —
+    # the bare-exec ~/.spectra/bin path remains the fallback, unaffected.
+    postBuildScripts:
+      - name: Embed Native Helpers
+        script: |
+          set -euo pipefail
+          make -C "${SRCROOT}" embed-helpers
+        basedOnDependencyAnalysis: false
 
   SpectraTests:
     type: bundle.unit-test
