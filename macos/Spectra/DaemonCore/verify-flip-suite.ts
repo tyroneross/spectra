@@ -28,7 +28,14 @@
 //        matching "≥22 passed / 0 failed"); plus the legacy
 //        verify-g1-suite.ts / verify-swift-op.ts scripts, updated (rev 3) to
 //        set the same standalone opt-in flag so they stay green under the
-//        corrected Router rule.
+//        corrected Router rule. C8 (2026-07-03): corpus.test.ts is RE-ADDED
+//        here as a separate run, byte-regressing the 5 natively-routed ops
+//        (health/getPermissions/requestPermissions/listWindows/library)
+//        against a Swift-RECORDED corpus (swift-native-corpus.json, NOT
+//        golden-corpus.json — see gateA()'s inline reconciliation note and
+//        tests/conformance/corpus/record-corpus.ts's SPECTRA_CORPUS_TARGET=
+//        swift-native mode). Every other corpus.test.ts entry is SKIPPED
+//        (no valid Swift-recorded corpus for it yet), so Gate A stays green.
 //   B-diff (T-02) — differential byte-transparency (rev 3, Ruling 1):
 //        tests/conformance/lib/front-door.ts's two-daemon harness (backend X
 //        = the harness's own seeded TS daemon, front door Y = Swift under
@@ -325,15 +332,26 @@ async function gateA(bin: string): Promise<void> {
 
   try {
     // INTEGRATOR RECONCILIATION (2026-07-03, for Fable group-verdict ratification):
-    // Gate A runs conformance.test.ts (CONTRACT-level G1 regression) ONLY — corpus.test.ts
-    // is REMOVED as a Swift pass/fail criterion. corpus replays the byte-exact response
-    // corpus RECORDED FROM THE TS DAEMON; a from-scratch Swift reimplementation legitimately
-    // diverges on non-contract cosmetics (daemonVersion "0.3.2" vs "0.3.2-swift-g1"; optional
-    // fields like `startedAt` that Swift omits — all contract-legal, conformance = 22/0).
-    // corpus is a valid byte-regression only for the SAME implementation vs its own recording;
-    // reusing the TS recording as a cross-implementation gate produced 14 false positives on
-    // G1 ops. To restore a byte-level Swift regression, corpus must be RE-RECORDED from the
-    // Swift daemon (record-corpus.ts) — out of scope for this flip; flagged for the group verdict.
+    // Gate A runs conformance.test.ts (CONTRACT-level G1 regression) — corpus.test.ts
+    // was REMOVED as a Swift pass/fail criterion at that time. corpus replays the byte-
+    // exact response corpus RECORDED FROM THE TS DAEMON; a from-scratch Swift
+    // reimplementation legitimately diverges on non-contract cosmetics (daemonVersion
+    // "0.3.2" vs "0.3.2-swift-g1"; optional fields like `startedAt` that Swift omits —
+    // all contract-legal, conformance = 22/0). corpus is a valid byte-regression only
+    // for the SAME implementation vs its own recording; reusing the TS recording as a
+    // cross-implementation gate produced 14 false positives on G1 ops.
+    //
+    // C8 (Fable M3.G1 follow-on, 2026-07-03) — RESTORED below: a SEPARATE corpus
+    // (tests/conformance/corpus/swift-native-corpus.json), recorded from THIS SAME
+    // standalone-Swift-daemon recipe (not the TS daemon), now byte-regresses the 5
+    // NATIVELY-ROUTED ops (health/getPermissions/requestPermissions/listWindows/
+    // library — see tests/conformance/lib/front-door.ts's PRODUCTION_ROUTING_CONFIG).
+    // corpus.test.ts itself was updated (C8-owned) so that, against an EXTERNAL
+    // daemon, only entries with a swift-native-corpus.json match are byte-diffed —
+    // every other entry (the other 6 G1 ops + all driver/capture ops) is SKIPPED, not
+    // run against golden-corpus.json, so this stays a valid same-implementation
+    // regression and Gate A stays green (verified live: 14 passed / 0 failed / 63
+    // skipped against a fresh standalone Swift daemon booted with this exact recipe).
     runVitest(
       ['tests/conformance/conformance.test.ts'],
       {
@@ -341,7 +359,17 @@ async function gateA(bin: string): Promise<void> {
         SPECTRA_DAEMON_SOCKET: sock,
         SPECTRA_CONFORMANCE_SEED_SESSION: SEED_SESSION,
       },
-      'Gate A: conformance suite vs Swift (contract-level G1 regression, ≥22 passed expected; corpus excluded — see reconciliation note)',
+      'Gate A: conformance suite vs Swift (contract-level G1 regression, ≥22 passed expected)',
+    )
+    runVitest(
+      ['tests/conformance/corpus/corpus.test.ts'],
+      {
+        ...process.env,
+        SPECTRA_DAEMON_SOCKET: sock,
+        SPECTRA_CONFORMANCE_SEED_SESSION: SEED_SESSION,
+      },
+      'Gate A: Swift-native corpus byte-regression (C8 — 5 natively-routed ops vs swift-native-corpus.json; ' +
+        'all other entries SKIPPED, no valid Swift-recorded corpus for them yet)',
     )
   } finally {
     await stopDaemon(boot.proc)

@@ -1,0 +1,348 @@
+[
+  {
+    "operation": "health",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "aquaSession": true,
+        "windowServer": {
+          "connected": true
+        },
+        "uptimeSec": "<TIMESTAMP>",
+        "pid": "<PID>",
+        "ok": true,
+        "apiVersion": 2,
+        "daemonVersion": "0.3.2-swift-g1"
+      }
+    }
+  },
+  {
+    "operation": "health",
+    "payloadLabel": "full",
+    "request": {
+      "includePermissions": true
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "aquaSession": true,
+        "windowServer": {
+          "connected": true
+        },
+        "uptimeSec": "<TIMESTAMP>",
+        "pid": "<PID>",
+        "ok": true,
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>"
+          },
+          {
+            "lastCheckedAt": "<TIMESTAMP>",
+            "permission": "screen-recording",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "screenshots",
+              "video capture"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>"
+          },
+          {
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "controlling helper applications",
+              "opening System Settings"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+            "permission": "automation"
+          },
+          {
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>",
+            "requiredFor": [
+              "web CDP debugging"
+            ],
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_DeveloperTools",
+            "permission": "developer-tools",
+            "state": "<LIVE_OS_STATE>"
+          }
+        ],
+        "apiVersion": 2,
+        "daemonVersion": "0.3.2-swift-g1"
+      }
+    }
+  },
+  {
+    "operation": "getPermissions",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "permission": "accessibility",
+            "state": "<LIVE_OS_STATE>"
+          },
+          {
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "screenshots",
+              "video capture"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+            "permission": "screen-recording"
+          },
+          {
+            "lastCheckedAt": "<TIMESTAMP>",
+            "permission": "automation",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "controlling helper applications",
+              "opening System Settings"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>"
+          },
+          {
+            "permission": "developer-tools",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_DeveloperTools",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "web CDP debugging"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "getPermissions",
+    "payloadLabel": "full",
+    "request": {
+      "permissions": [
+        "accessibility"
+      ]
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "operation": "requestPermissions",
+    "payloadLabel": "minimal",
+    "request": {
+      "permissions": [
+        "accessibility"
+      ]
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ],
+        "requested": [
+          "accessibility"
+        ]
+      }
+    }
+  },
+  {
+    "operation": "requestPermissions",
+    "payloadLabel": "full",
+    "request": {
+      "openSettings": true,
+      "permissions": [
+        "accessibility"
+      ],
+      "prompt": true
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "permissions": [
+          {
+            "permission": "accessibility",
+            "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "state": "<LIVE_OS_STATE>",
+            "requiredFor": [
+              "macOS UI actions",
+              "macOS UI snapshots"
+            ],
+            "canPrompt": "<LIVE_OS_STATE>",
+            "lastCheckedAt": "<TIMESTAMP>"
+          }
+        ],
+        "requested": [
+          "accessibility"
+        ]
+      }
+    }
+  },
+  {
+    "operation": "listWindows",
+    "payloadLabel": "minimal",
+    "request": {},
+    "response": {
+      "ok": true,
+      "result": {
+        "windows": "<LIVE_WINDOW_LIST>"
+      }
+    }
+  },
+  {
+    "operation": "listWindows",
+    "payloadLabel": "full",
+    "request": {
+      "app": "Fake Conformance App",
+      "onScreenOnly": true,
+      "title": "conformance-test-string"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "windows": "<LIVE_WINDOW_LIST>"
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:add/minimal",
+    "request": {
+      "action": "add",
+      "sourcePath": "<PATH>.mp4"
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "path": "<PATH>.mp4",
+        "entry": {
+          "created_at": "<TIMESTAMP>",
+          "source": "spectra",
+          "id": "<ID>",
+          "platform": "unknown",
+          "size_bytes": 111048,
+          "format": "mp4",
+          "title": "fixture-input.mp4",
+          "type": "screenshot"
+        },
+        "added": "<ID>"
+      }
+    }
+  },
+  {
+    "operation": "library",
+    "payloadLabel": "arm:add/full",
+    "request": {
+      "action": "add",
+      "component": "conformance-test-string",
+      "deviceName": "conformance-test-string",
+      "durationMs": "<TIMESTAMP>",
+      "feature": "conformance-test-string",
+      "gitBranch": "conformance-test-string",
+      "gitCommit": "conformance-test-string",
+      "platform": "web",
+      "selector": "conformance-test-string",
+      "sourcePath": "<PATH>.mp4",
+      "starred": true,
+      "tags": [
+        "conformance-test-string"
+      ],
+      "title": "conformance-test-string",
+      "type": "screenshot",
+      "url": "conformance-test-string",
+      "viewport": "conformance-test-string",
+      "walkthrough": {
+        "step_count": 1,
+        "steps": [
+          "conformance-test-string"
+        ]
+      }
+    },
+    "response": {
+      "ok": true,
+      "result": {
+        "added": "<ID>",
+        "entry": {
+          "git_branch": "conformance-test-string",
+          "id": "<ID>",
+          "device_name": "conformance-test-string",
+          "tags": [
+            "conformance-test-string"
+          ],
+          "type": "screenshot",
+          "starred": true,
+          "duration_ms": "<TIMESTAMP>",
+          "format": "mp4",
+          "size_bytes": 111048,
+          "title": "conformance-test-string",
+          "feature": "conformance-test-string",
+          "selector": "conformance-test-string",
+          "component": "conformance-test-string",
+          "source": "spectra",
+          "walkthrough": {
+            "step_count": 1,
+            "steps": [
+              "conformance-test-string"
+            ]
+          },
+          "git_commit": "conformance-test-string",
+          "created_at": "<TIMESTAMP>",
+          "platform": "web",
+          "url": "conformance-test-string",
+          "viewport": "conformance-test-string"
+        },
+        "path": "<PATH>.mp4"
+      }
+    }
+  }
+]
