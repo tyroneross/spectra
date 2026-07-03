@@ -32,7 +32,7 @@ with no `ctx.drivers` and no `src/cdp|pipeline|media` import.
   (`connect.ts` → `CdpDriver`|`NativeDriver`). It is the driver-instantiation seam
   (see G2/G3).
 
-### G2 — native capture/AX/vision · driver-abstraction + native path · no CDP/pipeline (14 ops)
+### G2 — native capture/AX/vision · driver-abstraction + native path · no CDP/pipeline (16 ops)
 `createSession` (macos/native target only) · `snapshot` · `observe` · `act` · `step`
 · `llmStep` · `walkthrough` · `screenshot` · `analyze` · `discover` · `computerUse`
 · `startRecording` · `stopRecording` · `getRecording` · `recordTerminal` · `replayTerminal`.
@@ -57,7 +57,7 @@ and the composite path import `pipeline` + `media` + `native`. Flip after M5 acc
 ## Recommended cutover order
 1. **G1** (11 ops) — control-plane; smallest surface, no driver, immediate native
    control-plane value. First Swift daemon-core skeleton (unix socket + these ops).
-2. **G2** (14 ops) — the capture/AX bulk against native/fake drivers; the largest
+2. **G2** (16 ops) — the capture/AX bulk against native/fake drivers; the largest
    Swift port but independently verifiable (no M4/M5 wait).
 3. **G3** — enable web-session coverage once **M4** (Codex) lands + is accepted.
 4. **G4** (3 ops) — once **M5** (Codex) lands + is accepted.
