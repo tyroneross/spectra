@@ -11,14 +11,16 @@ Plan: `docs/plans/m3-g2-plan.md` **rev 2** — verified (plan_verify 0 BLOCKERs)
 **7 parallel Sonnet implementers dispatched. Status (all work UNCOMMITTED on disk):**
 - ✅ S1 (ConnectOps, FakeDriver, SessionStore, SessionOps) — DONE
 - ✅ S2 (BridgeClient, NativeDriver, RoleNormalize, SnapshotSerialize, SnapshotOps, ActOps, ComputerUseOps) — DONE
-- ⏳ S3 (Resolve, Actions, StepOps, Intelligence, AnalyzeOps, DiscoverOps) — FINISHING; **verify `StepOps.swift` landed** (`main.swift` needs `registerStepOps`)
+- ✅ S3 (Resolve, Actions, StepOps, Intelligence, AnalyzeOps, DiscoverOps) — DONE (byte-parity verified: analyze=0.781, discover captures=1 via reproducing TS's PNG colorType-4 silent-fail gate; no LLM anywhere; typecheck clean except the known S6 SocketServer timeout)
 - ✅ S4 (CaptureOps, RecordingOps, FfmpegProbe) — DONE
 - ✅ S5 (TerminalOps, CastParser) — DONE
 - ✅ S6 (Router, SocketServer, ProxyClient, HandlerRegistry, main — the dispatch plane) — DONE
 - ❌ S7 (gate harness: external-mode g2 gate, fixture-context, front-door options, payload-generator fake target, `verify-g2-suite.ts`, `verify-g2-ondevice.{sh,ts}`) — **NOT LANDED; re-dispatch it** (files not on disk)
 
+**6/7 implementers DONE (S1–S6). Only S7 (gate harness) is unlanded — re-dispatch it first.**
+
 ## Integration TO-DO (next session, in order)
-1. **Verify S3 + S7 landed on disk** (`ls macos/Spectra/DaemonCore/*.swift`; StepOps + the S7 harness files). Re-dispatch S7 if missing (brief in `.handoff.md` §S7).
+1. **Re-dispatch S7** (gate harness — brief in `.handoff.md` §S7): `external-mode.ts` (milestone-env-gated g2 allowlist, keep SWIFT_G1 export name + default byte-identical), `fixture-context.ts` (fake: seeding), `front-door.ts` (append-only routingConfig+extraEnv options, keep v1-pinned default), `payload-generator.ts` (fake: target case), `verify-g2-suite.ts` (V-A + V-B with the pre-ruled G2 volatile-field map, each chain includes the G1 31/31 arm), `verify-g2-ondevice.{sh,ts}` (V-C scaffold — launchd-context TCC spike first). Confirm the 4 importer test files need ZERO edits.
 2. **Fix the known compile blocker:** `SocketServer.swift` lines ~101-105 — the routing-config log string is a 5-part `+` concat that hits Swift's "expression too complex to type-check" timeout. Split it into separate `FileHandle.standardError.write` calls or build with an array `.joined`.
 3. **Reconcile the FakeDriver id scheme (V-B parity):** S1's FakeDriver emits `e1/e2` element ids (per the W0-frozen "sequential e1..eN" contract) but TS `tests/conformance/lib/fakes.ts` uses `el-1/el-2`. V-B byte-compares Swift-vs-TS on the same fixtures → this deterministic divergence FAILS unless reconciled: make the Swift FakeDriver match `fakes.ts` (`el-1/el-2`), OR add element-id normalization to the V-B comparator (Advisor ruling — it's not in the pre-ruled volatile map).
 4. **Full-module compile:** `swiftc macos/Spectra/DaemonCore/*.swift -o /tmp/g2` → resolve residual cross-agent seams. (Cross-file SourceKit "Cannot find type" diagnostics during the build are noise — they resolve at module compile.)
