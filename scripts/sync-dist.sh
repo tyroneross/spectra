@@ -24,7 +24,10 @@ else
     cp -R "$REPO_ROOT/dist" "$SPECTRA_HOME/dist"
 fi
 cp "$REPO_ROOT/package.json" "$SPECTRA_HOME/package.json" 2>/dev/null || true
-if [[ -d "$REPO_ROOT/node_modules" && ! -e "$SPECTRA_HOME/node_modules" ]]; then
-    ln -s "$REPO_ROOT/node_modules" "$SPECTRA_HOME/node_modules"
+if [[ -d "$REPO_ROOT/node_modules" ]]; then
+    # -sfn: idempotent — force-replace an existing or BROKEN symlink without
+    # dereferencing it (plain `ln -s` fails "File exists" on a stale link,
+    # which under `set -e` aborted flip-g1's dist-mirror step at Gate E).
+    ln -sfn "$REPO_ROOT/node_modules" "$SPECTRA_HOME/node_modules"
 fi
 echo "sync-dist: mirrored dist/ -> $SPECTRA_HOME/dist/ (restart the daemon to load: spectra daemon restart)"
