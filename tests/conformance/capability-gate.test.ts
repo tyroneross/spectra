@@ -29,6 +29,7 @@ import { startConformanceDaemon, type DaemonEndpoint } from './lib/daemon-endpoi
 import { callOperation } from './lib/socket-client.js'
 import { validPayloads, type GeneratorContext } from './lib/payload-generator.js'
 import { buildFixtureContext, withSessionOverride } from './lib/fixture-context.js'
+import { SWIFT_G1_VERIFIABLE_OPS } from './lib/external-mode.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const specPath = join(here, '..', '..', 'src', 'contract', 'contract.spec.json')
@@ -59,11 +60,39 @@ const operationNames = Object.keys(spec.operations).sort()
 // (startConformanceDaemon({capabilities})) — a control the harness only has over
 // a daemon it spawns. Against an EXTERNAL daemon (SPECTRA_DAEMON_SOCKET), the
 // capability restriction is ignored (daemon-endpoint.ts) and the daemon grants
-// all caps, so these assertions can't hold. The Swift G1 daemon-core has no
-// capability-restriction hook yet (all-granted, matching the TS unix default) —
-// so skip this suite in external mode. Enforcement parity + a Swift cap-restrict
-// env hook is a documented pre-flip must-fix (see the M3.G1 Fable verdict).
-const describeGate = process.env.SPECTRA_DAEMON_SOCKET ? describe.skip : describe
+// all caps by default, so these assertions can't hold — UNLESS the external
+// daemon was booted OUTSIDE this harness with its own restriction already
+// applied (the Swift daemon-core now has a capability-restriction hook,
+// `SPECTRA_CONFORMANCE_UNIX_CAPS`, set directly on ITS process by the caller
+// that spawned it — see macos/Spectra/DaemonCore/verify-flip-suite.ts's Gate
+// C). `SPECTRA_CONFORMANCE_EXTERNAL_CAPS_HONORED=1` [env contract,
+// docs/plans/m3-g1-flip-plan.md] is the caller's attestation that the external
+// daemon it pointed `SPECTRA_DAEMON_SOCKET` at was booted that way — an
+// explicit, named opt-in rather than an implicit assumption, so a plain
+// external run (no attestation) still skips exactly as before (byte-identical
+// default behavior; this is additive, never a narrowing of the prior skip).
+const externalCapsHonored = process.env.SPECTRA_CONFORMANCE_EXTERNAL_CAPS_HONORED === '1'
+const isExternalDaemon = Boolean(process.env.SPECTRA_DAEMON_SOCKET)
+const describeGate = isExternalDaemon && !externalCapsHonored ? describe.skip : describe
+
+// M3.G1 flip (rev 3, Ruling 3 — the Gate C fix): against an external daemon
+// whose capability restriction is attested (SPECTRA_CONFORMANCE_EXTERNAL_
+// CAPS_HONORED=1), the milestone Swift daemon-core registers ONLY the
+// extended G1 control-plane surface (SWIFT_G1_VERIFIABLE_OPS — derived, never
+// hand-maintained here, see lib/external-mode.ts). The other 19 ops are
+// UNREGISTERED at this milestone: the correct-and-safe wire response for an
+// unregistered op is `not_found` (proves the op is unreachable at all —
+// strictly stronger than a denial), never `capability_denied` (which would
+// imply the daemon looked the op up, found it, and only THEN said no) and
+// certainly never a served result. Asserting `capability_denied` for those 19
+// ops was Gate C's real failure mode (real run: 19 FAILED — see the plan's
+// "Gate redesign rev 3" trigger evidence). In-process (TS) mode is unchanged:
+// every op is registered there, so the ORIGINAL strict pattern applies to all
+// 30 (registeredOps below is the full 30-op set whenever isExternalDaemon is
+// false).
+const registeredOps: ReadonlySet<string> = isExternalDaemon
+  ? new Set(operationNames.filter((op) => SWIFT_G1_VERIFIABLE_OPS.has(op)))
+  : new Set(operationNames)
 
 describeGate('capability gate (H2) — default-deny is enforced per the op→capability map', () => {
   it('the grant leaves exactly one op fully covered (health) — the rest must be denied', () => {
@@ -76,6 +105,26 @@ describeGate('capability gate (H2) — default-deny is enforced per the op→cap
   for (const operation of operationNames) {
     const required = spec.operations[operation].capabilities
     const fullyGranted = required.every((c) => GRANTED.includes(c))
+
+    if (isExternalDaemon && !registeredOps.has(operation)) {
+      it(`${operation} — unregistered externally (outside SWIFT_G1_VERIFIABLE_OPS): must be exactly not_found`, async () => {
+        const payload = validPayloads(spec.operations[operation].params, genCtx)[0]
+        const params = withSessionOverride(operation, genCtx, payload.params)
+        const response = await callOperation({ socketPath: endpoint.socketPath, operation, params })
+
+        const envelope = apiResponseEnvelopeSchema.parse(response.body)
+
+        expect(envelope.ok, `${operation} is unregistered externally — must never succeed`).toBe(false)
+        if (!envelope.ok) {
+          expect(
+            envelope.error.code,
+            `${operation} is unregistered externally — must be EXACTLY not_found (never capability_denied ` +
+              'or any other code), proving the op is unreachable rather than reachable-but-denied',
+          ).toBe('not_found')
+        }
+      }, 30_000)
+      continue
+    }
 
     it(`${operation} (needs ${required.join(', ')}) is ${fullyGranted ? 'ALLOWED' : 'capability_denied'}`, async () => {
       const payload = validPayloads(spec.operations[operation].params, genCtx)[0]

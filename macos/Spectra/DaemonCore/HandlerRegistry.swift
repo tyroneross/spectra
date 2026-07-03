@@ -23,6 +23,17 @@ final class DaemonContext: @unchecked Sendable {
     // (the external-daemon analog of the in-process fixture — see
     // docs/plans/m3-external-daemon-seeding.md Tier-2 option A).
     let conformanceSeedEnabled = ProcessInfo.processInfo.environment["SPECTRA_CONFORMANCE_SEED"] == "1"
+
+    init() {
+        // Capability-enforcement boot gate (M3.G1 flip, S2): force
+        // CapabilityPolicy's lazy `shared` singleton to initialize NOW, during
+        // daemon boot (main.swift constructs DaemonContext before the socket
+        // starts accepting connections) — so a malformed
+        // SPECTRA_CONFORMANCE_UNIX_CAPS value fails the process closed at
+        // start time (clear stderr, nonzero exit) rather than lazily on the
+        // first request. See CapabilityPolicy.swift.
+        CapabilityPolicy.validateAtBoot()
+    }
 }
 
 /// A handler: params (raw JSON value or nil) → JSON-serializable result, or throws.
@@ -32,6 +43,13 @@ struct OperationEntry {
     let handler: Handler
     let requiredCapabilities: [Capability]
 }
+
+// Capability enforcement (M3.G1 flip, S2) happens at the DISPATCH call site
+// (S1's Router.swift), not inside this registry: `entry(for:)` returns
+// `requiredCapabilities`, and the caller does
+// `try CapabilityPolicy.shared.assert(entry.requiredCapabilities, operation:
+// operation)` BEFORE invoking `entry.handler` — mirroring src/daemon/security.ts's
+// assertCapabilities-before-params order. See CapabilityPolicy.swift.
 
 /// The op→handler table. Registering an op here makes it routable. The set of
 /// registered ops IS the milestone surface: G1 registers the 11 control-plane ops;

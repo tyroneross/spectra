@@ -17,7 +17,7 @@
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -192,6 +192,28 @@ function waitForReadyLine(
     child.stderr.on('data', onStderr)
     child.once('exit', onExit)
   })
+}
+
+/**
+ * M3.G1 flip (S4, additive) — asserts a unix socket's stat mode is exactly
+ * 0600 (owner rw, no group/other access), the peer-credential security
+ * boundary both the TS daemon (`server.ts`'s `chmod(socketPath, 0o600)`) and
+ * the Swift front door are required to uphold. Used by
+ * `tests/conformance/lib/front-door.ts`'s proxy-mode harness to assert the
+ * BACKEND socket (the harness's own seeded TS daemon, X) is 0600 as part of
+ * harness boot (T-02's acceptance criterion) — this is a verification-only
+ * helper, it does not change how any socket is created or chmod'd. Throws a
+ * plain `Error` (not a `DaemonError`/`DaemonApiError`) since this runs in the
+ * test-harness process, never on a request path.
+ */
+export function assertSocketMode0600(socketPath: string): void {
+  const mode = statSync(socketPath).mode & 0o777
+  if (mode !== 0o600) {
+    throw new Error(
+      `Expected unix socket ${socketPath} to be mode 0600 (peer-credential security ` +
+        `boundary), got ${mode.toString(8).padStart(3, '0')}`,
+    )
+  }
 }
 
 /** Defense-in-depth on top of daemon-runner.ts's own driver.disconnect()

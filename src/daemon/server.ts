@@ -603,7 +603,24 @@ function isMainModule(): boolean {
 }
 
 if (isMainModule()) {
-  startDaemonServer().then((running) => {
+  // M3.G1 flip (S4, P3 PIN): SPECTRA_DAEMON_LISTEN_SOCKET is read ONLY here,
+  // at the main-entry callsite — never inside startDaemonServer() itself,
+  // whose `options.socketPath` contract the conformance harness
+  // (tests/conformance/lib/daemon-runner.ts:141) already depends on for its
+  // own, unrelated reasons. This is the dual-LaunchAgent topology's TS-backend
+  // listen-path override (docs/plans/m3-g1-flip-plan.md §Env Contract):
+  // `dev.spectra.daemon-ts` boots the SAME compiled entry point as today, on a
+  // SECONDARY socket, with this var pointed at
+  // `~/.spectra/daemon-ts.sock` (S5's plist). Unset (every environment today,
+  // and the primary `dev.spectra.daemon` LaunchAgent even post-flip), behavior
+  // is BYTE-IDENTICAL to before this change: `startDaemonServer()` is called
+  // with no socketPath override, so it resolves the frozen primary socket
+  // exactly as it always has.
+  const listenSocketOverride = process.env.SPECTRA_DAEMON_LISTEN_SOCKET
+  const mainEntryOptions: DaemonServerOptions = listenSocketOverride
+    ? { socketPath: listenSocketOverride }
+    : {}
+  startDaemonServer(mainEntryOptions).then((running) => {
     process.once('SIGINT', () => {
       running.close().finally(() => process.exit(0))
     })

@@ -37,7 +37,10 @@ enum ApiErrorCode: String {
 
 /// Capabilities (src/contract/wire.ts Capability). Single-user unix socket grants
 /// all by default (peer-credential auth via mode 0600), matching the TS daemon.
-enum Capability: String {
+/// CaseIterable (added for CapabilityPolicy.swift, M3.G1 flip S2) enumerates the
+/// full vocabulary for the default all-grant set — purely additive, no case
+/// renamed/retyped (P1 pin).
+enum Capability: String, CaseIterable {
     case daemonRead = "daemon:read"
     case permissionsRead = "permissions:read"
     case permissionsRequest = "permissions:request"

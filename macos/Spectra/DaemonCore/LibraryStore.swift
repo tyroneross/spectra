@@ -110,16 +110,10 @@ func jsonInt(_ v: Any?) -> Int? {
     return nil
 }
 
-/// Resolves the daemon storage root: SPECTRA_HOME env, else HOME env, else
-/// NSHomeDirectory(), + "/.spectra". Matches the conformance oracle's
-/// storage-isolation contract (tests/conformance/lib/daemon-endpoint.ts sets
-/// HOME to an isolated tmp dir and SPECTRA_HOME defensively to the same).
-func resolveStorageRoot() -> String {
-    let env = ProcessInfo.processInfo.environment
-    if let spectraHome = env["SPECTRA_HOME"], !spectraHome.isEmpty { return spectraHome }
-    let home = env["HOME"] ?? NSHomeDirectory()
-    return (home as NSString).appendingPathComponent(".spectra")
-}
+// Storage-root resolution (resolveStorageRoot(), the TS-parity cwd-marker
+// walk, and getStoragePath()) now lives in StoragePath.swift (M3.G1 S3) —
+// moved out of this file so the walk logic is shared/testable on its own;
+// the call site below (`storageRoot ?? resolveStorageRoot()`) is unchanged.
 
 final class LibraryStore: @unchecked Sendable {
     private let lock = NSLock()

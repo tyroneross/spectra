@@ -1,0 +1,15 @@
+Gate D#2 — MANUAL CapabilityPolicy-removal mutation (T-04 capability gate)
+Executed 2026-07-03 by Opus integrator per Fable group-verdict GV-4(a).
+
+Mutation: commented out `try CapabilityPolicy.shared.assert(entry.requiredCapabilities, operation: operation)`
+at macos/Spectra/DaemonCore/SocketServer.swift:195 (native dispatch path).
+Recipe: Swift daemon booted restricted (SPECTRA_CONFORMANCE_UNIX_CAPS=["daemon:read"], all-11-native routing,
+SPECTRA_STANDALONE_SESSION_OPS=1); tests/conformance/capability-gate.test.ts run external
+(SPECTRA_CONFORMANCE_EXTERNAL_CAPS_HONORED=1, SEED_SESSION=conformance-seed).
+
+RED  (mutated, assert removed):  capability-gate.test.ts = 10 failed / 21 passed
+     — under daemon:read-only caps, native ops that must be capability_denied returned 200 (gate not enforced).
+GREEN (assert restored):         capability-gate.test.ts = all 31 passed (see run below).
+
+Conclusion: the capability gate is load-bearing, not decorative — removing the single assert call
+flips T-04 red; restoring it flips green. Mutation reverted; SocketServer.swift is back to HEAD state.

@@ -15,8 +15,57 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
 import type { BootstrapFn, DaemonClient } from './daemon-client.js'
 import { resolveBundleHelpersDir } from '../native/compiler.js'
+
+// ─── §G3 bootstrap rogue-spawn guard (M3.G1 flip, Q-01 APPROVED option (b),
+// docs/plans/m3-g1-flip-plan.md) ────────────────────────────────────────────
+//
+// Post-flip, `dev.spectra.daemon` (the Swift front door) owns the PRIMARY
+// socket and a SECOND LaunchAgent, `dev.spectra.daemon-ts`, runs the TS
+// daemon on a secondary socket as the front door's proxy backend
+// (`SPECTRA_DAEMON_LISTEN_SOCKET` — see src/daemon/server.ts's main-entry
+// callsite). If this client's own auto-bootstrap fired during a crash/boot/
+// rollback window in that topology, it would spawn ANOTHER TS daemon main
+// entry with no listen-socket override, binding the PRIMARY socket — fighting
+// the launchd-KeepAlive'd front door, silently un-flipping the topology, and
+// giving `library`'s index.json a second writer (a data-integrity hazard).
+//
+// Detection is the presence of the `dev.spectra.daemon-ts` LaunchAgent plist
+// — unique to the flip topology. The front-door label `dev.spectra.daemon`
+// predates the flip and does NOT discriminate (a pre-flip machine already has
+// that plist), so it is deliberately NOT the signal checked here.
+
+const FLIP_TOPOLOGY_PLIST_LABEL = 'dev.spectra.daemon-ts'
+
+/** Resolves the on-disk path of the `dev.spectra.daemon-ts` LaunchAgent plist
+ * — mirrors `LaunchAgentManager.swift`'s own plist path convention
+ * (`~/Library/LaunchAgents/<label>.plist`) without importing Swift code (this
+ * is a plain filesystem check from the TS client side). `homeDir` defaults to
+ * the real `os.homedir()`; the only caller that overrides it is a regression
+ * test (T-10), never production code. */
+export function resolveFlipTopologyPlistPath(homeDir: string = homedir()): string {
+  return join(homeDir, 'Library', 'LaunchAgents', `${FLIP_TOPOLOGY_PLIST_LABEL}.plist`)
+}
+
+/** True when the M3.G1 flip topology (S5's dual-LaunchAgent install) is
+ * present on this machine — i.e. `dev.spectra.daemon-ts` was installed by
+ * `flip-g1.sh`/`LaunchAgentManager`. Exported (additive) so a regression test
+ * can assert both branches without touching the real
+ * `~/Library/LaunchAgents`. */
+export function isFlipTopologyInstalled(homeDir?: string): boolean {
+  return existsSync(resolveFlipTopologyPlistPath(homeDir))
+}
+
+const FLIP_TOPOLOGY_DECLINE_MESSAGE =
+  '[spectra] daemon is launchd-managed under the M3.G1 flip topology ' +
+  '(dev.spectra.daemon-ts is installed) — refusing to self-spawn a second TS ' +
+  'daemon onto the primary socket (this would fight the launchd-managed front ' +
+  'door and risk a second writer to the library index). Run ' +
+  '`launchctl kickstart -k gui/$UID/dev.spectra.daemon` to restart the front ' +
+  'door, or `launchctl kickstart -k gui/$UID/dev.spectra.daemon-ts` to restart ' +
+  'the TS backend.\n'
 
 /** Resolve the compiled BE daemon entry (dist/daemon/server.js) from this module. */
 export function resolveDaemonEntry(): string {
@@ -50,6 +99,11 @@ export interface BootstrapOptions {
   readyTimeoutMs?: number
   /** Poll interval. Default 250ms. */
   pollIntervalMs?: number
+  /** §G3 guard test-only override: the home directory the guard checks for
+   * `Library/LaunchAgents/dev.spectra.daemon-ts.plist`. Defaults to the real
+   * `os.homedir()`. Never set by production code — only by the T-10
+   * regression harness (macos/Spectra/DaemonCore/verify-flip-suite.ts). */
+  flipGuardHomeDir?: string
 }
 
 /**
@@ -63,6 +117,20 @@ export function spawnDaemonBootstrap(client: DaemonClient, opts: BootstrapOption
   const pollIntervalMs = opts.pollIntervalMs ?? 250
 
   return async function bootstrap(): Promise<boolean> {
+    // §G3 guard (Q-01 APPROVED option (b)): decline to self-spawn a second TS
+    // daemon onto the primary socket while the flip topology is installed.
+    // Returns `false` — NEVER throws — so `DaemonClient.failOpenRetry`'s
+    // existing `if (ok && (await this.isUp()))` short-circuit
+    // (src/client/daemon-client.ts, UNOWNED/unedited) falls straight through
+    // to its own actionable `daemon_down` DaemonError with zero changes
+    // needed there. Checked FIRST, before the existing `daemonEntry`
+    // existence check, so the decline message is never masked by an
+    // unrelated "entry not found" early-return.
+    if (isFlipTopologyInstalled(opts.flipGuardHomeDir)) {
+      process.stderr.write(FLIP_TOPOLOGY_DECLINE_MESSAGE)
+      return false
+    }
+
     if (!existsSync(daemonEntry)) return false
     try {
       const embeddedLauncher = resolveEmbeddedDaemonLauncher()

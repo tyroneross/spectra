@@ -1,0 +1,447 @@
+{
+  "getRecording (bogus id) — tunnel smoke": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "act": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": [
+      {
+        "path": "result.snapshot",
+        "class": "embedded-content",
+        "mode": "class-pattern"
+      }
+    ]
+  },
+  "analyze": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "autoRampDemo": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "computerUse": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "createSession": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "error.message",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "error.message",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "demo": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "discover": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "getPermissions": {
+    "mode": "native-fingerprint",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "getRecording": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.recording.updatedAt",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.recording.updatedAt",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "getRun": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "getSession": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "health": {
+    "mode": "native-fingerprint",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "library": {
+    "mode": "native-fingerprint",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "listSessions": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "listWindows": {
+    "mode": "native-fingerprint",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "llmStep": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.finalSnapshot",
+      "result.results[0].durationMs",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.finalSnapshot",
+      "result.results[0].durationMs",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": [
+      {
+        "path": "result.finalSnapshot",
+        "class": "embedded-content",
+        "mode": "class-pattern"
+      },
+      {
+        "path": "result.results[0].durationMs",
+        "class": "duration",
+        "mode": "class-pattern"
+      }
+    ]
+  },
+  "observe": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": [
+      {
+        "path": "result.snapshot",
+        "class": "embedded-content",
+        "mode": "class-pattern"
+      }
+    ]
+  },
+  "recordComposite": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.recordingId",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.recordingId",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "recordLlmUsage": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.entries",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.entries",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "recordTerminal": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.castFile",
+      "result.duration",
+      "result.timeline[0].time",
+      "result.timeline[1].event",
+      "result.timeline[1].time",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.castFile",
+      "result.duration",
+      "timestamp"
+    ],
+    "structural": [
+      {
+        "path": "result.timeline",
+        "class": "generated-recording-content",
+        "mode": "structural"
+      }
+    ],
+    "classPattern": []
+  },
+  "replayTerminal": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "requestPermissions": {
+    "mode": "native-fingerprint",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "screenshot": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.path",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.path",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "snapshot": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": [
+      {
+        "path": "result.snapshot",
+        "class": "embedded-content",
+        "mode": "class-pattern"
+      }
+    ]
+  },
+  "startRecording": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "step": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.snapshot",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": [
+      {
+        "path": "result.snapshot",
+        "class": "embedded-content",
+        "mode": "class-pattern"
+      }
+    ]
+  },
+  "stopRecording": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "walkthrough": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "result.duration_ms",
+      "result.results[0].screenshotPath",
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "result.duration_ms",
+      "result.results[0].screenshotPath",
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": [
+      {
+        "path": "result.duration_ms",
+        "class": "duration",
+        "mode": "class-pattern"
+      },
+      {
+        "path": "result.results[0].screenshotPath",
+        "class": "temp-path",
+        "mode": "class-pattern"
+      }
+    ]
+  },
+  "closeSession": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "closeAllSessions": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  },
+  "T-07 oversized body (>MAX_JSON_BYTES)": {
+    "mode": "wire-edge",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "T-07 unknown param key": {
+    "mode": "wire-edge",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "T-07 bad apiVersion": {
+    "mode": "wire-edge",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "T-07 missing requestId": {
+    "mode": "wire-edge",
+    "calibratedVolatilePaths": [],
+    "appliedMaskPaths": [],
+    "structural": [],
+    "classPattern": []
+  },
+  "unknown-route probe": {
+    "mode": "proxied-byte-equal",
+    "calibratedVolatilePaths": [
+      "timestamp"
+    ],
+    "appliedMaskPaths": [
+      "timestamp"
+    ],
+    "structural": [],
+    "classPattern": []
+  }
+}
