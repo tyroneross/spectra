@@ -1,6 +1,8 @@
 # Native-Swift migration — RESUME (start here in a fresh session)
 
-_Last worked: 2026-07-01. Full plan: `docs/plans/native-swift-migration.md`. Model org: Fable = assess/judge/critic, Opus = orchestrate, Sonnet = execute, cheap/Haiku = mechanical. Track dispatches in `.build-loop/measurements/`._
+_Last worked: 2026-07-02. Full plan: `docs/plans/native-swift-migration.md`. Model org: Fable = assess/judge/critic, Opus = orchestrate, Sonnet = execute, cheap/Haiku = mechanical. Track dispatches in `.build-loop/measurements/`._
+
+**⏩ PICK UP HERE (2026-07-02):** M2B + all oracle hardening + **M3.G1 are DONE and pushed** (`main` @ `895284c`, clean tree). The Swift daemon-core (`macos/Spectra/DaemonCore/`) serves all 11 G1 control-plane ops, **verified green by the real M2B oracle external-mode** (22 passed / 0 failed) + mutation-proven + Fable-gated PASS-WITH-FINDINGS (flip-safe). **Your open decision** (I recommended G2): (a) routing-flip G1 to Swift in `LaunchAgentManager.swift`, (b) clear the 3 pre-flip backlog items first, or (c) **start G2** (14 capture/AX ops in Swift — critical-path bulk, verifiable now without Codex's M4/M5, which are still idle). The repeatable pattern is proven: MECE parallel subagents → `verify-g1-suite.ts`/real-oracle → Fable group verdict. To verify G1 vs Swift in a fresh session: `swiftc macos/Spectra/DaemonCore/*.swift -o /tmp/d && npx tsx macos/Spectra/DaemonCore/verify-g1-suite.ts`. See the "▶ M3.G1" section below for full detail + the pre-flip backlog.
 
 ## ⚠️ MANDATORY guardrails in EVERY subagent dispatch
 1. **Never delete a dir/file you didn't create** — no `rm`/`rmSync` of non-owned paths. A subagent rmSync'd the repo's real `.spectra/` (226 sessions/50 recordings/productions) thinking it was junk — unrecoverable. `.spectra/` is PROTECTED real data.
