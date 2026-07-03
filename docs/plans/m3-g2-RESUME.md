@@ -1,5 +1,16 @@
 # ⏩ M3.G2 — PICK UP HERE (handoff, 2026-07-03)
 
+> **⚠️ SUPERSEDED (2026-07-03T~21:30) — INTEGRATION DONE + HEADLESS-GREEN + COMMITTED @ `660513d` (pushed).**
+> The integration TO-DO below (steps 1–5) is COMPLETE: full-module compile clean, both known
+> blockers fixed, and the headless gate is FULLY GREEN (V-A + V-B ×3, incl. the G1 31/31 arm).
+> Two Fable rulings adjudicated the convict-and-iterate arc — see
+> `docs/plans/m3-g2-vb-advisor-ruling.md` + `-2.md`. G2 routes still PROXY to TS (NOT flipped).
+> **Remaining (belongs to a USER-PRESENT session):** (6) T-26 + Gate D#2 manual capability-mutation
+> gates; (7) **V-C on-device gate — USER PRESENT** (`verify-g2-ondevice.sh`, TCC spike under launchd);
+> (8) Gate E2 soak + rollback drill; (9) C11 corpus-baseline refresh; (10) route flip.
+> Canonical status: `build-loop-memory/projects/spectra/status/CURRENT.md`. Re-verify headless:
+> `node_modules/.bin/tsx macos/Spectra/DaemonCore/verify-g2-suite.ts`.
+
 **Read this first, then `docs/plans/m3-g2-plan.md` (rev 2) + `.handoff.md`.**
 
 ## Where G1 stands (done — context)
