@@ -1,284 +1,458 @@
 [
   {
+    "test": "conformance oracle — socket-level contract conformance (all 30 ops) operation: createSession valid payloads produce a spec-conformant envelope + result/error shape",
+    "directStatus": "passed",
+    "proxyStatus": "passed",
+    "class": "real-chrome-stateful"
+  },
+  {
+    "test": "conformance oracle — socket-level contract conformance (all 30 ops) operation: createSession malformed (missing-required-field) payloads never escape the declared error taxonomy",
+    "directStatus": "passed",
+    "proxyStatus": "passed",
+    "class": "real-chrome-stateful"
+  },
+  {
     "test": "conformance oracle — socket-level contract conformance (all 30 ops) D1 guard: every succeedable op exercised its success (ok:true) path",
     "directStatus": "failed",
     "proxyStatus": "failed",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon act [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon act [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon act [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon act [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon analyze [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon analyze [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon analyze [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon analyze [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon autoRampDemo [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon autoRampDemo [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon computerUse [arm:snapshot/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon computerUse [arm:act/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon computerUse [arm:fill-form/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon computerUse [arm:snapshot/full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
     "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon createSession [minimal] — replays to a spec-valid envelope with matching ok-ness (byte-diff N/A: real-Chrome/stateful)",
     "directStatus": "failed",
     "proxyStatus": "failed",
+    "class": "real-chrome-stateful"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon createSession [full] — replays to a spec-valid envelope with matching ok-ness (byte-diff N/A: real-Chrome/stateful)",
+    "directStatus": "passed",
+    "proxyStatus": "passed",
+    "class": "real-chrome-stateful"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:scan/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon discover [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:polish/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon discover [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:auto-ramp/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getPermissions [minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:record-composite/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:polish-clip/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:polish-script/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:run-script/minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon demo [arm:scan/full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon discover [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon discover [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getPermissions [minimal] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getPermissions [full] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getPermissions [full] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRecording [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRecording [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRecording [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRecording [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRun [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRun [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRun [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getRun [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getSession [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getSession [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getSession [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon getSession [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon health [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon health [minimal] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
+    "directStatus": "failed",
+    "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon health [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon health [full] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
+    "directStatus": "failed",
+    "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:add/minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:add/minimal] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:find/minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:find/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:find/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:gallery/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:gallery/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:get/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:get/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:tag/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:tag/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:delete/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:delete/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:status/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:status/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:export/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:export/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:migrate-from-showcase/minimal] — regenerated request matches the recorded normalized response — SKIPPED: no Swift-recorded corpus entry for payloadLabel \"arm:migrate-from-showcase/minimal\" in swift-native-corpus.json (only 2 representative arms are recorded per native op — see record-corpus.ts)",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "native-route-corpus-basis"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:add/full] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:gallery/minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon listWindows [minimal] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:get/minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon listWindows [full] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:tag/minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon llmStep [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon llmStep [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon observe [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon observe [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon recordComposite [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon recordComposite [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon recordLlmUsage [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon recordLlmUsage [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon recordTerminal [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon recordTerminal [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon replayTerminal [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon replayTerminal [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
+    "class": "backend-capability"
+  },
+  {
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon requestPermissions [minimal] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:delete/minimal] — regenerated request matches the recorded normalized response",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon requestPermissions [full] — regenerated request matches the Swift-recorded native corpus (swift-native-corpus.json)",
     "directStatus": "passed",
     "proxyStatus": "passed",
     "class": "native-route-corpus-basis"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:status/minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "passed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:export/minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "passed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:migrate-from-showcase/minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "failed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon library [arm:add/full] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "passed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon listWindows [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "failed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon listWindows [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "passed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon llmStep [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon screenshot [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon llmStep [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon screenshot [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon observe [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon snapshot [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon observe [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon snapshot [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon requestPermissions [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "passed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon requestPermissions [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "passed",
-    "proxyStatus": "passed",
-    "class": "native-route-corpus-basis"
-  },
-  {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon screenshot [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon startRecording [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon screenshot [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon startRecording [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon snapshot [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon step [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon snapshot [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon step [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon startRecording [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon stopRecording [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon startRecording [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon stopRecording [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon step [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon walkthrough [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon step [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon walkthrough [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon stopRecording [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon closeSession [minimal] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon walkthrough [minimal] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon closeSession [full] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   },
   {
-    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon walkthrough [full] — regenerated request matches the recorded normalized response",
-    "directStatus": "failed",
-    "proxyStatus": "failed",
+    "test": "dual-run corpus diff — replaying the recorded corpus against a live daemon closeAllSessions [void] — regenerated request matches the recorded normalized response — SKIPPED: external Swift daemon — golden-corpus.json is TS-recorded, not a valid byte-diff basis for any op it did not itself serve; see swift-native-corpus.json for the 5 ops that have a Swift-recorded baseline",
+    "directStatus": "skipped",
+    "proxyStatus": "skipped",
     "class": "backend-capability"
   }
 ]

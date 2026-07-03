@@ -248,7 +248,6 @@
       "result.castFile",
       "result.duration",
       "result.timeline[0].time",
-      "result.timeline[1].event",
       "result.timeline[1].time",
       "timestamp"
     ],

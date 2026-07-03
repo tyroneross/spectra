@@ -24,6 +24,29 @@ final class DaemonContext: @unchecked Sendable {
     // docs/plans/m3-external-daemon-seeding.md Tier-2 option A).
     let conformanceSeedEnabled = ProcessInfo.processInfo.environment["SPECTRA_CONFORMANCE_SEED"] == "1"
 
+    // M3.G2 (W0 §3, frozen field names — DriverProtocol.swift): the driver
+    // registry is a W0-frozen CONCRETE type, inline-initialized exactly like
+    // `sessions`/`library` above — no external wiring step needed. `driver`
+    // access for session-scoped ops is `ctx.driverRegistry.get(sessionId)`
+    // (S2/S3/S4's op handlers); populated by S1's ConnectOps on a successful
+    // native/`fake:` createSession.
+    let driverRegistry = DriverRegistry()
+
+    // M3.G2 (W0 §3/§6b, frozen field name): starts nil, assigned EXACTLY ONCE
+    // at boot by main.swift — `context.recordingOwnership =
+    // registerCaptureRecordingOps(registry)` — strictly before
+    // `server.start(...)`. A route decision that reads this field while it is
+    // still nil (a wiring-order bug) MUST treat that as `ownsRecording ==
+    // false` (route: tunnel) — see Router.resolveAffinity's `?? false`, never
+    // a force-unwrap on the dispatch path.
+    var recordingOwnership: RecordingOwnership?
+
+    // SessionStore access for store-presence routing (D-02): `ctx.sessions`
+    // already exists (G1, unchanged) and S1 adds `SessionPresenceQuerying`
+    // conformance (`contains(_:) -> Bool`) directly to SessionStore — no new
+    // DaemonContext field is needed for that; Router reads
+    // `ctx.sessions.contains(sessionId)` straight off the existing field.
+
     init() {
         // Capability-enforcement boot gate (M3.G1 flip, S2): force
         // CapabilityPolicy's lazy `shared` singleton to initialize NOW, during

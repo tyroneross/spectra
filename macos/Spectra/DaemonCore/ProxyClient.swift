@@ -227,6 +227,94 @@ enum ProxyClient {
         return Int(digits)
     }
 
+    // ─── body-capturing round trip (M3.G2, D-03) ──────────────────────────────
+    // Store-presence routing (ADR-04 rev-2) killed the rev-1 need to parse a
+    // tunneled createSession response for ownership — but merge (listSessions)
+    // and fanout (closeAllSessions) genuinely need the backend's PARSED result
+    // to combine with the native leg (m3-g2-plan.md dispatch-plane consequence
+    // (d)). This is a SEPARATE code path from `tunnel()` above: `tunnel()`
+    // remains the client-streaming byte-tunnel (unmodified — every G1
+    // keep-alive/SSE fix above is untouched); `tunnelCapturing` never writes to
+    // a client fd at all, it performs its own request/response round trip
+    // purely so SocketServer's merge/fanout dispatch can read the backend's
+    // JSON result.
+
+    /// The parsed result of a body-captured backend round trip.
+    struct CapturedResponse {
+        /// HTTP status line, read-only peek (same best-effort parse as
+        /// `tunnel()`'s returned status) — `nil` if undeterminable.
+        let status: Int?
+        /// The full decoded top-level envelope (`{apiVersion, ok, result,
+        /// ...}` or `{apiVersion, ok:false, error, ...}`), or `nil` if the
+        /// response body wasn't valid JSON. Callers read `envelope?["result"]`
+        /// / `envelope?["ok"]` themselves — this type does not assume success.
+        let envelope: [String: Any]?
+    }
+
+    /// Replays `requestBytes` VERBATIM to the backend (byte-faithful — T-27's
+    /// "prove the captured leg byte-faithful" arm: merge/fanout forward the
+    /// client's own captured request bytes unmodified, exactly like `tunnel()`
+    /// does, the only difference being that the response is parsed and
+    /// returned to the CALLER instead of streamed to a client fd) and returns
+    /// the parsed envelope. Never throws on a malformed/absent response body —
+    /// degrades to `envelope: nil` (graceful degradation: merge/fanout treat a
+    /// backend hiccup as "this leg contributed nothing", never a hard failure
+    /// of the whole op, since the native leg already succeeded independently).
+    /// Only a genuine transport failure (can't even connect) throws
+    /// `ProxyError.backendUnreachable`, same taxonomy as `tunnel()`/`shadowCall()`.
+    static func tunnelCapturing(requestBytes: Data, backendSocketPath: String) throws -> CapturedResponse {
+        let backendFD = try connectBackend(backendSocketPath)
+        defer { close(backendFD) }
+
+        try writeAll(backendFD, requestBytes)
+
+        var response = Data()
+        var chunk = [UInt8](repeating: 0, count: 32 * 1024)
+        while true {
+            let n = read(backendFD, &chunk, chunk.count)
+            if n <= 0 {
+                if n < 0 && errno == EINTR { continue }
+                break
+            }
+            response.append(contentsOf: chunk[0..<n])
+            if response.count > Wire.maxBodyBytes { break }
+        }
+
+        guard let sep = rangeOf(Data("\r\n\r\n".utf8), in: response) else {
+            return CapturedResponse(status: nil, envelope: nil)
+        }
+        let headerBlock = response.subdata(in: 0..<sep.lowerBound)
+        let status = parseStatusLine(Array(headerBlock), count: headerBlock.count)
+        let jsonBody = response.subdata(in: sep.upperBound..<response.count)
+        let envelope = (try? JSONSerialization.jsonObject(with: jsonBody, options: [.fragmentsAllowed])) as? [String: Any]
+        return CapturedResponse(status: status, envelope: envelope)
+    }
+
+    /// Builds a synthetic, self-originated request (apiVersion 2, fresh
+    /// requestId) for a daemon-internal backend probe — e.g. fanout's
+    /// pre-close `listSessions` count snapshot (SocketServer.dispatchFanout).
+    /// Same category as `shadowCall`'s own envelope construction below: a
+    /// FRESH outgoing request Swift originates itself, never a re-serialization
+    /// of real client bytes, so this does not touch ADR-01's "no
+    /// re-serialization of client traffic" guarantee.
+    static func syntheticRequest(operation: String, params: [String: Any] = [:]) -> Data {
+        var envelope: [String: Any] = [
+            "apiVersion": Wire.apiVersion,
+            "requestId": "internal-\(UUID().uuidString)",
+        ]
+        if !params.isEmpty { envelope["params"] = params }
+        let body = (try? JSONSerialization.data(withJSONObject: envelope)) ?? Data("{}".utf8)
+
+        var head = "POST \(Wire.apiRoutePrefix)\(operation) HTTP/1.1\r\n"
+        head += "Host: spectra.local\r\n"
+        head += "Content-Type: application/json\r\n"
+        head += "Content-Length: \(body.count)\r\n"
+        head += "Connection: close\r\n\r\n"
+        var request = Data(head.utf8)
+        request.append(body)
+        return request
+    }
+
     // ─── dual-run shadow calls (D-02) ─────────────────────────────────────────
 
     /// A parsed (non-tunnel) round-trip to the backend for the SAME operation

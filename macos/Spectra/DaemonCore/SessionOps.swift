@@ -8,6 +8,14 @@
 // deterministic `conformance-seed` session so getSession/getRun can be
 // verified against a populated shape (see SessionStore.ensureConformanceSeed).
 //
+// M3.G2 (S1) addition: closeSession/closeAllSessions now ALSO tear down this
+// session's native Driver (if any) via `ctx.driverRegistry`, mirroring
+// src/mcp/tools/session.ts's 'close'/'close_all' actions (`driver.close()` +
+// `ctx.drivers.delete(id)` BEFORE `ctx.sessions.close(id)`). A driver-registry
+// miss is a normal case (proxied/web session, or a macOS `record:true`
+// session that never registered a driver in the first place — ConnectOps.swift)
+// — not an error condition this handler needs to special-case.
+//
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
@@ -43,6 +51,16 @@ func registerSessionOps(_ registry: HandlerRegistry) {
 
     registry.register("closeSession", capabilities: [.sessionsWrite]) { params, ctx in
         let sessionId = try requireSessionId(params)
+        // Driver teardown FIRST (mirrors handleSession's 'close' action
+        // ordering: `driver.close()` + registry removal happens before the
+        // session record itself is closed). `driver.close()` is the
+        // session-scoped teardown (never throws, per the frozen Driver
+        // contract) — NOT `disconnect()`, which would tear down shared
+        // underlying infra (e.g. NativeDriver's shared bridge process) other
+        // sessions may still be using.
+        if let driver = ctx.driverRegistry.remove(sessionId) {
+            driver.close()
+        }
         // Mirrors SessionManager.close: idempotent, no-op if already absent —
         // never throws not_found (matches handleSession's 'close' action).
         ctx.sessions.close(sessionId)
@@ -51,6 +69,19 @@ func registerSessionOps(_ registry: HandlerRegistry) {
     }
 
     registry.register("closeAllSessions", capabilities: [.sessionsWrite]) { _, ctx in
+        // Mirrors handleSession's 'close_all' action: tear down every
+        // currently-registered driver before closing the sessions
+        // themselves. DriverRegistry has no enumeration method (frozen,
+        // W0/DriverProtocol.swift) — so this walks SessionStore's own known
+        // ids (which this file already owns) and asks the registry to
+        // remove-if-present for each, rather than needing DriverRegistry to
+        // expose its internal table.
+        for summary in ctx.sessions.listSummaries() {
+            guard let sessionId = summary["id"] as? String else { continue }
+            if let driver = ctx.driverRegistry.remove(sessionId) {
+                driver.close()
+            }
+        }
         ctx.sessions.closeAll()
         // CloseAllSessionsResult = { success: true }.
         return ["success": true] as [String: Any]

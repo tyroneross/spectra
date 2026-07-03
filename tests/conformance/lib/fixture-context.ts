@@ -140,6 +140,34 @@ async function seedAct(socketPath: string, sessionId: string, elementId: string,
   }
 }
 
+// M3.G2 (S7) — read ONLY at module load (same rule as external-mode.ts's
+// `milestoneG2`/payload-generator.ts's `milestoneG2`): gates the `fake:`
+// target seeding path below. Default (unset) is byte-identical to the
+// pre-G2 Tier-1 seeding behavior (localWebFixtureUrl for every seeded
+// session) — this only changes what target string Tier-1 seeding calls
+// createSession with, never whether seeding happens.
+const milestoneG2 = process.env.SPECTRA_CONFORMANCE_MILESTONE === 'g2'
+
+// [ASSUMED name, reversible — docs/plans/m3-g2-plan.md §Env Contract],
+// mirrors payload-generator.ts's identically-named override so both harness
+// entry points agree on which `fake:` target string to seed against without
+// a second, independently-fragile default.
+const FAKE_TARGET_DEFAULT = 'fake:conformance-seed'
+function fakeSeedTarget(): string {
+  return process.env.SPECTRA_CONFORMANCE_FAKE_TARGET ?? FAKE_TARGET_DEFAULT
+}
+
+// M3.G2 Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 3) —
+// mirrors `fakeSeedTarget()`'s env-overridable-default pattern for the V-A
+// getRecording D1 guard: under the g2 milestone gate, the external daemon is
+// presumed to be a Swift daemon-core running with SPECTRA_CONFORMANCE_SEED=1
+// (same presumption `seedExternalSessions` already encodes below), which
+// (RecordingOps.swift:498) seeds a fixed `conformance-seed-recording` id.
+// The literal default MUST match that Swift-side literal verbatim.
+function seedRecordingId(): string {
+  return process.env.SPECTRA_CONFORMANCE_SEED_RECORDING ?? 'conformance-seed-recording'
+}
+
 /** Tier-1 wire seeding for an external daemon: a plain `web` session, and a
  * SECOND, dedicated `readonly` session seeded with 2 conformant `act` steps
  * (a bare click, then click-with-value) so getSession/getRun validate a real
@@ -149,19 +177,35 @@ async function seedAct(socketPath: string, sessionId: string, elementId: string,
  * grant deterministically; recordingId stays undefined for external daemons
  * (see GeneratorContext.recordingId doc comment) and startRecording/
  * getRecording/stopRecording are excluded from external-mode verification
- * (lib/external-mode.ts EXTERNAL_ONLY_SKIP_OPS). */
+ * (lib/external-mode.ts EXTERNAL_ONLY_SKIP_OPS).
+ *
+ * M3.G2 (S7, seed-gated — plan §Depends-on: "macos is not independently
+ * wire-seedable here (no native AX driver seam over the wire)" is a G1-only
+ * finding): under the g2 milestone gate, the external daemon is presumed to
+ * be a Swift daemon-core running with `SPECTRA_CONFORMANCE_SEED=1`, which
+ * (ADR-06) accepts a `fake:`-prefixed createSession target and serves it
+ * NATIVELY via FakeDriver — so Tier-1 seeding routes at that target instead
+ * of the web fixture URL, exercising Swift's own native createSession/
+ * DriverRegistry path rather than a CDP/web driver the standalone Swift G2
+ * daemon does not implement. Gate-off (default): unchanged
+ * `localWebFixtureUrl` seeding, byte-for-byte identical to before this
+ * branch existed. */
 async function seedExternalSessions(socketPath: string, localWebFixtureUrl: string): Promise<DaemonSessionIds> {
-  const web = await createExternalSession(socketPath, localWebFixtureUrl)
-  const readonly = await createExternalSession(socketPath, localWebFixtureUrl)
+  const seedTarget = milestoneG2 ? fakeSeedTarget() : localWebFixtureUrl
+  const web = await createExternalSession(socketPath, seedTarget)
+  const readonly = await createExternalSession(socketPath, seedTarget)
 
   const elementId = await findActionableElementId(socketPath, readonly, FAKE_ELEMENT_ID)
   await seedAct(socketPath, readonly, elementId)
   await seedAct(socketPath, readonly, elementId, 'seed-value')
 
-  // macos is not independently wire-seedable here (no native AX driver seam
-  // over the wire) and every op that would route to it (MACOS_SESSION_OPS —
-  // startRecording/stopRecording) is in EXTERNAL_ONLY_SKIP_OPS, so aliasing it
-  // to the web session (as the pre-Tier-1 collapse already did) is safe.
+  // macos is still aliased to the web session id here even under the g2
+  // gate: a `fake:` session's Driver conforms to W0's frozen protocol but
+  // (per DriverProtocol.swift's own doc comment) FakeDriver only ever
+  // produces platform `.web` — it is NOT a macos+appName session, so it
+  // cannot satisfy startRecording/stopRecording's real-capture guard
+  // (those stay error-taxonomy-only under V-A/external-mode regardless —
+  // MACOS_SESSION_OPS is unaffected by this gate).
   return { web, macos: web, readonly }
 }
 
@@ -213,7 +257,11 @@ export async function buildFixtureContext(
     macosSessionId: sessionIds.macos,
     readonlySessionId: sessionIds.readonly,
     elementId: FAKE_ELEMENT_ID,
-    recordingId: endpoint.recordingId,
+    // M3.G2 Advisor ruling 2, Item 3: gate on the `milestoneG2` module const
+    // (NOT `SPECTRA_CONFORMANCE_SEED` — a daemon-side env var not reliably
+    // present in THIS suite process's own env). Default-mode invariance:
+    // milestone unset -> byte-identical (`undefined`, as before this edit).
+    recordingId: endpoint.recordingId ?? (milestoneG2 ? seedRecordingId() : undefined),
     scratchDir,
     localWebFixtureUrl,
   }

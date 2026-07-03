@@ -580,6 +580,12 @@ async function gateBDiff(): Promise<boolean> {
         path: `/api/v1/${op}`,
         body,
         timeoutMs: 30_000,
+        // Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 1;
+        // evidence g2-chain3.log:1011 — `direct=500 proxy=200` on the SAME TS
+        // backend, a real-Chrome createSession launch flake, not a tunnel-
+        // fidelity bug): createSession ONLY, scope-pinned per this ruling's
+        // authorization. Every other op keeps the ordinary byte-diff.
+        ...(op === 'createSession' ? { okDivergenceClass: 'real-chrome-stateful' as const } : {}),
       })
       record(
         `Gate B-diff: ${result.op} [${modeSuffix(result)}] (direct ${result.directElapsedMs}ms / proxy ${result.proxyElapsedMs}ms)`,
@@ -731,6 +737,27 @@ function isRecordLlmUsageCorpusArm(testFullName: string): boolean {
   return testFullName.startsWith(`${CORPUS_ARM_PREFIX}recordLlmUsage [`)
 }
 
+// Advisor ruling 2 §Amendment 1 (docs/plans/m3-g2-vb-advisor-ruling-2.md;
+// g2-chain3.log:1011) — SECOND authorized scope-pinned gateBE2E amendment.
+// createSession launches a REAL headless Chrome per leg (~5s) against an
+// unreachable fixture URL; launch/nav is non-deterministic, so a leg can
+// split direct-pass/proxy-fail on a Chrome flake and false-RED B-e2e
+// (line ~900). Both conformance-arm and corpus-arm createSession rows are a
+// real-Chrome launch outcome, NOT an implementation-comparable basis — so
+// they enter the excluded set UNCONDITIONALLY (basis-exclusion, same argument
+// as GV-1's native-route-corpus-basis; GV-2 order-swap NOT triggered). The
+// surviving floor lives elsewhere: B-diff fingerprint + T-24 target-split
+// arms (routing), 29 other proxied-op byte-diffs + matched-okness createSession
+// diff (tunnel fidelity), V-A (shape).
+const CONFORMANCE_ARM_CREATESESSION_PREFIX =
+  'conformance oracle — socket-level contract conformance (all 30 ops) operation: createSession '
+function isRealChromeCreateSessionRow(testFullName: string): boolean {
+  return (
+    testFullName.startsWith(`${CORPUS_ARM_PREFIX}createSession [`) ||
+    testFullName.startsWith(CONFORMANCE_ARM_CREATESESSION_PREFIX)
+  )
+}
+
 // ─── GV-2 (Fable rev 3.4) — recordLlmUsage leg-order-swap falsifier ────────
 //
 // Both B-e2e legs (direct + proxy) run against the SAME shared backend (the
@@ -879,6 +906,13 @@ async function gateBE2E(): Promise<void> {
       const nativeCorpusOp = corpusArmNativeOp(name)
       if (nativeCorpusOp !== undefined) {
         excludedSet.push({ test: name, directStatus: d, proxyStatus: p, class: 'native-route-corpus-basis' })
+        continue
+      }
+
+      // Advisor ruling 2 §Amendment 1: createSession (real-Chrome/stateful) —
+      // excluded UNCONDITIONALLY, both arms, regardless of pass/fail outcome.
+      if (isRealChromeCreateSessionRow(name)) {
+        excludedSet.push({ test: name, directStatus: d, proxyStatus: p, class: 'real-chrome-stateful' })
         continue
       }
 

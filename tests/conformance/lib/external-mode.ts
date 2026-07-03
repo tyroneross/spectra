@@ -40,6 +40,31 @@
 // STRICTER default, never weaker: proxy-fidelity mode only ever ADDS
 // coverage relative to the unset case.
 //
+// M3.G2 (S7, env-gated, additive — plan §Verification design, V-A):
+// `SPECTRA_CONFORMANCE_MILESTONE` [ASSUMED name, reversible] is read ONLY at
+// module load, same widen-only pattern as `SPECTRA_CONFORMANCE_PROXY_FIDELITY`
+// above. When set to the literal string `"g2"`, `SWIFT_G1_VERIFIABLE_OPS`
+// resolves to `SWIFT_G2_VERIFIABLE` (the G1 control-plane set UNION the 13
+// headless-verifiable G2 ops — see that export's doc comment) instead of the
+// historical G1-only set. **Pin P4 (SG-2/SG-5): the export NAME and the
+// derived-skip-set semantics (`EXTERNAL_ONLY_SKIP_OPS`, `externalSkipReason`)
+// are UNCHANGED** — every one of the 4 allowlist-importer test files
+// (conformance.test.ts, capability-gate.test.ts, external-mode.test.ts,
+// corpus/corpus.test.ts) keeps importing exactly `SWIFT_G1_VERIFIABLE_OPS` /
+// `externalSkipReason` and needs ZERO edits; they simply observe a wider set
+// when the caller (macos/Spectra/DaemonCore/verify-g2-suite.ts, this
+// milestone's V-A runner) sets the env var before spawning them. Unset
+// (every other caller, including every existing G1 gate and `npm test`),
+// this is a no-op: `SWIFT_G1_VERIFIABLE_OPS` is byte-identical to the
+// historical G1-only allowlist — verified by `git diff` showing zero changes
+// to the 4 importer files (Q-criterion, "Importer-file freeze"). Precedence:
+// `SPECTRA_CONFORMANCE_PROXY_FIDELITY=1` still wins over this flag if both
+// are ever set (full op set is a superset of the g2-widened set) — the two
+// flags are not expected to co-occur in practice (proxy-fidelity is a Gate-B
+// tunnel-fidelity concern; milestone is a standalone-daemon-capability
+// concern), but ordering the checks this way keeps the "only ever widens,
+// never narrows" invariant true regardless.
+//
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
@@ -83,14 +108,66 @@ function allOperationNames(): string[] {
  * use case. */
 const proxyFidelityMode = process.env.SPECTRA_CONFORMANCE_PROXY_FIDELITY === '1'
 
+/** M3.G2 (S7): read ONLY at module load (same rule as `proxyFidelityMode`
+ * above) — `"g2"` is the one recognized value today; anything else
+ * (including unset) leaves `SWIFT_G1_VERIFIABLE_OPS` at its historical G1
+ * value. */
+const milestoneG2 = process.env.SPECTRA_CONFORMANCE_MILESTONE === 'g2'
+
+/** M3.G2 (S7): the 13 additional operations the G2-milestone Swift daemon
+ * (ADR-06's FakeDriver seam + a real native `createSession`) can be verified
+ * against HEADLESSLY, per docs/plans/m3-g2-plan.md §Verification design (V-A):
+ * `createSession snapshot observe act step llmStep walkthrough analyze
+ * discover screenshot getRecording recordTerminal replayTerminal`.
+ * `startRecording`/`stopRecording`/`computerUse` are DELIBERATELY excluded —
+ * their SUCCESS path needs real ScreenCaptureKit/AX (V-C, on-device only);
+ * they still gain dedicated headless error-taxonomy coverage inside
+ * conformance.test.ts's own per-op cases, which is orthogonal to this
+ * allowlist (an op absent from this set is simply always skipped in
+ * external mode, never partially covered by it). */
+const SWIFT_G2_HEADLESS_OPS: ReadonlySet<string> = new Set([
+  'createSession',
+  'snapshot',
+  'observe',
+  'act',
+  'step',
+  'llmStep',
+  'walkthrough',
+  'analyze',
+  'discover',
+  'screenshot',
+  'getRecording',
+  'recordTerminal',
+  'replayTerminal',
+])
+
+/** M3.G2 (S7) — exported so `verify-g2-suite.ts` (V-A/V-B) can enumerate the
+ * milestone's own op set directly rather than re-deriving it from the env
+ * var a second, independently-fragile way. The G1 control-plane set UNION
+ * the 13 headless G2 ops above — this is what `SWIFT_G1_VERIFIABLE_OPS`
+ * resolves to when `SPECTRA_CONFORMANCE_MILESTONE=g2` (see below); it is a
+ * SEPARATE, additively-named export precisely so the pinned
+ * `SWIFT_G1_VERIFIABLE_OPS` name/semantics stay untouched (SG-5). */
+export const SWIFT_G2_VERIFIABLE: ReadonlySet<string> = new Set([
+  ...SWIFT_G1_CONTROL_PLANE_OPS,
+  ...SWIFT_G2_HEADLESS_OPS,
+])
+
 /** Every contract operation this harness will exercise against an external
  * daemon. Identical to the historical G1 control-plane allowlist UNLESS
- * `SPECTRA_CONFORMANCE_PROXY_FIDELITY=1`, in which case it is the full live
- * operation set (see the module doc comment — proxy-fidelity mode only ever
- * widens coverage, never narrows it). */
+ * `SPECTRA_CONFORMANCE_PROXY_FIDELITY=1` (full live operation set) or
+ * `SPECTRA_CONFORMANCE_MILESTONE=g2` (the `SWIFT_G2_VERIFIABLE` set above) —
+ * see the module doc comment for both flags. Both are widen-only relative to
+ * the unset default; proxy-fidelity takes precedence if both are ever set
+ * (its set is a superset of the g2-widened set). **Default (both env vars
+ * unset) is byte-identical to the historical G1-only allowlist — the exact
+ * invariant the 4 allowlist-importer test files depend on needing ZERO
+ * edits (SG-5).** */
 export const SWIFT_G1_VERIFIABLE_OPS: ReadonlySet<string> = proxyFidelityMode
   ? new Set(allOperationNames())
-  : SWIFT_G1_CONTROL_PLANE_OPS
+  : milestoneG2
+    ? SWIFT_G2_VERIFIABLE
+    : SWIFT_G1_CONTROL_PLANE_OPS
 
 /** Every contract operation NOT in `SWIFT_G1_VERIFIABLE_OPS` — computed from
  * the live contract spec (not hardcoded) so it never drifts from the actual

@@ -30,7 +30,7 @@
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { execFileSync, spawn, type ChildProcessByStdio } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { request as httpRequest, type ClientRequest } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -42,6 +42,7 @@ import {
   type DaemonEndpoint,
   type DaemonSessionIds,
 } from './daemon-endpoint.js'
+import type { EnrichedContractSpec } from '../../../src/contract/enriched-spec.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 /** macos/Spectra/DaemonCore — the Swift daemon-core module this harness
@@ -69,6 +70,29 @@ export interface FrontDoorHarnessOptions {
    * (compiling the whole DaemonCore module ahead of the bind can be slow on a
    * cold `swiftc` cache). */
   bootTimeoutMs?: number
+  /** M3.G2 (S7, APPEND-ONLY — SG-2): overrides the routing config JSON written
+   * to `routingConfigPath` before the front door boots. Defaults to
+   * `PRODUCTION_ROUTING_CONFIG` (the v1, 5-op-native shape) when omitted —
+   * UNCHANGED from before this option existed — so Gate B's G1 regression
+   * (which never sets this) stays byte-identical. A caller exercising the G2
+   * flip topology (verify-g2-suite.ts) passes a v2 config
+   * (`{version:2, native, affinity, merge, fanout}`, docs/plans/
+   * m3-g2-plan.md §D-03) here instead of hand-rolling a second front-door
+   * boot routine. Written verbatim via `JSON.stringify(..., null, 2)`, same
+   * as the production default was. */
+  routingConfig?: unknown
+  /** M3.G2 (S7, APPEND-ONLY): additional env vars merged into the front
+   * door's spawn env — e.g. `SPECTRA_CONFORMANCE_SEED=1` +
+   * `SPECTRA_CONFORMANCE_MILESTONE=g2` so a G2 caller's front door seeds
+   * FakeDriver-backed sessions and accepts a `fake:` createSession target
+   * (ADR-06). Spread BEFORE this module's own fixed keys
+   * (`SPECTRA_DAEMON_SOCKET`/`SPECTRA_PROXY_BACKEND_SOCKET`/
+   * `SPECTRA_ROUTING_CONFIG`/`HOME`/`SPECTRA_HOME`) so a caller can never
+   * accidentally override the wiring this module itself is responsible for —
+   * those five keys always win. Omitted (undefined) is a no-op: the spawn env
+   * is `{...process.env, SPECTRA_DAEMON_SOCKET: ..., ...}` exactly as before
+   * this option existed. */
+  extraEnv?: Record<string, string>
 }
 
 export interface FrontDoorHarness {
@@ -144,11 +168,14 @@ export async function startFrontDoorHarness(
   const frontDoorHome = mkdtempSync(join(tmpdir(), 'spectra-front-door-home-'))
   const frontDoorSocketPath = join(frontDoorHome, 'front-door.sock')
   const routingConfigPath = join(frontDoorHome, 'routing-config.json')
-  writeFileSync(routingConfigPath, JSON.stringify(PRODUCTION_ROUTING_CONFIG, null, 2))
+  writeFileSync(routingConfigPath, JSON.stringify(opts.routingConfig ?? PRODUCTION_ROUTING_CONFIG, null, 2))
 
   const frontDoor: FrontDoorProcess = spawn(bin, [], {
     env: {
       ...process.env,
+      ...opts.extraEnv,
+      // Fixed keys AFTER ...opts.extraEnv so they always take precedence —
+      // see FrontDoorHarnessOptions.extraEnv's doc comment.
       SPECTRA_DAEMON_SOCKET: frontDoorSocketPath,
       SPECTRA_PROXY_BACKEND_SOCKET: backend.socketPath,
       SPECTRA_ROUTING_CONFIG: routingConfigPath,
@@ -510,6 +537,25 @@ export interface DifferentialCheckResult {
    * for native ops.
    */
   classPatternPaths: Array<{ path: string; class: string }>
+  /** Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 1;
+   * evidence g2-chain3.log:1011) — present ONLY when the caller passed
+   * `okDivergenceClass` AND the 4 responses (3 direct calibration + 1 proxy)
+   * did not all agree on ok-ness (e.g. createSession's real-Chrome launch
+   * flake: `direct=500 proxy=200` on the SAME TS backend). The caller
+   * (verify-flip-suite.ts) persists this event into its masks ledger
+   * (`.build-loop/flip-evidence/t02-masks.json`) distinctly from the
+   * ordinary `appliedMaskPaths`/`classPatternPaths` entries, so a
+   * PERSISTENT one-sided pattern (proxy leg always failing while direct
+   * passes, across chains) stays visible as a finding rather than being
+   * silently absorbed. Undefined for every op/run outside that opt-in AND
+   * for the all-agree case (the existing full masked byte-diff runs
+   * instead, and this stays undefined). */
+  okDivergenceEvent?: {
+    class: 'real-chrome-stateful'
+    op: string
+    responses: Array<{ leg: string; status: number; ok: boolean | undefined }>
+    failedLegs: string[]
+  }
 }
 
 /** The deterministic SEED of the proxied-op mask (Fable rev 3.1 Ruling 2,
@@ -628,6 +674,23 @@ function deriveOpFromPath(path: string): string {
  * rev 3.1 brief's explicit instruction). */
 export function isNativeOp(op: string): boolean {
   return (PRODUCTION_ROUTING_CONFIG.native as readonly string[]).includes(op)
+}
+
+/** Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 1) — the
+ * Item-1 floor's error-taxonomy check needs an op's DECLARED errorCodes,
+ * read from the same live contract.spec.json every other lib in this
+ * directory reads from (never a second, independently-maintained list —
+ * same discipline as `deriveOpFromPath`/`isNativeOp` above). Cached at
+ * module scope after first read (the spec is static for the process
+ * lifetime). Path resolved relative to THIS file, mirroring
+ * `lib/external-mode.ts`'s `specPath` constant. */
+const contractSpecPath = join(here, '..', '..', '..', 'src', 'contract', 'contract.spec.json')
+let cachedContractSpec: EnrichedContractSpec | undefined
+function declaredErrorCodesFor(op: string): readonly string[] {
+  if (!cachedContractSpec) {
+    cachedContractSpec = JSON.parse(readFileSync(contractSpecPath, 'utf8')) as EnrichedContractSpec
+  }
+  return cachedContractSpec.operations[op]?.errorCodes ?? []
 }
 
 /**
@@ -871,9 +934,25 @@ export async function runDifferentialCheck(
      * not a health-op fingerprint check. See `DifferentialCheckResult.mode`'s
      * doc comment. */
     modeOverride?: 'wire-edge'
+    /** Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 1;
+     * evidence g2-chain3.log:1011) — SG-2 APPEND-ONLY opt-in, never
+     * generalized beyond its one authorized caller (verify-flip-suite.ts
+     * passing this for `op === 'createSession'` only). When passed AND the
+     * 4 responses (3 direct calibration + 1 proxy) do not all agree on
+     * ok-ness, the ordinary status-equality / masked-byte-equality /
+     * masked-path-presence checks are replaced by the ruling's floor
+     * (fingerprint presence on both legs stays via the existing checks;
+     * per-response envelope + status<->ok coherence; error.code taxonomy
+     * membership; latency-parity + content-type equality stay) and a
+     * `real-chrome-stateful` divergence event is persisted on the returned
+     * result's `okDivergenceEvent` for the caller's masks ledger. When all
+     * four responses AGREE on ok-ness, the existing full masked byte-diff
+     * runs UNCHANGED. Default (option absent) is byte-identical to every
+     * existing caller — the G1 regression contract stays literally true. */
+    okDivergenceClass?: 'real-chrome-stateful'
   },
 ): Promise<DifferentialCheckResult> {
-  const { label, path, method = 'POST', body, timeoutMs = 30_000, modeOverride } = opts
+  const { label, path, method = 'POST', body, timeoutMs = 30_000, modeOverride, okDivergenceClass } = opts
   const op = deriveOpFromPath(path)
   const native = isNativeOp(op)
 
@@ -888,6 +967,7 @@ export async function runDifferentialCheck(
   let appliedMaskPaths: string[] = []
   let structuralPaths: Array<{ path: string; class: string }> = []
   let classPatternPaths: Array<{ path: string; class: string }> = []
+  let okDivergenceEvent: DifferentialCheckResult['okDivergenceEvent']
 
   if (native) {
     // Native ops: no calibration/byte-equality needed — only the fingerprint
@@ -1031,7 +1111,25 @@ export async function runDifferentialCheck(
       structuralPaths = [{ path: 'result.timeline', class: 'generated-recording-content' }]
     }
 
-    if (c2.status !== p.status) failures.push(`status: direct=${c2.status} proxy=${p.status}`)
+    // Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 1) —
+    // computed unconditionally (cheap) so every gated block below shares one
+    // source of truth; harmless/inert whenever `okDivergenceClass` is
+    // undefined (the default — every existing caller stays on the ordinary
+    // path). "Agree on ok-ness" = all 4 responses (3 direct calibration + 1
+    // proxy) parse as an object with the SAME boolean `ok` value.
+    const okOfLeg = (json: unknown): boolean | undefined =>
+      isPlainObject(json) && typeof json.ok === 'boolean' ? json.ok : undefined
+    const legOkValues = [okOfLeg(j1), okOfLeg(j2), okOfLeg(j3), okOfLeg(pJson)]
+    const okAgree = legOkValues.every((v) => v === legOkValues[0])
+    const divergenceFloorFires = okDivergenceClass !== undefined && !okAgree
+
+    if (!divergenceFloorFires) {
+      if (c2.status !== p.status) failures.push(`status: direct=${c2.status} proxy=${p.status}`)
+    }
+    // status-equality is replaced (not just skipped) by the floor's per-leg
+    // status<->ok coherence check below when `divergenceFloorFires` — a real
+    // ok-ness flip (e.g. 500 vs 200) is the EXPECTED shape of this class of
+    // divergence, not itself a fail.
     const directCT = c2.headers['content-type'] ?? '<none>'
     const proxyCT = p.headers['content-type'] ?? '<none>'
     if (directCT !== proxyCT) failures.push(`content-type: direct="${directCT}" proxy="${proxyCT}"`)
@@ -1051,50 +1149,113 @@ export async function runDifferentialCheck(
       if (!('timestamp' in json)) failures.push(`route fingerprint: proxied op "${op}" ${leg} leg is missing "timestamp"`)
     }
 
-    // Guard #1 continued (Fable rev 3.2): every masked path must be PRESENT
-    // on both legs with the SAME JSON type — a masked field the tunnel
-    // dropped or retyped is a FAIL, not a silent pass-through of the mask.
-    for (const path of appliedMaskPaths) {
-      const dEntry = getByJsonPath(j2, path)
-      const pEntry = getByJsonPath(pJson, path)
-      if (!dEntry.present || !pEntry.present) {
-        const missingLegs = [!dEntry.present ? 'direct' : null, !pEntry.present ? 'proxy' : null]
-          .filter((v): v is string => v !== null)
-          .join('+')
-        failures.push(`masked path "${path}" missing on ${missingLegs} leg — masked field dropped through the tunnel`)
-        continue
+    if (divergenceFloorFires) {
+      // Advisor ruling 2 (docs/plans/m3-g2-vb-advisor-ruling-2.md, Item 1;
+      // evidence g2-chain3.log:1011) — the masked-path-presence guard and the
+      // masked byte-diff above both PRESUME a deterministic backend (an
+      // error-leg envelope and a success-leg envelope have different shapes
+      // by construction, so "byte-equal after masking" is not a meaningful
+      // comparison here). Replaced by the ruling's floor: per-response
+      // envelope validity + status<->ok coherence, and — for any error leg —
+      // error.code taxonomy membership. Fingerprint presence (both legs,
+      // above), content-type equality (above), and latency-parity (below)
+      // still apply unconditionally.
+      const declaredCodes = declaredErrorCodesFor(op)
+      const legs: Array<{ leg: string; status: number; json: unknown }> = [
+        { leg: 'direct-1', status: c1.status, json: j1 },
+        { leg: 'direct-2', status: c2.status, json: j2 },
+        { leg: 'direct-3', status: c3.status, json: j3 },
+        { leg: 'proxy', status: p.status, json: pJson },
+      ]
+      const failedLegs: string[] = []
+      for (const { leg, status, json } of legs) {
+        if (!isPlainObject(json)) {
+          failures.push(`okDivergence(${op}): ${leg} leg body did not parse as a JSON object`)
+          failedLegs.push(leg)
+          continue
+        }
+        const legOk = json.ok
+        if (typeof legOk !== 'boolean') {
+          failures.push(`okDivergence(${op}): ${leg} leg is missing a boolean "ok" field`)
+          failedLegs.push(leg)
+          continue
+        }
+        const isSuccessStatus = status >= 200 && status < 300
+        if (legOk !== isSuccessStatus) {
+          failures.push(`okDivergence(${op}): ${leg} leg status=${status} but ok=${legOk} (status<->ok incoherent)`)
+          failedLegs.push(leg)
+          continue
+        }
+        if (legOk === false) {
+          const code = isPlainObject(json.error) ? (json.error as { code?: unknown }).code : undefined
+          if (typeof code !== 'string' || !declaredCodes.includes(code)) {
+            failures.push(
+              `okDivergence(${op}): ${leg} leg error.code=${String(code)} is not in "${op}"'s declared errorCodes [${declaredCodes.join(', ')}]`,
+            )
+            failedLegs.push(leg)
+          }
+        }
       }
-      const dType = jsonTypeOf(dEntry.value)
-      const pType = jsonTypeOf(pEntry.value)
-      if (dType !== pType) {
-        failures.push(`masked path "${path}" type mismatch: direct=${dType} proxy=${pType} — masked field retyped through the tunnel`)
+      // Ledger visibility (floor point 6): a PERSISTENT one-sided pattern
+      // (e.g. proxy leg always failing while direct passes, across chains)
+      // must stay visible to the caller's masks ledger as a finding, never
+      // silently absorbed — this event is reported regardless of whether any
+      // `failures` entry was also pushed above.
+      okDivergenceEvent = {
+        // Non-null: `divergenceFloorFires` is only true when
+        // `okDivergenceClass !== undefined` (see its definition above); TS's
+        // control-flow analysis doesn't narrow through the derived boolean.
+        class: okDivergenceClass!,
+        op,
+        responses: legs.map(({ leg, status, json }) => ({ leg, status, ok: okOfLeg(json) })),
+        failedLegs,
       }
-    }
+    } else {
+      // Guard #1 continued (Fable rev 3.2): every masked path must be PRESENT
+      // on both legs with the SAME JSON type — a masked field the tunnel
+      // dropped or retyped is a FAIL, not a silent pass-through of the mask.
+      for (const path of appliedMaskPaths) {
+        const dEntry = getByJsonPath(j2, path)
+        const pEntry = getByJsonPath(pJson, path)
+        if (!dEntry.present || !pEntry.present) {
+          const missingLegs = [!dEntry.present ? 'direct' : null, !pEntry.present ? 'proxy' : null]
+            .filter((v): v is string => v !== null)
+            .join('+')
+          failures.push(`masked path "${path}" missing on ${missingLegs} leg — masked field dropped through the tunnel`)
+          continue
+        }
+        const dType = jsonTypeOf(dEntry.value)
+        const pType = jsonTypeOf(pEntry.value)
+        if (dType !== pType) {
+          failures.push(`masked path "${path}" type mismatch: direct=${dType} proxy=${pType} — masked field retyped through the tunnel`)
+        }
+      }
 
-    // Byte-compare mask (local to this step only — NOT reported as part of
-    // `appliedMaskPaths`): the ordinary value-mask set UNION, for
-    // recordTerminal only, the whole `result.timeline` subtree — excluded
-    // from the byte compare entirely because it is judged structurally
-    // above, not by masked-value equality.
-    const byteCompareMask = new Set(appliedMask)
-    if (op === 'recordTerminal') byteCompareMask.add('result.timeline')
-    // Fable rev 3.5: class-pattern-masked paths (six-op closed set) are
-    // additive to the calibrated mask above, applied to the byte compare
-    // here but reported to the ledger as their OWN `classPatternPaths` field
-    // (see return value below), never merged into `appliedMaskPaths`.
-    for (const path of classPatternMask) byteCompareMask.add(path)
+      // Byte-compare mask (local to this step only — NOT reported as part of
+      // `appliedMaskPaths`): the ordinary value-mask set UNION, for
+      // recordTerminal only, the whole `result.timeline` subtree — excluded
+      // from the byte compare entirely because it is judged structurally
+      // above, not by masked-value equality.
+      const byteCompareMask = new Set(appliedMask)
+      if (op === 'recordTerminal') byteCompareMask.add('result.timeline')
+      // Fable rev 3.5: class-pattern-masked paths (six-op closed set) are
+      // additive to the calibrated mask above, applied to the byte compare
+      // here but reported to the ledger as their OWN `classPatternPaths` field
+      // (see return value below), never merged into `appliedMaskPaths`.
+      for (const path of classPatternMask) byteCompareMask.add(path)
 
-    const maskedDirectObj = maskPaths(j2, byteCompareMask)
-    const maskedProxyObj = maskPaths(pJson, byteCompareMask)
-    const residualDivergence = diffVolatilePaths(maskedDirectObj, maskedProxyObj)
-    if (residualDivergence.size > 0) {
-      const maskedDirect = canonicalJson(maskedDirectObj)
-      const maskedProxy = canonicalJson(maskedProxyObj)
-      failures.push(
-        `NAMED DIVERGENCE (outside the applied mask, presumed real proxy infidelity) on ` +
-          `[${[...residualDivergence].sort().join(', ')}]: ` +
-          `direct=${maskedDirect.slice(0, 400)} proxy=${maskedProxy.slice(0, 400)}`,
-      )
+      const maskedDirectObj = maskPaths(j2, byteCompareMask)
+      const maskedProxyObj = maskPaths(pJson, byteCompareMask)
+      const residualDivergence = diffVolatilePaths(maskedDirectObj, maskedProxyObj)
+      if (residualDivergence.size > 0) {
+        const maskedDirect = canonicalJson(maskedDirectObj)
+        const maskedProxy = canonicalJson(maskedProxyObj)
+        failures.push(
+          `NAMED DIVERGENCE (outside the applied mask, presumed real proxy infidelity) on ` +
+            `[${[...residualDivergence].sort().join(', ')}]: ` +
+            `direct=${maskedDirect.slice(0, 400)} proxy=${maskedProxy.slice(0, 400)}`,
+        )
+      }
     }
   }
 
@@ -1127,6 +1288,7 @@ export async function runDifferentialCheck(
     appliedMaskPaths,
     structuralPaths,
     classPatternPaths,
+    okDivergenceEvent,
   }
 }
 

@@ -1,0 +1,265 @@
+{
+  "snapshot": {
+    "op": "snapshot",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "result.snapshot",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "result.snapshot",
+        "class": "embedded-content"
+      }
+    ]
+  },
+  "observe": {
+    "op": "observe",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  },
+  "act": {
+    "op": "act",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "result.snapshot",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "result.snapshot",
+        "class": "embedded-content"
+      }
+    ]
+  },
+  "step": {
+    "op": "step",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  },
+  "llmStep": {
+    "op": "llmStep",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "result.results[0].durationMs",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "result.results[0].durationMs",
+        "class": "duration"
+      }
+    ]
+  },
+  "walkthrough": {
+    "op": "walkthrough",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  },
+  "analyze": {
+    "op": "analyze",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  },
+  "discover": {
+    "op": "discover",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  },
+  "screenshot": {
+    "op": "screenshot",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "requestId",
+      "timestamp",
+      "caller",
+      "deliveryPath",
+      "result.path"
+    ],
+    "classPattern": []
+  },
+  "computerUse": {
+    "op": "computerUse",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "error.details",
+      "error.message",
+      "error.retryable",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "error.message",
+        "class": "error-metadata"
+      },
+      {
+        "path": "error.details",
+        "class": "error-metadata"
+      },
+      {
+        "path": "error.retryable",
+        "class": "error-metadata"
+      }
+    ]
+  },
+  "startRecording": {
+    "op": "startRecording",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "error.retryable",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "error.retryable",
+        "class": "error-metadata"
+      }
+    ]
+  },
+  "stopRecording": {
+    "op": "stopRecording",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  },
+  "getRecording:success": {
+    "op": "getRecording",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "result.recording.outPath",
+      "result.recording.startedAt",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "result.recording.startedAt",
+        "class": "stateful-read-timestamp"
+      },
+      {
+        "path": "result.recording.outPath",
+        "class": "temp-path"
+      }
+    ]
+  },
+  "getRecording": {
+    "op": "getRecording",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "error.retryable",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "error.retryable",
+        "class": "error-metadata"
+      }
+    ]
+  },
+  "recordTerminal": {
+    "op": "recordTerminal",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "result.castFile",
+      "result.duration",
+      "result.timeline[0].time",
+      "result.timeline[1].time",
+      "timestamp"
+    ],
+    "classPattern": [
+      {
+        "path": "result.castFile",
+        "class": "temp-path"
+      },
+      {
+        "path": "result.duration",
+        "class": "duration"
+      }
+    ]
+  },
+  "replayTerminal": {
+    "op": "replayTerminal",
+    "ok": true,
+    "detail": "",
+    "appliedMask": [
+      "caller",
+      "deliveryPath",
+      "requestId",
+      "timestamp"
+    ],
+    "classPattern": []
+  }
+}

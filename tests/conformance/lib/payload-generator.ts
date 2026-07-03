@@ -26,6 +26,23 @@
 
 import type { ParamFieldSchema } from '../../../src/contract/enriched-spec.js'
 
+// M3.G2 (S7) — read ONLY at module load (same rule as
+// tests/conformance/lib/external-mode.ts's `milestoneG2`/`proxyFidelityMode`
+// flags): gates the `fake:` createSession target branch below. Default
+// (unset) is byte-identical to the pre-G2 behavior — every `target` payload
+// resolves to `ctx.localWebFixtureUrl`, exactly as before this flag existed.
+const milestoneG2 = process.env.SPECTRA_CONFORMANCE_MILESTONE === 'g2'
+
+// [ASSUMED name, reversible — docs/plans/m3-g2-plan.md §Env Contract]
+// optional override for the exact `fake:`-prefixed target string, so a
+// caller can point at a specific seeded fixture id if ConnectOps.swift (S1)
+// ever needs one beyond a bare `fake:` sentinel. Defaults to the plan's own
+// example string.
+const FAKE_TARGET_DEFAULT = 'fake:conformance-seed'
+function fakeSeedTarget(): string {
+  return process.env.SPECTRA_CONFORMANCE_FAKE_TARGET ?? FAKE_TARGET_DEFAULT
+}
+
 export interface GeneratorContext {
   /** A sessionId backed by a real (fake-driver) 'web' session in the daemon fixture. */
   webSessionId: string
@@ -77,6 +94,16 @@ function namedHint(key: string, ctx: GeneratorContext): unknown | typeof NO_HINT
     case 'recordingId':
       return ctx.recordingId ?? 'unknown-recording-id'
     case 'target':
+      // M3.G2 (S7, seed-gated — plan §Depends-on: "payload-generator's
+      // 'target' case always emits the web fixture URL"): under the g2
+      // milestone gate, route the generic per-op suite's createSession
+      // payload at a `fake:` target instead, so it exercises the Swift
+      // daemon's OWN native createSession (ADR-06's FakeDriver seam) rather
+      // than a web/CDP target the standalone Swift G2 daemon has no driver
+      // for. Gate-off (default, milestone env unset): unchanged
+      // `ctx.localWebFixtureUrl` behavior, byte-for-byte identical to before
+      // this branch existed.
+      if (milestoneG2) return fakeSeedTarget()
       // See GeneratorContext.localWebFixtureUrl doc comment — a same-machine
       // HTTP fixture, not a real internet URL. Note this MUST start with
       // "http://" or "https://" (src/mcp/context.ts's detectPlatform regex

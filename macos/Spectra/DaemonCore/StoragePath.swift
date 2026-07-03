@@ -25,6 +25,15 @@
 //      touching verify-g1-suite.ts (S4-owned) while STILL giving production
 //      (no SPECTRA_HOME set) byte-for-byte TS parity via the walk.
 //
+//   M3.G2 S1 fix (Advisor ruling, Item 2 real half, 2026-07-03): the
+//   SPECTRA_HOME override must append `.spectra` (see `resolveStorageRoot()`
+//   below), matching TS's `getStoragePath()` HOME fallback
+//   (`join(homedir(), '.spectra')`) — SPECTRA_HOME is a HOME substitute, not
+//   an already-resolved storage root. The prior bare-passthrough dropped the
+//   `.spectra` segment, spraying session/library/recording artifacts into
+//   `<home>/sessions|library|recordings/...` instead of the protected
+//   `<home>/.spectra/...` tree.
+//
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
@@ -80,8 +89,20 @@ func getStoragePath(cwd: String? = nil) -> String {
 /// the TS-parity cwd-marker walk via `getStoragePath()`. Production
 /// deployments never set `SPECTRA_HOME`, so production behavior is the exact
 /// TS walk (T-05).
+///
+/// M3.G2 S1 fix (Advisor ruling, Item 2 real half): `SPECTRA_HOME` is a
+/// substitute for `HOME`, NOT an already-resolved `.spectra` root — the
+/// G1/G2 harnesses set `SPECTRA_HOME` to the SAME raw temp dir as `HOME`
+/// (verify-g2-suite.ts's `bootEnvFor`, tests/conformance/lib/
+/// daemon-endpoint.ts), mirroring how TS's `getStoragePath()` home-fallback
+/// does `join(homedir(), '.spectra')` (src/core/storage.ts:28). Returning
+/// `spectraHome` bare (pre-fix) dropped the `.spectra` segment Swift's own
+/// `getStoragePath()` walk appends below, diverging from TS's resolved path
+/// under identical HOME/SPECTRA_HOME (g2-t21-masks.json discover.detail).
 func resolveStorageRoot() -> String {
     let env = ProcessInfo.processInfo.environment
-    if let spectraHome = env["SPECTRA_HOME"], !spectraHome.isEmpty { return spectraHome }
+    if let spectraHome = env["SPECTRA_HOME"], !spectraHome.isEmpty {
+        return (spectraHome as NSString).appendingPathComponent(".spectra")
+    }
     return getStoragePath()
 }
