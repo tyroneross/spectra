@@ -95,7 +95,11 @@ final class HandlerRegistry: @unchecked Sendable {
 // skeleton (optional) — the permissions provider (parallel group) fills it.
 
 enum DaemonBuild {
-    static let version = "0.3.2-swift-g1"
+    // G2 flip (2026-07-04): daemon-core now serves the 16 capture/AX ops
+    // native (V-A/V-B/V-C green). `health` reporting -swift-g2 is the live
+    // flip signal; rollback to G1 routing reverts the served surface but this
+    // binary string stays g2 (it's the binary's capability, not the routing).
+    static let version = "0.3.2-swift-g2"
 }
 
 /// Run a command and return trimmed stdout (nil on failure). Used for the real
