@@ -839,21 +839,44 @@ final class SingleWindowShareableContentState: @unchecked Sendable {
 func selectSingleWindow(_ windows: [SCWindow], displays: [SCDisplay], app: String, title: String?) throws -> SCWindow {
     let appNeedle = app.lowercased()
     let titleNeedle = title?.lowercased()
-    let matches = windows.filter { window in
+
+    // App-name/bundle match is the hard requirement — this is what guarantees we
+    // never fall back to a full-display capture: every candidate below belongs to
+    // the target app, so the eventual SCContentFilter(desktopIndependentWindow:)
+    // is always built from one of THIS app's windows, never the display.
+    let appMatches = windows.filter { window in
         let appName = window.owningApplication?.applicationName.lowercased() ?? ""
         let bundle = window.owningApplication?.bundleIdentifier.lowercased() ?? ""
-        let windowTitle = (window.title ?? "").lowercased()
-        let appMatches = appName.contains(appNeedle) || bundle.contains(appNeedle)
-        let titleMatches = titleNeedle.map { windowTitle.contains($0) } ?? true
-        return appMatches && titleMatches && singleWindowCaptureCandidate(window)
+        let matchesApp = appName.contains(appNeedle) || bundle.contains(appNeedle)
+        return matchesApp && singleWindowCaptureCandidate(window)
     }
-    guard !matches.isEmpty else {
-        let titlePart = title.map { " title containing '\($0)'" } ?? ""
-        throw SingleWindowRecordingError(description: "No ScreenCaptureKit window found for app '\(app)'\(titlePart)")
+    guard !appMatches.isEmpty else {
+        throw SingleWindowRecordingError(description: "No ScreenCaptureKit window found for app '\(app)'")
     }
+
+    // The title hint (the session name) only *disambiguates* between several
+    // windows of the same app — it must never be a hard filter. Session names for
+    // macOS sessions default to an app-name slug (e.g. "secrets-vault", see
+    // core/session.ts generateName), which will not substring-match a real window
+    // title like "Secrets Vault" (space vs hyphen). Previously, when the hint
+    // matched nothing, `matches` went to empty and this threw — even though a
+    // perfectly good, on-screen window for the app existed. Falling back to the
+    // app-only match set (instead of throwing, and instead of ever widening the
+    // filter to the whole display) fixes that without reintroducing the
+    // full-display privacy leak.
+    var matches = appMatches
+    var titleFilterApplied = false
+    if let needle = titleNeedle, !needle.isEmpty {
+        let titled = appMatches.filter { ($0.title ?? "").lowercased().contains(needle) }
+        if !titled.isEmpty {
+            matches = titled
+            titleFilterApplied = true
+        }
+    }
+
     let onScreen = matches.filter { $0.isOnScreen }
     guard !onScreen.isEmpty else {
-        let titlePart = title.map { " title containing '\($0)'" } ?? ""
+        let titlePart = titleFilterApplied ? (title.map { " title containing '\($0)'" } ?? "") : ""
         throw SingleWindowRecordingError(description: "No on-screen ScreenCaptureKit window found for app '\(app)'\(titlePart); matched \(matches.count) off-screen/minimized window(s)")
     }
     let hasCompatibleDisplayGeometry = onScreen.contains {
@@ -873,7 +896,7 @@ func selectSingleWindow(_ windows: [SCWindow], displays: [SCDisplay], app: Strin
         return lhs.frame.width * lhs.frame.height > rhs.frame.width * rhs.frame.height
     }
     guard let selected = ordered.first else {
-        let titlePart = title.map { " title containing '\($0)'" } ?? ""
+        let titlePart = titleFilterApplied ? (title.map { " title containing '\($0)'" } ?? "") : ""
         throw SingleWindowRecordingError(description: "No capturable ScreenCaptureKit window found for app '\(app)'\(titlePart)")
     }
     return selected
@@ -952,23 +975,26 @@ func singleWindowSeedPixelBuffer(
     height: Int,
     timeoutSeconds: Double
 ) async -> CVPixelBuffer? {
-    if #available(macOS 14.0, *) {
-        if let seed = await singleWindowSCKSeedPixelBuffer(
-            filter: filter,
-            configuration: configuration,
-            width: width,
-            height: height,
-            timeoutSeconds: timeoutSeconds
-        ) {
-            return seed
-        }
-    }
-    return singleWindowScreencaptureSeedPixelBuffer(
-        windowID: windowID,
-        windowFrame: windowFrame,
-        displayScale: displayScale,
+    // PRIVACY-CRITICAL: this seed frame exists only to warm up the writer before the
+    // real SCStream frame arrives — it must never come from a source that isn't
+    // itself desktop-independent. A prior version fell back to `/usr/sbin/screencapture
+    // -x` (a full-DISPLAY screenshot, all monitors, whatever is currently on top) and
+    // cropped it to the window's rect when SCScreenshotManager timed out/failed. That
+    // crop is occlusion-DEPENDENT: if any other window (or another app's content)
+    // happened to be on top of the target window's screen region, THAT content got
+    // captured and cropped in — a direct desktop-content leak into what should be an
+    // isolated single-window recording (root-caused 2026-07-03 via live repro against
+    // an occluded window). If a real window is never captured, at least one frame from
+    // the target window will still arrive from `waitForFirstFrame` in the caller, or the
+    // recording fails clearly via `singleWindowNoFramesError` — it must never silently
+    // substitute whatever else is on screen.
+    guard #available(macOS 14.0, *) else { return nil }
+    return await singleWindowSCKSeedPixelBuffer(
+        filter: filter,
+        configuration: configuration,
         width: width,
-        height: height
+        height: height,
+        timeoutSeconds: timeoutSeconds
     )
 }
 
@@ -1032,40 +1058,6 @@ func singleWindowPixelBuffer(from cgImage: CGImage, width: Int, height: Int) -> 
     }
     ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
     return buffer
-}
-
-func singleWindowScreencaptureSeedPixelBuffer(
-    windowID: UInt32,
-    windowFrame: CGRect,
-    displayScale: Double,
-    width: Int,
-    height: Int
-) -> CVPixelBuffer? {
-    let tempDir = FileManager.default.temporaryDirectory
-        .appendingPathComponent("spectra-single-seed-\(UUID().uuidString)", isDirectory: true)
-    let pngURL = tempDir.appendingPathComponent("seed.png")
-    do {
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-        try singleWindowRunProcess("/usr/sbin/screencapture", ["-x", pngURL.path], timeoutSeconds: 5)
-        guard let image = NSImage(contentsOf: pngURL) else { return nil }
-        var rect = NSRect(origin: .zero, size: image.size)
-        guard let cgImage = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) else {
-            return nil
-        }
-        let cropRect = CGRect(
-            x: max(0, floor(windowFrame.origin.x * displayScale)),
-            y: max(0, floor(windowFrame.origin.y * displayScale)),
-            width: max(1, ceil(windowFrame.width * displayScale)),
-            height: max(1, ceil(windowFrame.height * displayScale))
-        ).intersection(CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height))
-        guard !cropRect.isNull, let cropped = cgImage.cropping(to: cropRect) else {
-            return nil
-        }
-        return singleWindowPixelBuffer(from: cropped, width: width, height: height)
-    } catch {
-        return nil
-    }
 }
 
 func singleWindowNoFramesError(for window: SCWindow) -> SingleWindowRecordingError {
@@ -1181,22 +1173,3 @@ final class SingleWindowFinishWriterState: @unchecked Sendable {
     }
 }
 
-func singleWindowRunProcess(_ executable: String, _ arguments: [String], timeoutSeconds: Double) throws {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: executable)
-    process.arguments = arguments
-    process.standardOutput = FileHandle.nullDevice
-    process.standardError = FileHandle.nullDevice
-    try process.run()
-    let deadline = Date().addingTimeInterval(timeoutSeconds)
-    while process.isRunning && Date() < deadline {
-        Thread.sleep(forTimeInterval: 0.02)
-    }
-    if process.isRunning {
-        process.terminate()
-        throw SingleWindowRecordingError(description: "\(executable) timed out")
-    }
-    guard process.terminationStatus == 0 else {
-        throw SingleWindowRecordingError(description: "\(executable) exited with \(process.terminationStatus)")
-    }
-}
