@@ -144,7 +144,7 @@ async function main(): Promise<void> {
   const axProbe = await callOperation({
     socketPath: socketPath as string,
     operation: 'createSession',
-    params: { target: { appName: TEST_APP_NAME } },
+    params: { target: TEST_APP_NAME, name: 'Spectra Verification' },  // explicit name: feeds startRecording's hard SCK title filter; must be contained in the fixture window title ("Spectra Verification TestApp")  // resolved TODO: ConnectOps.swift landed — flat string; bare name -> .macos(appName:) (ConnectOps.swift:55-66)
   })
   const axProbeOk = (axProbe.body as { ok?: boolean }).ok === true
   const axGranted = axState === 'granted' && axProbeOk
@@ -199,7 +199,7 @@ async function main(): Promise<void> {
   // target). ──
   // TODO: Iteration 2 — confirm computerUse's params shape (app vs pid)
   // once S2's ComputerUseOps.swift lands.
-  const cu = await callOperation({ socketPath: socketPath as string, operation: 'computerUse', params: { app: TEST_APP_NAME, action: { kind: 'snapshot' } } })
+  const cu = await callOperation({ socketPath: socketPath as string, operation: 'computerUse', params: { app: TEST_APP_NAME, action: 'snapshot' } })  // contract: computerUseParamsSchema discriminates on string `action` (schemas.ts:434)
   const cuOk = (cu.body as { ok?: boolean }).ok === true
   record(4, 'computerUse snapshot vs TestApp', cuOk, JSON.stringify(cu.body).slice(0, 300))
 
@@ -218,8 +218,16 @@ async function main(): Promise<void> {
   }
   record(5, 'screenshot full mode (non-empty, decodable PNG)', step5Ok, step5Detail)
   if (step5Ok && shotBody.result?.path) {
-    const visuallyOk = await confirm(`Open ${shotBody.result.path} — does it show the TestApp window (not blank/black)?`)
-    record(5, 'screenshot — human visual confirmation', visuallyOk ? 'green' : 'red', 'user-confirmed, additional to the automated PNG-decode check above')
+    if (stdin.isTTY) {
+      const visuallyOk = await confirm(`Open ${shotBody.result.path} — does it show the TestApp window (not blank/black)?`)
+      record(5, 'screenshot — human visual confirmation', visuallyOk ? 'green' : 'red', 'user-confirmed, additional to the automated PNG-decode check above')
+    } else {
+      // Non-interactive run (orchestrated): stdin is closed, so a readline
+      // question would crash (ERR_USE_AFTER_CLOSE). Never auto-green a HUMAN
+      // check — record it deferred and have the orchestrator/user review the
+      // PNG out-of-band; the automated decode check above already ran.
+      record(5, 'screenshot — human visual confirmation', 'excluded', `non-interactive run — review out-of-band: ${String(shotBody.result.path)}`)
+    }
   }
 
   // ── Step 6 — startRecording -> stopRecording on the TestApp window ->

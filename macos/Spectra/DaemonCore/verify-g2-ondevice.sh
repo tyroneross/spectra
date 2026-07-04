@@ -126,7 +126,9 @@ if [[ "$SKIP_BUILD" == "0" ]]; then
   # shellcheck disable=SC2046
   swiftc $(ls "$HERE"/*.swift) -o "$DAEMON_CORE_BIN"
   echo "· compiling TestApp…"
-  swiftc "$REPO_ROOT/native/swift/TestApp/TestApp.swift" -framework SwiftUI -framework AppKit -o "$TEST_APP_BIN"
+  # -parse-as-library: a single-file @main SwiftUI compile is otherwise treated
+  # as top-level code and rejected ("'main' attribute cannot be used…").
+  swiftc -parse-as-library "$REPO_ROOT/native/swift/TestApp/TestApp.swift" -framework SwiftUI -framework AppKit -o "$TEST_APP_BIN"
   # Ad-hoc signing only — SPECTRA_CODESIGN_IDENTITY is never set here (see
   # this script's header comment / scripts/codesign-native.sh's own
   # guardrail: it needs no keychain and never prompts).
@@ -134,6 +136,27 @@ if [[ "$SKIP_BUILD" == "0" ]]; then
   bash "$REPO_ROOT/scripts/codesign-native.sh" "$TEST_APP_BIN" || true
 else
   echo "· --skip-build: reusing $DAEMON_CORE_BIN / $TEST_APP_BIN as-is"
+fi
+
+# ── Provision the native AX helper into the test home (integration fix) ────
+# BridgeClient resolves the helper at $HOME/.spectra/bin/spectra-native
+# (BridgeClient.swift resolveBinaryPath) — the launchd plist sets
+# HOME=$TEST_HOME, so without this the AX functional probe fails with
+# "Native AX helper not found". Reuse the production-built helper when
+# present (same binary the TS daemon shells), else build it via the TS
+# compiler path. Signed the same way as the daemon (child-process TCC
+# attribution flows to the daemon, but consistent signing is cleaner).
+HELPER_DEST="$TEST_HOME/.spectra/bin/spectra-native"
+if [[ ! -x "$HELPER_DEST" ]]; then
+  mkdir -p "$(dirname "$HELPER_DEST")"
+  if [[ -x "$HOME/.spectra/bin/spectra-native" ]]; then
+    echo "· provisioning AX helper from production install…"
+    cp "$HOME/.spectra/bin/spectra-native" "$HELPER_DEST"
+  else
+    echo "· building AX helper (production copy absent)…"
+    (cd "$REPO_ROOT" && npx tsx -e "import {ensureBinary} from './src/native/compiler.js'; await ensureBinary()" && cp "$HOME/.spectra/bin/spectra-native" "$HELPER_DEST")
+  fi
+  bash "$REPO_ROOT/scripts/codesign-native.sh" "$HELPER_DEST" || true
 fi
 
 # G2 v2 routing config — ALL 16 G2 ops + G1's 5 native, matching the plan's
@@ -235,6 +258,8 @@ UID_NUM="$(id -u)"
 
 cleanup() {
   echo "· tearing down…"
+  # TestApp is per-run scaffolding — always killed, even under --keep-running.
+  if [[ -n "${TEST_APP_PID:-}" ]]; then kill "$TEST_APP_PID" 2>/dev/null || true; fi
   if [[ "$KEEP_RUNNING" == "1" ]]; then
     echo "  --keep-running set: leaving $LABEL / $TS_LABEL installed and loaded for manual inspection."
     return
@@ -282,6 +307,18 @@ PARENT_PID="$(ps -o ppid= -p "${DAEMON_PID:-0}" 2>/dev/null | tr -d ' ')"
   echo "daemon parent pid: ${PARENT_PID:-unknown} (expected: launchd's pid, NEVER a Terminal/bash pid)"
   date -u +"timestamp: %Y-%m-%dT%H:%M:%SZ"
 } >> "$TCC_SPIKE_EVIDENCE_FILE"
+
+# ── Launch TestApp (integration fix): steps 1-9 drive real AX against it, but
+# the scaffold only ever COMPILED it. Plain background spawn is correct here —
+# TestApp is the AX *target*, not the TCC subject (that's the launchd daemon).
+echo "· launching TestApp ($TEST_APP_BIN)…"
+"$TEST_APP_BIN" &
+TEST_APP_PID=$!
+for _ in $(seq 1 50); do
+  pgrep -x spectra-test-app >/dev/null 2>&1 && break
+  sleep 0.2
+done
+sleep 1  # let the SwiftUI window materialize before the first AX snapshot
 
 echo "· front door bound. Handing off to verify-g2-ondevice.ts for the 9-step socket-level script…"
 SPECTRA_G2_ONDEVICE_SOCKET="$SOCKET_PATH" \

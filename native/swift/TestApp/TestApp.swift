@@ -4,14 +4,34 @@ import SwiftUI
 @main
 struct SpectraTestApp: App {
     var body: some Scene {
-        WindowGroup("Spectra Test") {
-            TabView {
-                ControlsTab()
-                    .tabItem { Label("Controls", systemImage: "slider.horizontal.3") }
-                ListsTab()
-                    .tabItem { Label("Lists", systemImage: "list.bullet") }
-                FormsTab()
-                    .tabItem { Label("Forms", systemImage: "doc.text") }
+        // Titled so the window self-identifies when Spectra's verification
+        // gates launch it briefly (it appears for ~seconds during automated
+        // checks, then closes itself). The banner below says the same thing
+        // in-window — an unlabeled window popping up and vanishing reads as
+        // malware to a reasonable user.
+        WindowGroup("Spectra Verification TestApp") {
+            VStack(spacing: 0) {
+                // Purpose banner — plain, dismiss-free, always visible.
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.seal")
+                        .foregroundColor(.secondary)
+                    Text("Spectra test fixture — opened briefly by automated verification; closes itself. Safe to close manually (⌘Q).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity)
+                .background(.quaternary.opacity(0.5))
+                .accessibilityIdentifier("spectra.banner.purpose")
+
+                TabView {
+                    ControlsTab()
+                        .tabItem { Label("Controls", systemImage: "slider.horizontal.3") }
+                    ListsTab()
+                        .tabItem { Label("Lists", systemImage: "list.bullet") }
+                    FormsTab()
+                        .tabItem { Label("Forms", systemImage: "doc.text") }
+                }
             }
             .frame(minWidth: 400, minHeight: 300)
         }

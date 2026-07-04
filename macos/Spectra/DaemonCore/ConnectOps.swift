@@ -131,7 +131,17 @@ private func handleCreateSession(_ params: Any?, _ ctx: DaemonContext) throws ->
     case .macos(let appName):
         let sessionId = shortSessionId()
         let now = Int(Date().timeIntervalSince1970 * 1000)
-        let sessionName = name ?? "session-\(sessionId)"
+        // TS parity (session.ts:372-383 generateName): a macos session's
+        // default name is the APP-NAME SLUG (lowercased, whitespace->dashes),
+        // NOT "session-<id>". This is contract-visible AND load-bearing:
+        // session.name feeds startRecording's window-title hint chain
+        // (RecordingOps:674/:698 -> SingleWindowRecording selectSingleWindow's
+        // HARD title filter) — the "session-<id>" default could never match a
+        // real window title, convicted by V-C step 6 (2026-07-03).
+        let sessionName = name ?? appName.lowercased()
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
         let driverTarget = SpectraDriverTarget(appName: appName)
 
         // Session goes into the store REGARDLESS of what happens next

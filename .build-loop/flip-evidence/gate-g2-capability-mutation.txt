@@ -1,0 +1,28 @@
+T-26 + Gate D#2 — capability-gate mutation evidence (2026-07-03, orchestrator-executed, user present)
+Format mirrors gate-d-manual-mutation.txt. Recipe: standalone Swift daemon (binary from
+macos/Spectra/DaemonCore/*.swift @ working tree == 9d044f8), G2 v2 routing config registering
+EXACTLY the 24-op g2-widened SWIFT_G1_VERIFIABLE_OPS surface (computerUse/startRecording/
+stopRecording unlisted -> not_found, per Gate C rev-3 precedent), booted with
+SPECTRA_CONFORMANCE_UNIX_CAPS='["daemon:read"]' + SEED=1 + STANDALONE_SESSION_OPS=1;
+vitest tests/conformance/capability-gate.test.ts with SPECTRA_CONFORMANCE_MILESTONE=g2 +
+SPECTRA_CONFORMANCE_EXTERNAL_CAPS_HONORED=1. Driver: scratchpad/capgate-phase.sh.
+
+BASELINE                                   -> GREEN 31/31
+D#2  mutate: disable SocketServer.swift:254 (dispatchNativeDecoded assert, native plane only)
+                                           -> RED (vitest exit 1; library/listWindows/
+                                              recordTerminal/replayTerminal et al. no longer
+                                              capability_denied)
+     revert (git checkout)                 -> GREEN 31/31
+T-26 mutate: disable ALL 4 assert sites (:254 native, :320 affinity-early, :403 merge,
+             :462 fanout)                  -> RED 23 failed | 8 passed (every registered op's
+                                              denial arm fails; survivors = 3 not_found
+                                              unregistered arms + health-allowed + grant-shape
+                                              checks)
+     revert (git checkout)                 -> GREEN 31/31; grep confirms 0 residual mutations
+
+FINDING (defense-in-depth, recorded): disabling ONLY the affinity-early assert (:320) left the
+suite GREEN — dispatchNativeDecoded's :254 assert catches affinity ops routed native (the
+layered design SocketServer.swift:283-293 documents). A single-layer mutation on the affinity
+plane is therefore absorbed by design; the all-4 kill proves the enforcement class bites.
+
+VERDICT: both mutation gates BITE (RED on mutation, GREEN on revert). T-26 + Gate D#2 CLOSED.
