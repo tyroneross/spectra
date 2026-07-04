@@ -55,6 +55,16 @@ import Darwin
 /// connections on a CONCURRENT queue (DriverProtocol.swift §1's own
 /// concurrency note): one session's recording RPC blocking its handler thread
 /// never blocks another session's request.
+// TEMP DEBUG INSTRUMENTATION (M3.G2 V-C startRecording-timeout investigation):
+// logs the exact bytes written to / read from the spawned spectra-native's
+// stdio, gated so it never fires in normal production use unless explicitly
+// opted into. TODO: remove once the timeout root cause is confirmed fixed.
+private let rpcDebugEnabled = ProcessInfo.processInfo.environment["SPECTRA_RECORDING_RPC_DEBUG"] == "1"
+private func rpcLog(_ message: String) {
+    guard rpcDebugEnabled else { return }
+    fputs("[recording-rpc] \(message)\n", stderr)
+}
+
 final class NativeRecordingRpcProcess: @unchecked Sendable {
     struct RpcError: Error { let message: String }
 
@@ -83,17 +93,23 @@ final class NativeRecordingRpcProcess: @unchecked Sendable {
 
         stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty else { return }
+            guard !data.isEmpty else {
+                rpcLog("stdout EOF (0-byte read)")
+                return
+            }
+            rpcLog("stdout chunk bytes=\(data.count) raw=\(String(data: data, encoding: .utf8) ?? "<non-utf8>")")
             self?.handleStdout(data)
         }
         stderrPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let self else { return }
+            rpcLog("stderr chunk bytes=\(data.count) raw=\(String(data: data, encoding: .utf8) ?? "<non-utf8>")")
             self.lock.lock()
             self.stderrBuffer.append(data)
             self.lock.unlock()
         }
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] proc in
+            rpcLog("terminationHandler fired pid=\(proc.processIdentifier) exitCode=\(proc.terminationStatus) reason=\(proc.terminationReason.rawValue)")
             self?.markClosed()
         }
 
@@ -128,9 +144,12 @@ final class NativeRecordingRpcProcess: @unchecked Sendable {
         }
         var line = encoded
         line.append(0x0A)
+        let sentAt = DispatchTime.now()
+        rpcLog("send id=\(id) method=\(method) bytes=\(line.count) pid=\(process.processIdentifier) payload=\(String(data: encoded, encoding: .utf8) ?? "<non-utf8>")")
         stdinPipe.fileHandleForWriting.write(line)
 
         let waitResult = semaphore.wait(timeout: .now() + .milliseconds(timeoutMs))
+        let elapsedMs = (DispatchTime.now().uptimeNanoseconds - sentAt.uptimeNanoseconds) / 1_000_000
 
         lock.lock()
         pending.removeValue(forKey: id)
@@ -138,14 +157,18 @@ final class NativeRecordingRpcProcess: @unchecked Sendable {
         lock.unlock()
 
         if waitResult == .timedOut {
+            rpcLog("TIMEOUT id=\(id) method=\(method) elapsedMs=\(elapsedMs) pid=\(process.processIdentifier) isRunning=\(process.isRunning) closed=\(closed)\(detail.isEmpty ? "" : " stderr=\(detail)")")
             throw RpcError(message: "Native recording request '\(method)' timed out after \(timeoutMs)ms\(detail)")
         }
         switch box.value {
         case .some(.success(let result)):
+            rpcLog("recv id=\(id) method=\(method) elapsedMs=\(elapsedMs) result=\(result)")
             return result
         case .some(.failure(let err)):
+            rpcLog("recv-error id=\(id) method=\(method) elapsedMs=\(elapsedMs) error=\(err.message)")
             throw err
         case .none:
+            rpcLog("recv-empty id=\(id) method=\(method) elapsedMs=\(elapsedMs)")
             throw RpcError(message: "Native recording request '\(method)' produced no result\(detail)")
         }
     }
@@ -258,13 +281,27 @@ private func errorMessage(_ error: Error) -> String {
     return String(describing: error)
 }
 
-/// `~/.spectra/bin/spectra-native` — the SAME binary path/build the TS daemon
-/// resolves via `ensureBinary()` (src/native/compiler.ts). This Swift daemon
-/// does not compile/sign it (that remains a TS-side build-tooling concern,
-/// out of scope for this G2 wave); if it isn't there yet, startRecording
-/// fails with a clear, actionable message rather than trying to build it.
+/// ROOT-CAUSE FIX (M3.G2 V-C startRecording-timeout investigation): this used
+/// to resolve via bare `NSHomeDirectory()`, which does NOT reliably honor an
+/// env-var-only `HOME` override under a launchd-spawned process — unlike its
+/// sibling `BridgeClient.swift:84` (`env["HOME"] ?? NSHomeDirectory()`,
+/// the same pattern `StoragePath.swift:81` uses), which IS what `screenshot`
+/// goes through. Confirmed live: under the G2 on-device test harness (HOME
+/// set to an isolated `~/.spectra-g2-ondevice` via the launchd plist's
+/// EnvironmentVariables), `screenshot` (via BridgeClient) correctly spawned
+/// the test-provisioned helper while `startRecording` (via this function,
+/// pre-fix) silently spawned the REAL `~/.spectra/bin/spectra-native`
+/// instead — a stale/mismatched binary the test never provisioned. Even
+/// with a correctly-provisioned helper this divergence is live-dangerous:
+/// it means `startRecording` can never be test-isolated the way every other
+/// native op in this daemon is, and in this investigation the two installs
+/// disagreed enough (one built from `native/swift/main.swift` predating the
+/// real ScreenCaptureKit recording implementation) to produce a hard
+/// "coming in Phase 3a" stub failure instead of ever reaching the RPC's
+/// timeout path at all.
 private func resolveNativeBinaryPath() throws -> String {
-    let path = (NSHomeDirectory() as NSString).appendingPathComponent(".spectra/bin/spectra-native")
+    let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
+    let path = (home as NSString).appendingPathComponent(".spectra/bin/spectra-native")
     guard FileManager.default.fileExists(atPath: path) else {
         throw RecordingOpError(message: "spectra-native helper binary not found at \(path) — run the TS Spectra daemon/MCP server once (or `npm run build:native`) to compile + sign it; the Swift daemon-core spawns this EXISTING binary rather than re-implementing ScreenCaptureKit in-process (ND-2)")
     }
@@ -272,7 +309,8 @@ private func resolveNativeBinaryPath() throws -> String {
 }
 
 private func cursorSamplerBinaryPath() -> String {
-    (NSHomeDirectory() as NSString).appendingPathComponent(".spectra/bin/spectra-cursor-sampler")
+    let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
+    return (home as NSString).appendingPathComponent(".spectra/bin/spectra-cursor-sampler")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -687,11 +725,27 @@ private func handleStartRecording(_ params: Any?, _ ctx: DaemonContext, recordin
 
     keepAwake.recordingStarted(recordingId)
 
-    let rpc: NativeRecordingRpcProcess
+    // ROOT CAUSE FIX (M3.G2 V-C startRecording timeout investigation): `rpc`
+    // used to be a `let` assigned inside this `do` block, which meant a
+    // failure on `rpc.send(...)` had NO reachable reference to the already-
+    // spawned subprocess in `catch` — the spawned `spectra-native` process
+    // was silently leaked (never `abort()`ed) on every failed/timed-out
+    // startRecording. Leaked instances keep their ScreenCaptureKit session
+    // alive indefinitely; they accumulate across repeated attempts and
+    // measurably slow down (and eventually time out) subsequent
+    // `SCShareableContent`/stream setup in NEWLY spawned instances — this is
+    // what turned a handful of fast (sub-second) failures into the
+    // 15000ms-timeout symptom on later attempts (confirmed live: `ps aux`
+    // showed 5-6 idle-but-alive leaked `spectra-native` processes under
+    // ~/.spectra-g2-ondevice accumulated from prior failed runs). `rpc` is
+    // now a `var Optional` set immediately after a successful spawn so
+    // `catch` can always reach it and abort it.
+    var rpc: NativeRecordingRpcProcess?
     let startResult: [String: Any]
     do {
-        rpc = try NativeRecordingRpcProcess(binaryPath: try resolveNativeBinaryPath())
-        startResult = try rpc.send(method: "startRecording", params: [
+        let proc = try NativeRecordingRpcProcess(binaryPath: try resolveNativeBinaryPath())
+        rpc = proc
+        startResult = try proc.send(method: "startRecording", params: [
             "recordingId": recordingId,
             "sessionId": sessionId,
             "app": appName,
@@ -704,6 +758,7 @@ private func handleStartRecording(_ params: Any?, _ ctx: DaemonContext, recordin
             "maxDuration": maxDurationSeconds,
         ], timeoutMs: 15_000)
     } catch {
+        rpc?.abort()
         keepAwake.recordingStopped(recordingId)
         // TS folds an operator hint ("Verify the target window is
         // visible/on-screen and Screen Recording permission is granted...")
@@ -716,6 +771,9 @@ private func handleStartRecording(_ params: Any?, _ ctx: DaemonContext, recordin
             status: 500
         )
     }
+    // Non-optional from here on — the only paths that reach past the `do`
+    // block above are the ones that assigned it.
+    let liveRpc = rpc!
 
     var cursorSampler: CursorSamplerHandle?
     var cursorSamplerSkippedWarning: String?
@@ -728,7 +786,7 @@ private func handleStartRecording(_ params: Any?, _ ctx: DaemonContext, recordin
             do {
                 cursorSampler = try CursorSamplerHandle.spawn(binaryPath: binaryPath, maxDurationSeconds: maxDurationSeconds, fps: fps, outPath: cursorOutPath)
             } catch {
-                rpc.abort()
+                liveRpc.abort()
                 keepAwake.recordingStopped(recordingId)
                 throw DaemonApiError(.recordingFailed, "startRecording cursor sampler failed: \(errorMessage(error))", status: 500)
             }
@@ -741,12 +799,12 @@ private func handleStartRecording(_ params: Any?, _ ctx: DaemonContext, recordin
     let recording = ActiveRecording(
         recordingId: recordingId, sessionId: sessionId, target: target, startedAt: startedAt,
         outPath: outPath, preset: preset, fps: fps, codec: codec, bitrate: bitrate,
-        rpc: rpc, cursorSampler: cursorSampler, cursorSamplerSkippedWarning: cursorSamplerSkippedWarning
+        rpc: liveRpc, cursorSampler: cursorSampler, cursorSamplerSkippedWarning: cursorSamplerSkippedWarning
     )
     do {
         try recordings.add(recording)
     } catch {
-        rpc.abort()
+        liveRpc.abort()
         cursorSampler?.stop()
         keepAwake.recordingStopped(recordingId)
         throw error
