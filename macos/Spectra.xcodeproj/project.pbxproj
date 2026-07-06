@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0F24C2D79F60C06BFFC431E3 /* CDPConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95FF93D92C214EBCC9ED495C /* CDPConnection.swift */; };
 		1089166E83483F21AB2DCDA5 /* SpectraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2425CB59BFE4F70929658B44 /* SpectraApp.swift */; };
 		1E2AF5D394F9B219350F6CA4 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0711213F0E7CCE3D3BBD840 /* DesignTokens.swift */; };
 		39FA2C732D0A1A4D021F02B5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CFB0E4E2FB251214B9EA1862 /* Assets.xcassets */; };
@@ -14,12 +15,16 @@
 		3E09B6EB3A6AFECDEA669096 /* DaemonClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */; };
 		44A4BBCC352D0A3430F35ABA /* LaunchAgentManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C306B0717CC3D368FE8879C7 /* LaunchAgentManagerTests.swift */; };
 		46AC00560A61E021AC719E21 /* DaemonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78339EDBC016669BC072EB55 /* DaemonClient.swift */; };
+		4580EFB178B025C395A7CFDF /* CDPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3268C7A589E9C37A5123EF /* CDPModels.swift */; };
 		4CE53F9BEC001C341035E0BA /* KeychainStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4219A852BDE452C2F4E7A616 /* KeychainStoreTests.swift */; };
+		4F150719D60F4077831E3378 /* CDPPortTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BE5017AEAC488198807BF0 /* CDPPortTests.swift */; };
+		537DFE4ACE9CA77BF6788E24 /* CDPDomains.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9088A898BD9D84C5BC5ED2B /* CDPDomains.swift */; };
 		5B14FF4B3576BB0764E9342E /* PromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38180C6E07F8B0E6A3E33F0B /* PromptBuilder.swift */; };
 		61E3A348DF11C3641B72AFD9 /* RepoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A97AABE8DC1AECBFE3A931 /* RepoPicker.swift */; };
 		6595C1499E318DAD1032EF59 /* ScreenshotHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AC73EDE1BBDFEB725B3F8D6 /* ScreenshotHarness.swift */; };
 		74542E58408799E856FCCC51 /* SpectraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */; };
 		774DB66B0A21BA73B3EE7366 /* LoadableState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361F4A0D10BC2358793DA6CD /* LoadableState.swift */; };
+		7F56F4BE5847CAAA4B6ECDA1 /* CDPBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256B6635A1184796FDB8C508 /* CDPBrowser.swift */; };
 		7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3697D76152E9113CAAB901DA /* AccessibilityPanel.swift */; };
 		806CA5A1913F5723C4601356 /* LaunchAgentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 997ED47033ED4BB417D21757 /* LaunchAgentManager.swift */; };
 		96F17C4DA24A7A2AEC244700 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF50545CA15B064929AD7D66 /* SettingsView.swift */; };
@@ -29,8 +34,10 @@
 		C9A8DC2031BEDC51A1AD7875 /* ActionButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0BD6FD2B2332FB4125F13A /* ActionButtonStyle.swift */; };
 		CE29CF49E3A1040F23CE0445 /* AnthropicClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639EFA773C7D41CE767F0667 /* AnthropicClient.swift */; };
 		D726F44F0C8C8406966838B1 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ECE5E5084A7960089B14922 /* KeychainStore.swift */; };
+		D9044F760EC090E3E36C9B2F /* CDPDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = E02DFD05DF509636B3E8609C /* CDPDriver.swift */; };
 		DB15594D13C0ABD771F4535A /* Copy.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE191C17BD26703B1A9E52F5 /* Copy.swift */; };
 		EEE7F9F28824B988B1C51C33 /* PromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983A8EB159C9F5A28C3925EE /* PromptBuilderTests.swift */; };
+		F1FBEA28656D2D2B95E7CE98 /* CDPSmokeMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5937A470BEB0EC098EB7C7 /* CDPSmokeMain.swift */; };
 		F57925FC146AC34DDB4A3C55 /* DaemonModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFE6B6426F27011EFA5547F /* DaemonModels.swift */; };
 /* End PBXBuildFile section */
 
@@ -46,7 +53,9 @@
 
 /* Begin PBXFileReference section */
 		0AB8B74FE0FE77E4257C2B00 /* WalkthroughPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkthroughPlanner.swift; sourceTree = "<group>"; };
+		1A5937A470BEB0EC098EB7C7 /* CDPSmokeMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPSmokeMain.swift; sourceTree = "<group>"; };
 		2425CB59BFE4F70929658B44 /* SpectraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraApp.swift; sourceTree = "<group>"; };
+		256B6635A1184796FDB8C508 /* CDPBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPBrowser.swift; sourceTree = "<group>"; };
 		278800AE363109BC3AEBABD2 /* MenuBarPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopover.swift; sourceTree = "<group>"; };
 		2B0BD6FD2B2332FB4125F13A /* ActionButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonStyle.swift; sourceTree = "<group>"; };
 		330C13C09396C4A295B9346A /* Recents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recents.swift; sourceTree = "<group>"; };
@@ -56,14 +65,17 @@
 		4219A852BDE452C2F4E7A616 /* KeychainStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreTests.swift; sourceTree = "<group>"; };
 		5AC73EDE1BBDFEB725B3F8D6 /* ScreenshotHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHarness.swift; sourceTree = "<group>"; };
 		5C8E2BC2D1A3C879E43E0C46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		61E7C717B24B0BA59E09F481 /* PORT-NOTES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "PORT-NOTES.md"; sourceTree = "<group>"; };
 		639EFA773C7D41CE767F0667 /* AnthropicClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicClient.swift; sourceTree = "<group>"; };
 		643DAAA8F4A15075134FFB02 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6725E026DD42B2818E7F6DC7 /* SpectraViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectraViewModel.swift; sourceTree = "<group>"; };
 		78339EDBC016669BC072EB55 /* DaemonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClient.swift; sourceTree = "<group>"; };
 		8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonClientTests.swift; sourceTree = "<group>"; };
 		8ECE5E5084A7960089B14922 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		95FF93D92C214EBCC9ED495C /* CDPConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPConnection.swift; sourceTree = "<group>"; };
 		983A8EB159C9F5A28C3925EE /* PromptBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptBuilderTests.swift; sourceTree = "<group>"; };
 		997ED47033ED4BB417D21757 /* LaunchAgentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAgentManager.swift; sourceTree = "<group>"; };
+		A9BE5017AEAC488198807BF0 /* CDPPortTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPPortTests.swift; sourceTree = "<group>"; };
 		BE191C17BD26703B1A9E52F5 /* Copy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Copy.swift; sourceTree = "<group>"; };
 		BF50545CA15B064929AD7D66 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C0711213F0E7CCE3D3BBD840 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
@@ -73,7 +85,10 @@
 		D0F72D95A74F8B8344E3CD68 /* RecentsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentsStoreTests.swift; sourceTree = "<group>"; };
 		D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Spectra.entitlements; sourceTree = "<group>"; };
 		DEFE6B6426F27011EFA5547F /* DaemonModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonModels.swift; sourceTree = "<group>"; };
+		E02DFD05DF509636B3E8609C /* CDPDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPDriver.swift; sourceTree = "<group>"; };
+		E9088A898BD9D84C5BC5ED2B /* CDPDomains.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPDomains.swift; sourceTree = "<group>"; };
 		EC0FB475007823856D622E15 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA3268C7A589E9C37A5123EF /* CDPModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CDPModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -111,6 +126,7 @@
 				5C8E2BC2D1A3C879E43E0C46 /* Info.plist */,
 				D63FB05F9C7DAA1BCE560257 /* Spectra.entitlements */,
 				2425CB59BFE4F70929658B44 /* SpectraApp.swift */,
+				B7D0FB679F98108AF07BF327 /* CDP */,
 				F5F40BF248938DF418395BA0 /* Daemon */,
 				11691D027B5E218342D8AE4A /* LLM */,
 				AB8D311A7A4DF2F15C80AB1C /* Net */,
@@ -146,9 +162,24 @@
 			path = Net;
 			sourceTree = "<group>";
 		};
+		B7D0FB679F98108AF07BF327 /* CDP */ = {
+			isa = PBXGroup;
+			children = (
+				256B6635A1184796FDB8C508 /* CDPBrowser.swift */,
+				95FF93D92C214EBCC9ED495C /* CDPConnection.swift */,
+				E9088A898BD9D84C5BC5ED2B /* CDPDomains.swift */,
+				E02DFD05DF509636B3E8609C /* CDPDriver.swift */,
+				FA3268C7A589E9C37A5123EF /* CDPModels.swift */,
+				1A5937A470BEB0EC098EB7C7 /* CDPSmokeMain.swift */,
+				61E7C717B24B0BA59E09F481 /* PORT-NOTES.md */,
+			);
+			path = CDP;
+			sourceTree = "<group>";
+		};
 		DBFA11753B3BEC3E4F64E4F7 /* SpectraTests */ = {
 			isa = PBXGroup;
 			children = (
+				A9BE5017AEAC488198807BF0 /* CDPPortTests.swift */,
 				8E6B4E0B8EEDAD0CDE6A544E /* DaemonClientTests.swift */,
 				4219A852BDE452C2F4E7A616 /* KeychainStoreTests.swift */,
 				C306B0717CC3D368FE8879C7 /* LaunchAgentManagerTests.swift */,
@@ -304,6 +335,12 @@
 				7FD829D9C80D72156F3B42BC /* AccessibilityPanel.swift in Sources */,
 				C9A8DC2031BEDC51A1AD7875 /* ActionButtonStyle.swift in Sources */,
 				CE29CF49E3A1040F23CE0445 /* AnthropicClient.swift in Sources */,
+				7F56F4BE5847CAAA4B6ECDA1 /* CDPBrowser.swift in Sources */,
+				0F24C2D79F60C06BFFC431E3 /* CDPConnection.swift in Sources */,
+				537DFE4ACE9CA77BF6788E24 /* CDPDomains.swift in Sources */,
+				D9044F760EC090E3E36C9B2F /* CDPDriver.swift in Sources */,
+				4580EFB178B025C395A7CFDF /* CDPModels.swift in Sources */,
+				F1FBEA28656D2D2B95E7CE98 /* CDPSmokeMain.swift in Sources */,
 				DB15594D13C0ABD771F4535A /* Copy.swift in Sources */,
 				46AC00560A61E021AC719E21 /* DaemonClient.swift in Sources */,
 				F57925FC146AC34DDB4A3C55 /* DaemonModels.swift in Sources */,
@@ -327,6 +364,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4F150719D60F4077831E3378 /* CDPPortTests.swift in Sources */,
 				3E09B6EB3A6AFECDEA669096 /* DaemonClientTests.swift in Sources */,
 				4CE53F9BEC001C341035E0BA /* KeychainStoreTests.swift in Sources */,
 				44A4BBCC352D0A3430F35ABA /* LaunchAgentManagerTests.swift in Sources */,
