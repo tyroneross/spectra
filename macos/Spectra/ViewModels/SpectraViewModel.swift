@@ -28,6 +28,8 @@ public final class SpectraViewModel {
     public var instructionText: String = ""
     public var recents: [RecentRepo] = []
     public var sessions: [SessionListItem] = []
+    public var recordedVideos: [RecordedVideoItem] = []
+    public var selectedVideo: RecordedVideoItem?
     public var activeSessionId: String?
     public var isRecording: Bool = false
     public var lastErrorMessage: String?
@@ -98,6 +100,7 @@ public final class SpectraViewModel {
     // ─── Lifecycle ───────────────────────────────────────────
 
     public func onPopoverShow() {
+        refreshRecordedVideos()
         Task { await self.checkDaemon() }
         startPolling()
     }
@@ -167,6 +170,7 @@ public final class SpectraViewModel {
             let data = try await client.callTool(name: "spectra_session", arguments: ["action": "list"])
             let result = try JSONDecoder().decode(SessionListResult.self, from: data)
             self.sessions = result.sessions
+            refreshRecordedVideos()
         } catch {
             // Polling failures shouldn't spam the UI; only set if not already set.
             if recoveryError == nil {
@@ -187,6 +191,7 @@ public final class SpectraViewModel {
         self.selectedRepoDisplayName = url.lastPathComponent
         recentsStore.remember(path: path)
         self.recents = recentsStore.list()
+        refreshRecordedVideos()
     }
 
     public func showBrowseDialog() {
@@ -226,6 +231,7 @@ public final class SpectraViewModel {
         guard let sid = activeSessionId else { return }
         lastErrorMessage = nil
         recoveryError = nil
+        defer { refreshRecordedVideos() }
         // Best-effort stop recording first
         _ = try? await client.callTool(name: "spectra_capture", arguments: [
             "sessionId": sid,
@@ -244,6 +250,18 @@ public final class SpectraViewModel {
             recoveryError = recovery
             lastErrorMessage = "\(recovery.title): \(recovery.suggestion)"
         }
+    }
+
+    public func refreshRecordedVideos() {
+        recordedVideos = RecordedVideoStore.list(repoPath: selectedRepoPath)
+    }
+
+    public func previewVideo(_ video: RecordedVideoItem) {
+        selectedVideo = video
+    }
+
+    public func revealVideo(_ video: RecordedVideoItem) {
+        NSWorkspace.shared.activateFileViewerSelecting([video.url])
     }
 
     public func revealSession() {
@@ -314,6 +332,15 @@ public final class SpectraViewModel {
             SessionListItem(id: "sess-active", name: "aurora-web · onboarding", platform: "macos", steps: 8, createdAt: "2026-06-27T05:00:00Z"),
             SessionListItem(id: "sess-2", name: "marketing-site · pricing flow", platform: "web", steps: 14, createdAt: "2026-06-26T22:10:00Z"),
             SessionListItem(id: "sess-3", name: "spectra · settings walkthrough", platform: "macos", steps: 5, createdAt: "2026-06-26T18:42:00Z"),
+        ]
+        vm.recordedVideos = [
+            RecordedVideoItem(
+                path: "/Users/you/dev/aurora-web/.spectra/sessions/sess-active/recording.mp4",
+                fileName: "recording.mp4",
+                sessionId: "sess-active",
+                modifiedAt: Date(),
+                sizeBytes: 2_400_000
+            )
         ]
         vm.lastWalkthroughOutcomeText = "Walkthrough completed — 6 steps over 3 turns. Used 4,120 input + 880 output tokens."
         return vm

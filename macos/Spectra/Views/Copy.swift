@@ -124,6 +124,10 @@ enum SpectraCopy {
     static let revealButton = "Open in Finder"
     static let sessionsHeader = "Recent sessions"
     static let sessionsEmptyHint = "Sessions will appear here once you start a capture."
+    static let recordingsHeader = "Recent recordings"
+    static let recordingsEmptyHint = "Recorded videos will appear here after you stop a capture."
+    static let recordingPreviewTitle = "Recording"
+    static let revealRecordingLabel = "Reveal"
 
     // MARK: - Recovery error titles
 
@@ -139,6 +143,7 @@ enum SpectraCopy {
     // MARK: - Generic actions
 
     static let dismissLabel = "Dismiss"
+    static let closeLabel = "Close"
     static let quitLabel = "Quit Spectra"
     static let settingsLabel = "Settings"
     static let settingsHint = "Open Spectra settings"

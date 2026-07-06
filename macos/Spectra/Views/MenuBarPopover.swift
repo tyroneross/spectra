@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
 
+import AVKit
 import SwiftUI
 
 struct MenuBarPopover: View {
@@ -66,6 +67,9 @@ struct MenuBarPopover: View {
                     .accessibilityLabel("Latest walkthrough outcome: \(outcome)")
             }
 
+            // ─── Completed recordings ───────────────────────
+            recordingsSection
+
             // ─── Sessions list (loadable) ────────────────────
             sessionsSection
 
@@ -85,6 +89,9 @@ struct MenuBarPopover: View {
         .onDisappear { vm.onPopoverHide() }
         .sheet(isPresented: $vm.showSettings) {
             settingsSheet
+        }
+        .sheet(item: $vm.selectedVideo) { video in
+            VideoPreviewSheet(video: video)
         }
     }
 
@@ -257,6 +264,78 @@ struct MenuBarPopover: View {
             return "Type what Spectra should walk through, then press Run."
         }
         return "Runs the AI walkthrough using your instructions."
+    }
+
+    // MARK: - Recordings
+
+    @ViewBuilder
+    private var recordingsSection: some View {
+        if vm.selectedRepoPath != nil {
+            Divider()
+            Text(SpectraCopy.recordingsHeader)
+                .font(SpectraText.metadata)
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+
+            if vm.recordedVideos.isEmpty {
+                Text(SpectraCopy.recordingsEmptyHint)
+                    .font(SpectraText.metadata)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityLabel(SpectraCopy.recordingsEmptyHint)
+            } else {
+                VStack(alignment: .leading, spacing: SpectraSpacing.xs) {
+                    ForEach(vm.recordedVideos.prefix(3)) { video in
+                        recordingRow(video)
+                    }
+                }
+            }
+        }
+    }
+
+    private func recordingRow(_ video: RecordedVideoItem) -> some View {
+        HStack(spacing: SpectraSpacing.sm) {
+            Image(systemName: "film")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(video.fileName)
+                    .font(SpectraText.metadata)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(videoMetadata(video))
+                    .font(SpectraText.micro)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button {
+                vm.previewVideo(video)
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .imageScale(.medium)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(SpectraCopy.recordingPreviewTitle): \(video.fileName)")
+            .help(SpectraCopy.recordingPreviewTitle)
+
+            Button {
+                vm.revealVideo(video)
+            } label: {
+                Image(systemName: "folder")
+                    .imageScale(.medium)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(SpectraCopy.revealRecordingLabel) \(video.fileName)")
+            .help(SpectraCopy.revealRecordingLabel)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func videoMetadata(_ video: RecordedVideoItem) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        let size = formatter.string(fromByteCount: Int64(video.sizeBytes))
+        return "\(size) · \(video.modifiedAt.formatted(date: .abbreviated, time: .shortened))"
     }
 
     // MARK: - Sessions
@@ -439,5 +518,44 @@ struct MenuBarPopover: View {
             SettingsView(vm: vm)
         }
         .frame(minWidth: 400)
+    }
+}
+
+private struct VideoPreviewSheet: View {
+    let video: RecordedVideoItem
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SpectraSpacing.lg) {
+            HStack {
+                Text(video.fileName)
+                    .font(SpectraText.title)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button(SpectraCopy.closeLabel) {
+                    dismiss()
+                }
+                .spectraStandard(size: .small)
+                .keyboardShortcut(.cancelAction)
+            }
+
+            VideoPlayer(player: player)
+                .frame(minWidth: 640, minHeight: 360)
+                .background(Color.black)
+        }
+        .padding(SpectraSpacing.xl)
+        .frame(minWidth: 680, minHeight: 430)
+        .onAppear {
+            player = AVPlayer(url: video.url)
+            player?.play()
+        }
+        .onDisappear {
+            player?.pause()
+            player = nil
+        }
     }
 }

@@ -70,3 +70,65 @@ public final class RecentsStore {
         }
     }
 }
+
+public struct RecordedVideoItem: Equatable, Identifiable, Sendable {
+    public let path: String
+    public let fileName: String
+    public let sessionId: String
+    public let modifiedAt: Date
+    public let sizeBytes: Int
+
+    public var id: String { path }
+    public var url: URL { URL(fileURLWithPath: path) }
+}
+
+public enum RecordedVideoStore {
+    private static let supportedExtensions: Set<String> = ["m4v", "mov", "mp4"]
+
+    public static func list(repoPath: String?, limit: Int = 8) -> [RecordedVideoItem] {
+        guard
+            let repoPath,
+            !repoPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return []
+        }
+        let sessionsRoot = URL(fileURLWithPath: repoPath)
+            .appendingPathComponent(".spectra", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+        return list(sessionsRoot: sessionsRoot, limit: limit)
+    }
+
+    static func list(sessionsRoot: URL, limit: Int = 8) -> [RecordedVideoItem] {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .contentModificationDateKey, .fileSizeKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: sessionsRoot,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return []
+        }
+
+        var videos: [RecordedVideoItem] = []
+        let rootComponentCount = sessionsRoot.standardizedFileURL.pathComponents.count
+        for case let url as URL in enumerator {
+            guard supportedExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            guard let values = try? url.resourceValues(forKeys: Set(keys)) else { continue }
+            guard values.isRegularFile == true else { continue }
+            let relativeComponents = url.standardizedFileURL.pathComponents.dropFirst(rootComponentCount)
+            videos.append(RecordedVideoItem(
+                path: url.path,
+                fileName: url.lastPathComponent,
+                sessionId: relativeComponents.first ?? url.deletingLastPathComponent().lastPathComponent,
+                modifiedAt: values.contentModificationDate ?? .distantPast,
+                sizeBytes: values.fileSize ?? 0
+            ))
+        }
+
+        return Array(videos.sorted {
+            if $0.modifiedAt == $1.modifiedAt {
+                return $0.fileName < $1.fileName
+            }
+            return $0.modifiedAt > $1.modifiedAt
+        }.prefix(limit))
+    }
+}
