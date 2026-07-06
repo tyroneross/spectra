@@ -103,6 +103,9 @@ function hasExpectedSignature(binaryPath) {
         if (result.status !== 0)
             return false;
         const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+        if (identity === DEFAULT_CODESIGN_IDENTITY) {
+            return output.includes('Signature=adhoc');
+        }
         return output.includes(`Authority=${identity}`)
             && /TeamIdentifier=(?!not set)/.test(output);
     }
