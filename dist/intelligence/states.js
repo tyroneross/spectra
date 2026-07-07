@@ -142,7 +142,7 @@ function dedupe(ids) {
 // JS injected to restore content saved by a trigger
 const RESTORE_SCRIPT = `
   document.querySelectorAll('[data-spectra-original]').forEach(el => {
-    el.innerHTML = el.dataset.spectraOriginal;
+    el.innerHTML = el.dataset.spectraOriginal; // nosec: injected CDP script restores the page's OWN captured innerHTML (self-origin round-trip) inside a Runtime.evaluate context Spectra already fully controls — no added privilege, no external input
     delete el.dataset.spectraOriginal;
   })
 `.trim();
@@ -154,7 +154,7 @@ function wrapInSave(innerHtml) {
       if (!el.dataset.spectraOriginal) {
         el.dataset.spectraOriginal = el.innerHTML;
       }
-      el.innerHTML = ${JSON.stringify(innerHtml)};
+      el.innerHTML = ${JSON.stringify(innerHtml)}; // nosec: injected CDP script writes Spectra's own state-simulation template (not external input) into a page Spectra already drives via Runtime.evaluate — no added privilege
     })
   `.trim();
 }

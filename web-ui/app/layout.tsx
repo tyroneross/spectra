@@ -29,7 +29,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }} />
+        <script
+          dangerouslySetInnerHTML={{ // nosec: NO_FLASH_THEME_SCRIPT is a static compile-time constant (standard no-flash theme init script), not user input
+            __html: NO_FLASH_THEME_SCRIPT,
+          }}
+        />
       </head>
       <body className="min-h-screen bg-zinc-950 font-sans text-zinc-50 antialiased">
         <Nav />
