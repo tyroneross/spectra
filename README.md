@@ -201,6 +201,29 @@ Explicit capture options override preset defaults, so `preset="demo"` with `fps=
 
 ---
 
+### `spectra_demo`
+
+Turn a raw screen recording into a polished, shareable demo clip. Applies a spotlight focus effect (sharp focal region, dimmed/blurred periphery), burns in **lower-third captions** — a full-width bar with a numbered step chip and a one-line description — and merges multiple captioned segments into one mp4. Audio handling is opt-in; screen recordings are stripped by default.
+
+| Param | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `action` | enum | yes | `scan`, `polish-clip`, `polish-script`, `run-script`, `auto-ramp` |
+| `input` | string | | Source recording path (for `scan`) |
+| `spec` | object | | Polish spec: `canvas`, `segments[]` (each `input`, `startSec`, `durationSec`, `focal`, `caption`) |
+
+**Actions:**
+- **`scan`** — scene-change analysis of a recording: per-minute activity + contiguous active ranges, so you can pick the segments worth showing.
+- **`polish-clip`** — polish a single segment: spotlight focus, optional zoom, optional lower-third caption.
+- **`polish-script`** — polish multiple segments and merge them into one mp4, each with its own numbered lower-third caption (the multi-scene captioned-walkthrough format).
+- **`run-script`** — drive a live browser via CDP through scripted demo beats (search/click/navigate/scroll/hold) while capturing.
+- **`auto-ramp`** — derive zoom ramps automatically from scene detection when explicit click telemetry is absent.
+
+Caption banner is a fixed reference style: full-width `#050709`@92% bar, `#27AFE8` rounded step chip, `#F8FAFC` text. Write one caption per beat — present-tense and outcome-focused ("Claude reads the inbox — green light to build").
+
+**Returns:** `{ path, ... }` — the rendered mp4 (or scan report for `action=scan`).
+
+---
+
 ### `spectra_analyze`
 
 Score the current screen — element importance, regions of interest, UI state.

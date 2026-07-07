@@ -1,6 +1,6 @@
 {
   "name": "@tyroneross/spectra",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "AI-native UI automation across web, macOS, iOS, and watchOS with plugin, MCP server, and standalone CLI surfaces.",
   "type": "module",
   "main": "dist/index.js",
