@@ -43,7 +43,7 @@ Explainers usually sell the problem to colder viewers. Demos usually prove the s
 9. **AUDIT** — score the 15-dimension rubric in `references/creative-loop.md`. Ready requires at least 65/75 and zero blockers.
 10. **REPAIR** — address blockers and the three weakest dimensions, re-render affected assets, and re-audit. Stop after two repair passes.
 
-Terminal results: `READY_TO_TEST`, `BLOCKED_MISSING_INPUT`, `BLOCKED_MISSING_EVIDENCE`, `PRODUCTION_FAILED`, or `REPLAN`.
+Terminal results: `PLAN_READY` for plan-only requests; otherwise `READY_TO_TEST`, `BLOCKED_MISSING_INPUT`, `BLOCKED_MISSING_EVIDENCE`, `PRODUCTION_FAILED`, or `REPLAN`.
 
 ## Campaign artifacts
 

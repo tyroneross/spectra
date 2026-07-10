@@ -24,6 +24,7 @@
     "scripts/postinstall.sh",
     ".claude-plugin/",
     ".codex-plugin/",
+    "agents/",
     "commands/",
     "skills/",
     "README.md",

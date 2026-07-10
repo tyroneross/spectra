@@ -20,7 +20,7 @@ DEFINE → DIAGNOSE → CONCEPT → SELECT → EVIDENCE → STORYBOARD
                                       ↘ REPAIR (maximum 2) ↗
 
 Terminal alternatives:
-BLOCKED_MISSING_INPUT · BLOCKED_MISSING_EVIDENCE · PRODUCTION_FAILED · REPLAN
+PLAN_READY · BLOCKED_MISSING_INPUT · BLOCKED_MISSING_EVIDENCE · PRODUCTION_FAILED · REPLAN
 ```
 
 Advance only when the current state's exit gate passes. Record every transition in `manifest.json` with `from`, `to`, `reason`, and ISO timestamp.
@@ -226,6 +226,7 @@ On each repair pass:
 
 Terminate as:
 
+- `PLAN_READY` when planning was requested without production and the storyboard, evidence ledger, and production plan pass their exit gates.
 - `READY_TO_TEST` when score is at least 65/75 and blockers are empty.
 - `BLOCKED_MISSING_EVIDENCE` when required proof cannot be obtained honestly.
 - `REPLAN` when blockers persist after two repairs, the score remains below 65, or the governing concept is wrong.

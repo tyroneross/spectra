@@ -1,38 +1,29 @@
 ---
 name: spectra
-description: Main spectra entry. Dispatches to a subcommand based on your request, or lists options if unclear. Use `spectra:<subcommand>` to target a specific action directly.
+description: Route a Spectra request to capture, connection, library, marketing, recording, sessions, or walkthrough workflows
 argument-hint: "[what you want to do]"
 ---
 
-# /spectra — Router
+# /spectra — router
 
-Route this request to the appropriate spectra subcommand or skill based on the user's intent.
+Route the raw request to the most specific existing subcommand or Spectra skill.
 
-**Raw user input**: $ARGUMENTS
+**Raw user input:** `$ARGUMENTS`
 
-## Routing logic
+## Routes
 
-1. If `$ARGUMENTS` is empty or only whitespace: list the available subcommands below and ask the user what they want to do.
-2. Otherwise: match the user's natural-language request against the subcommand intents below and invoke the best match.
-3. If the request clearly doesn't fit any subcommand but matches a `spectra` skill (listed in your available skills), load the skill and follow its guidance instead.
-4. If nothing fits, say so and list the subcommands. Do NOT guess.
+| Intent | Route |
+|---|---|
+| screenshot, capture current state, short video of active session | `/spectra:capture` |
+| connect/open a URL, app, or simulator target | `/spectra:connect` |
+| find, tag, preserve, export, or migrate captures | `/spectra:library` |
+| plan, produce, improve, or audit marketing content/video | `/spectra:marketing` |
+| record two macOS windows as a composite | `/spectra:record` |
+| list, inspect, or close sessions | `/spectra:sessions` |
+| navigate and capture a UI flow | `/spectra:walk` |
 
-## Available subcommands
+If the request names a more specific Spectra skill, load it. If a workflow spans routes, use the smallest ordered sequence that completes it; do not invent a subcommand.
 
-- **`/spectra:capture`** — Quick screenshot or video of current session
-- **`/spectra:connect`** — Start a Spectra automation session
-- **`/spectra:sessions`** — List and manage Spectra sessions
-- **`/spectra:walk`** — Walk through a UI flow with natural language steps
+When `$ARGUMENTS` is empty, list the seven routes with one-line descriptions. If no route fits, state what is unsupported and show the list.
 
-
-## Examples
-
-- User types `/spectra` alone → list subcommands, ask for direction
-- User types `/spectra <free-form request>` → match intent, invoke subcommand
-- User types `/spectra:<specific>` → bypass this router entirely (direct invocation)
-
-## Rules
-
-- Prefer the most specific subcommand match. If two could fit, ask which.
-- Never invent a new subcommand. Only route to ones listed above.
-- If the user is describing a workflow that spans multiple subcommands, outline the sequence and ask whether to proceed.
+Prefer direct execution when the target and intent are clear. Ask only for missing information that prevents safe routing or changes the requested outcome.
