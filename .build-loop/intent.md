@@ -1,63 +1,58 @@
-<!-- intent_run_id: bl-spectra-marketing-content-20260710 -->
-# Intent — Spectra Marketing Content Quality System
+<!-- intent_run_id: bl-spectra-m1-attribution-20260710 -->
+# Intent — Spectra M1 privacy attribution remediation
 
 ## Restated intent
 
-Make Spectra direct agents from a target audience and desired action to an evidence-backed narrative, production plan, finished capture, and explicit quality audit instead of treating technically valid media as sufficient marketing content.
+Make the installed native Spectra app own macOS Accessibility, Screen Recording, and system-audio attribution by keeping every TCC-sensitive daemon and helper inside the signed app bundle, then prove the result before starting Campaign Studio production UI.
 
 ## North star
 
-Spectra should remain the reliable capture and production engine for running apps while its shipped agent layer becomes the creative director. The system succeeds when it can explain why a specific viewer should notice, care, believe, and act, then produce media whose claims are visible or otherwise supported.
+Spectra should feel like one trustworthy macOS product: users grant permissions to Spectra once, see Spectra in System Settings, and never have to understand or authorize internal helper binaries.
 
 ## Primary users and jobs
 
-- Product builders launching a feature need announcement media without manually inventing a story, shot list, and edit plan.
-- Marketing and documentation teams need reusable, audience-specific source footage and derivatives.
-- Host agents need a bounded workflow with artifacts, transitions, failure handling, and a stop condition rather than an open-ended prompt.
+- Product builders need reliable screenshots and recordings without debugging helper identities or stale permissions.
+- Marketing teams need captures that work consistently enough to power the creative-quality loop already shipped on this branch.
+- Native-app users need a clear permission experience with one responsible app identity and truthful recovery guidance.
 
-## Desired operating loop
+## Update intent and user value
 
-1. Define the audience, trigger, desired action, channel, and success signal.
-2. Diagnose the viewer's current alternative, objection, and required proof.
-3. Generate three genuinely different concepts: proof-led, problem-led, and transformation-led.
-4. Score and select one concept with a fixed weighted rubric.
-5. Produce a dual-track script and storyboard, then capture through existing Spectra tools.
-6. Enhance the edit, audit claims and creative quality, repair the weakest blockers, and stop after at most two repair passes.
+The host-agent marketing loop is complete, but production native UI remains gated by a real privacy-attribution defect. This remediation increases trust, reliability, and recoverability by eliminating bare shipped helper paths from the production launch chain.
 
-## Current truth
+## Commander's-intent posture
 
-- `skills/product-marketing/` already chooses format, length, story spine, production settings, and measurement.
-- `agents/marketing-planner.md` already routes from intake to production, but it selects one concept too early and has no explicit state machine, evidence ledger, audit threshold, repair loop, or termination contract.
-- `spectra_demo` and the media pipeline already provide technically strong capture, captions, styles, zoom, spotlight, audio, and 1080p rendering.
-- `commands/spectra.md` does not expose the existing record/library surfaces or a marketing entrypoint.
-- `package.json` ships commands and skills but omits agents, so the existing planner is not guaranteed to reach npm users.
-- The native menu-bar app is a polished capture and walkthrough controller, not a marketing-director UI. Rally currently blocks writes to `macos/Spectra` until its privacy-pane attribution is proven.
-- `fix/recording-finalize-yuv420p` contains one unique, still-unmerged finalization fix; all other inspected branches are already merged or patch-equivalent to `main`.
+- **Audience:** macOS Spectra users and the host agents that invoke its native capture runtime.
+- **Stakes:** high; incorrect attribution makes capture fail, creates misleading privacy rows, and erodes trust.
+- **Priority order:** reliability, security, simplicity, polish, speed, cost.
+- **Acceptable tradeoffs:** retain `~/.spectra/bin` only behind an explicit development helper mode during the transition.
+- **Non-goals:** no automatic TCC reset, no autonomous privacy-setting change, no real-identity signing outside the existing Xcode build, no Campaign Studio code before M1 acceptance.
 
 ## Approach lenses
 
-- Clean-sheet lens: a campaign runtime with typed state, persistence, and a native UI could orchestrate the entire loop.
-- Current-constraints lens: the plugin already has a host-agent layer and capable capture tools, so the smallest complete increment is a documented artifact protocol plus a production-grade agent prompt, command routing, packaging, and contract tests.
-- Selected approach: use the current host-agent boundary now; do not add a daemon API or native UI until real campaign runs show which state must become typed runtime data.
+- **Clean-sheet best:** `SMAppService.agent(plistName:)` with bundle-owned agent plists and executables, plus in-process or XPC-owned ScreenCaptureKit work.
+- **Current-constraints best:** preserve the proven two-agent socket topology while resolving both agents and every capture helper from a stable installed `Spectra.app/Contents/Helpers`, with an authoritative production environment contract and a separately explicit development fallback.
+- **Bridge/backcast:** centralize helper resolution now, embed every required executable, make legacy plists app-associated, and use that stable bundle contract as the migration seam for a later `SMAppService` conversion.
 
 ## Constraints
 
-- Preserve all unrelated dirt in the canonical `main` checkout.
-- Work on `codex/marketing-content-loop` in the isolated worktree.
-- Port the recording finalizer commit; do not merge its stale branch wholesale.
-- Do not edit `macos/Spectra` while Rally's M1 blocker is active.
-- Add no external service or package.
-- Keep evidence separate from inference; unsupported product claims must be removed, reframed, or explicitly requested from the user.
-- Each campaign must have one audience, one governing promise, one primary proof sequence, and one primary call to action.
+- Preserve the public `LaunchAgentManager` lifecycle signatures, labels, sockets, and frozen API behavior.
+- Keep the canonical main worktree and its unrelated build-loop dirt untouched.
+- Work only on `codex/marketing-content-loop` in the isolated worktree.
+- Do not add a package or external service.
+- Status checks must never present a permission prompt.
+- Production runtime resolution and Release packaging must fail closed when required embedded helpers are missing or non-executable; local development may fall back only when explicitly selected.
+- Persistent production plists may point only at a supported stable app location, never DerivedData, staging, a mounted DMG, or another transient path.
+- Single-TS rollback must keep the canonical primary socket and must not restore bare helper attribution.
+- Do not mutate live TCC state until the action-time confirmation required for System Settings.
 
 ## Non-goals
 
-- Replacing Spectra's existing capture, demo-render, or library APIs.
-- Building a full campaign database or analytics backend.
-- Adding a new video-generation vendor.
-- Shipping native UI during this blocked run.
-- Treating arbitrary shorter cuts as valid variants without a distinct viewer question and narrative.
+- Replacing the two-agent routing topology or changing operation ownership.
+- Completing the full `SMAppService` migration in this pass.
+- Removing the TypeScript backend, `~/.spectra/dist`, or local helper build outputs.
+- Cleaning stale privacy rows or orphan processes without user-present approval.
+- Implementing Campaign Studio before attribution acceptance is proven.
 
 ## Activation gate
 
-Done means the recording finalizer is present and tested; the marketing loop is documented and reachable from shipped commands; the agent has deterministic state, artifacts, scoring, evidence, failure, repair, and stop rules; the assessment records current/native quality honestly; packaging contains the agent; and focused plus full repository validation passes.
+This remediation passes when current signed build artifacts contain all required helpers and the required privacy metadata; every plist producer executes stable bundle-contained paths and propagates an authoritative helper-mode contract; Swift and TypeScript callers never recompute a bare path; status probes are non-prompting; focused and full tests pass; installed launchd/TCC evidence identifies `dev.spectra.app`; and the remaining user-present permission/capture proof is prepared without being falsely claimed complete.

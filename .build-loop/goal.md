@@ -1,65 +1,84 @@
-# Goal — Spectra Marketing Content Quality System
+<!-- goal_run_id: bl-spectra-m1-attribution-20260710 -->
+# Goal — Spectra M1 privacy attribution remediation
 
 ## Goal
 
-Ship the smallest complete host-agent creative loop that turns a marketing brief into a selected concept, evidence-backed storyboard, Spectra production run, and bounded audit/repair result, while also porting the only unique branch fix required to make recorded output reliably playable.
+Ship and verify a backward-compatible production bundle contract that makes the installed native Spectra app the responsible macOS privacy identity for its daemon and every Screen Recording/Accessibility helper. Production bundle configuration is authoritative and fail-closed; `~/.spectra/bin` remains available only through an explicit development mode. The current daemon API, labels, sockets, and rollback topology remain stable.
 
 ## Scoring criteria
 
-1. **Recording integrity** — every stopped real recording is finalized to broadly compatible H.264/yuv420p with fast-start metadata and validated before registration; existing stub/test behavior remains supported.
-2. **Narrative quality contract** — the product-marketing skill defines the brief, three concept routes, weighted selection, evidence ledger, dual-track storyboard, audit threshold, and maximum two repair passes.
-3. **Agent determinism** — the planner prompt names state, artifacts, tool routing, transitions, failure modes, termination conditions, and a structured final response.
-4. **Distribution and discoverability** — `/spectra:marketing` exists, `/spectra` routes marketing intent and lists current record/library surfaces, and npm packaging includes `agents/`.
-5. **Assessment fidelity** — a durable report separates current technical strengths, creative gaps, native-app status, branch disposition, verified external constraints, and the next native adoption slice.
-6. **Regression safety** — focused contract/media tests, build, full tests, and package dry-run pass after the final mutation.
+1. **Bundle-owned launch chain** — every production LaunchAgent producer executes daemon-core/daemon-launcher under a stable `Spectra.app/Contents/Helpers`, propagates the same helper-mode contract, and associates with `dev.spectra.app`.
+2. **Strict production, explicit development** — `SPECTRA_HELPER_MODE=bundle` never falls through to a home binary when a configured helper is missing, non-executable, stale, or moved; `SPECTRA_HELPER_MODE=development` preserves the current local fallback.
+3. **Complete signed packaging** — Release embeds daemon-core, text-render, and every required helper; one missing helper fails the Release build; the generated app target excludes the standalone DaemonCore entry point.
+4. **Shared deterministic resolution** — Swift AX/recording and TypeScript native/cursor/window-bounds callers consume resolved executable paths with the same override/bundle/development precedence.
+5. **Non-prompting status and complete privacy metadata** — status-only Screen Recording probes always pass `--no-request`, the visible app remains the prompt owner, and the built app declares a system-audio capture purpose string.
+6. **Compatibility and rollback safety** — labels, sockets, public lifecycle signatures, wire/API contracts, backend-first dual-agent activation, and single-TS primary-socket rollback behavior remain stable.
+7. **Real attribution evidence** — a current signed app installed at a supported stable location resolves all relevant TCC work to `dev.spectra.app`; pane grants and a non-black playable capture remain explicitly open until performed with the user present.
 
 ```acceptance_probe
 [
   {
-    "id": "C1",
-    "criterion": "Recording output is finalized and validated before it is registered",
-    "acceptance_probe": "test -f src/media/finalize-recording.ts || printf 'missing-recording-finalizer\\n'",
-    "baseline": "missing-recording-finalizer",
+    "id": "M1-A",
+    "criterion": "All LaunchAgent producers emit the intended bundle programs, app association, helper environment, labels, and socket topology",
+    "acceptance_probe": "if test -x tests/macos/launch-agent-contract.sh; then tests/macos/launch-agent-contract.sh; else printf 'missing-launch-agent-contract-test\\n'; fi",
+    "baseline": "missing-launch-agent-contract-test",
     "boundary": "data",
     "defect_class": true
   },
   {
-    "id": "C2",
-    "criterion": "The shipped marketing skill defines a bounded creative quality loop",
-    "acceptance_probe": "test -f skills/product-marketing/references/creative-loop.md || printf 'missing-creative-loop\\n'",
-    "baseline": "missing-creative-loop",
+    "id": "M1-B",
+    "criterion": "Release helper embedding succeeds with a complete inventory and fails when one required helper is absent",
+    "acceptance_probe": "if test -x tests/macos/helper-packaging-contract.sh; then tests/macos/helper-packaging-contract.sh; else printf 'missing-helper-packaging-contract-test\\n'; fi",
+    "baseline": "missing-helper-packaging-contract-test",
     "boundary": "data",
-    "defect_class": false
+    "defect_class": true
   },
   {
-    "id": "C3",
-    "criterion": "Marketing intent has a discoverable slash-command entrypoint",
-    "acceptance_probe": "test -f commands/marketing.md || printf 'missing-marketing-command\\n'",
-    "baseline": "missing-marketing-command",
+    "id": "M1-C",
+    "criterion": "Status-only Screen Recording calls pass --no-request at every TypeScript spawn boundary",
+    "acceptance_probe": "if test -f tests/daemon/privacy-helper-routing.test.ts; then npx vitest run --no-file-parallelism tests/daemon/privacy-helper-routing.test.ts -t 'passes --no-request'; else printf 'missing-non-prompting-probe-test\\n'; fi",
+    "baseline": "missing-non-prompting-probe-test",
     "boundary": "console",
-    "defect_class": false
-  },
-  {
-    "id": "C4",
-    "criterion": "The npm package includes the marketing agent surface",
-    "acceptance_probe": "node -e \"const p=require('./package.json'); if (!(p.files||[]).includes('agents/')) process.stdout.write('missing-agents-package-surface\\\\n')\"",
-    "baseline": "missing-agents-package-surface",
-    "boundary": "data",
     "defect_class": true
   },
   {
-    "id": "C5",
-    "criterion": "The current and native marketing-content assessment is durable in the repo",
-    "acceptance_probe": "test -f docs/research/spectra-marketing-content-system-2026-07-10.md || printf 'missing-marketing-assessment\\n'",
-    "baseline": "missing-marketing-assessment",
+    "id": "M1-D",
+    "criterion": "Swift helper resolution is bundle-authoritative in production and home-fallback only in development",
+    "acceptance_probe": "if test -x tests/macos/bundle-helper-paths-contract.sh; then tests/macos/bundle-helper-paths-contract.sh; else printf 'missing-bundle-helper-resolver-test\\n'; fi",
+    "baseline": "missing-bundle-helper-resolver-test",
+    "boundary": "console",
+    "defect_class": true
+  },
+  {
+    "id": "M1-E",
+    "criterion": "TypeScript cursor and window-bounds spawns consume bundle-authoritative resolved paths",
+    "acceptance_probe": "if test -f tests/daemon/privacy-helper-routing.test.ts; then npx vitest run --no-file-parallelism tests/daemon/privacy-helper-routing.test.ts -t 'routes cursor and window-bounds'; else printf 'missing-native-helper-routing-test\\n'; fi",
+    "baseline": "missing-native-helper-routing-test",
+    "boundary": "console",
+    "defect_class": true
+  },
+  {
+    "id": "M1-F",
+    "criterion": "A freshly generated Xcode project excludes DaemonCore/main.swift from the Spectra app target and builds the intended targets",
+    "acceptance_probe": "if test -x tests/macos/xcodegen-target-isolation.sh; then tests/macos/xcodegen-target-isolation.sh; else printf 'missing-xcodegen-target-isolation-test\\n'; fi",
+    "baseline": "missing-xcodegen-target-isolation-test",
+    "boundary": "console",
+    "defect_class": true
+  },
+  {
+    "id": "M1-G",
+    "criterion": "The built application declares a non-empty system-audio capture purpose string",
+    "acceptance_probe": "if test -x tests/macos/info-plist-privacy-contract.sh; then tests/macos/info-plist-privacy-contract.sh; else printf 'missing-info-plist-privacy-test\\n'; fi",
+    "baseline": "missing-info-plist-privacy-test",
     "boundary": "data",
-    "defect_class": false
+    "defect_class": true
   }
 ]
 ```
 
 ## Pass conditions
 
-- Pass: all six criteria have current evidence and no acceptance probe remains at baseline.
-- Partial: implementation works but native adoption remains deferred by the already-recorded Rally blocker.
-- Fail: any recording regression, unshipped agent surface, unsupported-claim path, or failed final verification.
+- **Implementation pass:** M1-A through M1-G no longer return their baselines; focused tests, daemon-core/native tests, regenerated-Xcode-project build, full TypeScript suite, contract freeze guard, and bundle inventory/signature checks are green.
+- **Acceptance pass:** implementation pass plus current stable `/Applications/Spectra.app` launchd records, TCC logs, both privacy panes, helper-route exercises, relaunch, and a real non-black playable capture are green on the required OS.
+- **Partial:** implementation is green but a user-present privacy action or macOS 26.1 host remains outstanding. Partial must not be reported as M1 accepted.
+- **Fail:** any shipped path falls back to a bare helper, status checks can prompt, strict Release packaging can omit a helper, xcodegen changes the executable target boundary, system-audio metadata is absent, socket/rollback behavior changes, or existing daemon behavior regresses.
