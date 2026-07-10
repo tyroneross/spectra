@@ -1,107 +1,135 @@
 ---
 name: product-marketing
 description: >
-  Use when planning or producing product marketing content/video for any software
-  product — "plan a marketing video", "app store preview", "product hunt launch",
-  "explainer vs demo", "LinkedIn/YouTube video for <product>", "launch video",
-  "what video should I make for <app>", "ongoing content plan", "changelog/release
-  video", "readme demo GIF", "repurpose this into shorts", or when Spectra is about to capture/produce
-  marketing assets and should tailor them to the product's audience, channel, and
-  funnel stage. Turns product × audience × goal into a concrete plan (video type,
-  length, channel, story-spine script, specs, polish style) and routes production to
-  Spectra's capture/record/polish tools.
+  Use when planning, producing, improving, or auditing product marketing content
+  for software: launch videos, App Store previews, demos, explainers, website
+  overviews, social clips, tutorials, changelog videos, content ladders, or when
+  Spectra should turn a product, audience, placement, and desired action into
+  evidence-backed capture and polished media. Runs a bounded creative loop from
+  brief through concept selection, production, audit, and repair.
 user-invocable: true
 ---
 
-# Product Marketing (plan → produce, audience-tailored)
+# Product Marketing — define → create → audit → repair
 
-The planning brain for product marketing video. It sits in front of Spectra's
-capture/polish tools so what Spectra produces is calibrated to WHO it's for and WHERE
-it ships. Works for any software product (AI agents, plugins, iOS/macOS/watchOS apps,
-web apps). Full source playbook: `references/SOURCE-GUIDE.md`.
+Use this skill as the creative director above Spectra's capture and rendering operations. Technical media quality is necessary; the governing outcome is a specific audience understanding the promise, believing the proof, and knowing what to do next.
 
-## The one rule that governs everything
+Full quality protocol: `references/creative-loop.md`. Full legacy source playbook: `references/SOURCE-GUIDE.md`.
 
-**Explainer sells the PROBLEM (TOFU, 30–90s, cold audience). Demo sells the SOLUTION
-(MOFU/BOFU, 90s–5min, warm audience).** Conflating them is the #1 mistake. Traffic but
-poor conversion → build the demo. Awareness but no traffic → build the explainer.
-**No data yet (pre-launch — the most common case)** → lead with the explainer/launch
-video for TOFU, add the demo once you have traffic.
+## Governing rule
 
-## Workflow
+**Choose the shortest format that answers the viewer's current question in its actual placement.**
 
-1. **Intake — resolve three variables** (ask only what you can't infer):
-   - **Product type**: AI agent · plugin/extension · iOS app · macOS app · Apple Watch · web app (B2B)
-   - **Audience**: developer · enterprise buyer · SMB/prosumer · consumer
-   - **Goal / funnel stage**: awareness (TOFU) · consideration (MOFU) · decision (BOFU)
-2. **Decision matrix** → pick video type, length, primary channel (table below; full detail in `references/channel-playbooks.md` + `product-playbooks.md`).
-   - **Multi-goal requests** (e.g. a launch AND ongoing content — very common): produce one
-     asset per matching matrix row, then apply **film once, publish many** — one capture
-     session → 1 long-form (YouTube/demo) + 2–3 MOFU clips + 5–10 TOFU social clips + 1
-     thumbnail frame + 1 GIF/loop, plus a changelog/release video each release (highest-ROI
-     recurring). Spectra re-renders one source into each aspect/duration/preset. See
-     `references/production-measurement.md`.
-3. **Story spine** → write the script/shot outline: Cold-open hook (3–5s) → Stakes (5–10s) → Solution reveal (10–15s) → Product in action, 2–3 "moments that matter" (20–40s) → Proof (10–20s) → one CTA (5–10s). TOFU delays the reveal/CTA and teaches first.
-4. **Production spec** → set aspect ratio, duration, codec/specs, and **polish level** (below), then hand to Spectra (`references/spectra-production-map.md`).
-5. **Measure & iterate** → watch-depth as intent signal; changelog video on every release (highest-ROI). See `references/production-measurement.md`.
+| Viewer question | Starting range | Job |
+|---|---:|---|
+| Why notice this? | 6–15 sec | recognition or curiosity |
+| Why care? | 20–120 sec | relevance and value |
+| Why believe it? | 2–8 min | proof and objection resolution |
+| How does it work? | 3–15 min per task | evaluation or task completion |
+| How do I become capable? | structured sequence | learning and practice |
 
-## Decision matrix (product × audience → type / length / channel)
+Explainers usually sell the problem to colder viewers. Demos usually prove the solution to warmer viewers. Treat that as a useful second decision, not a substitute for audience, placement, and viewer intent.
 
-| Product | Audience | Video type | Length | Primary channel |
-|---|---|---|---|---|
-| AI agent | Developer | Tutorial + workflow demo | 5–10 min | YouTube |
-| AI agent | Prosumer/SMB | Explainer + outcome demo | 60–90s | LinkedIn, landing |
-| AI agent | Launch | Launch video | 45–75s | Product Hunt |
-| Plugin | Developer | Before/after workflow demo | 60–90s | PH, LinkedIn, YT Short |
-| iOS app | Consumer | App Store preview | 15–30s | App Store |
-| iOS app | Consumer | Problem→solution demo | 30–60s | Reels/TikTok/Shorts |
-| macOS app | Power user | App overview + feature demo | 2–5 min | YouTube, App Store |
-| Apple Watch | Consumer | Glanceable use-case demo | 15–30s | App Store, Reels |
-| Web app | SMB | Explainer + demo | 60–90s + 3–5min | Homepage, LinkedIn, email |
-| Web app | Enterprise | Use case + case study | 3–8 min | Sales deck, website |
+## Required creative loop
 
-## Authenticity calibration → maps to Spectra polish preset
+1. **DEFINE** — resolve product, primary audience, trigger, current alternative, desired action, placement, viewer question, and success metric.
+2. **DIAGNOSE** — write the friction, proposition, outcome, objection, proof inventory, and magic moment.
+3. **CONCEPT** — create three distinct routes: proof-led, problem-led, and transformation-led.
+4. **SELECT** — score all three with fixed weights: audience 20, clarity 15, proof 20, differentiation 15, emotion 10, conversion 10, feasibility 10.
+5. **EVIDENCE** — classify every material claim as directly demonstrated, supported source, customer evidence, inferred, or unsupported. Remove unsupported claims; do not phrase inference as fact.
+6. **STORYBOARD** — align timed visual and audio/text tracks. Map each claim to a source or shot. Use one promise, one proof sequence, and one CTA.
+7. **PRODUCE** — capture real product behavior through current Spectra operations; preserve the clean source.
+8. **ENHANCE** — tighten relevance, pacing, readability, audio, framing, captions, poster frame, and channel export.
+9. **AUDIT** — score the 15-dimension rubric in `references/creative-loop.md`. Ready requires at least 65/75 and zero blockers.
+10. **REPAIR** — address blockers and the three weakest dimensions, re-render affected assets, and re-audit. Stop after two repair passes.
 
-Match production quality to audience. **Good audio is never optional; everything else
-calibrates down.** In 2026, over-polish signals inauthenticity — lo-fi founder/dev
-content often outperforms on social feeds.
+Terminal results: `READY_TO_TEST`, `BLOCKED_MISSING_INPUT`, `BLOCKED_MISSING_EVIDENCE`, `PRODUCTION_FAILED`, or `REPLAN`.
 
-| Audience | Polish level | Spectra polish style preset |
+## Campaign artifacts
+
+When file writes are available, persist under `.spectra/campaigns/<slug>/`:
+
+```text
+manifest.json
+creative-brief.md
+diagnosis.md
+concepts.md
+claim-ledger.md
+script.md
+storyboard.md
+production-plan.md
+audit.md
+```
+
+If writes are unavailable, return the same named sections inline. Do not omit the losing concepts, evidence ledger, or audit.
+
+## Starting decision matrix
+
+These are defaults to test against the brief, not rigid prescriptions.
+
+| Product / audience | Starting asset | Starting runtime | Primary placement |
+|---|---|---:|---|
+| AI agent / developer | workflow demo or tutorial | 3–10 min | YouTube, docs, README |
+| AI agent / SMB | proof-led overview | 45–90 sec | website, LinkedIn |
+| Plugin / developer | before/after proof | 30–90 sec | Product Hunt, LinkedIn, YouTube |
+| iOS / consumer | App Store preview | 15–30 sec | App Store |
+| Apple Watch / consumer | glance-moment product clip | 15–30 sec | website and social; App Store uses screenshots |
+| macOS / power user | native workflow overview + demo | 60 sec–5 min | website, YouTube, App Store |
+| Web app / SMB | overview plus complete demo | 60–120 sec + 3–5 min | website, LinkedIn, email |
+| Web app / enterprise | use case or customer proof | 2–8 min | sales, website |
+
+For a new product with limited performance data, default to a **45–60 second proof-led video showing one realistic task from input to verified result, product visible within five seconds, and one low-friction CTA**.
+
+## Production calibration
+
+Match polish to audience and placement. If audio is used, it must be clean; the visual/text track must still carry the core message for muted autoplay.
+
+| Audience | Starting polish | Spectra style |
 |---|---|---|
-| Developer / technical | low–medium (real terminal/IDE, authentic) | `cool` (flat, no spotlight) |
-| SMB / prosumer | medium | `cool` or `warm` |
-| Consumer | medium (aesthetic matters, fast hook) | `warm` |
-| Enterprise / investor / hero | medium–high (polish signals quality) | `bold` (cinematic spotlight) |
+| Developer / technical | authentic, readable, low–medium | `cool`, spotlight off |
+| SMB / prosumer | clean and direct, medium | `cool` or `warm` |
+| Consumer | aesthetic and fast, medium | `warm` |
+| Enterprise / investor / hero | controlled, medium–high | `bold`, spotlight only when useful |
 
-(Presets are the committed `polishScript/polishClip` styles: `src/pipeline/text-render.ts`
-`BANNER_STYLE_PRESETS`. Style is `style: 'cool'|'warm'|'bold'`.)
+## Route production through Spectra
 
-## Route to Spectra for production
+- **Connect and inspect:** `spectra_connect` → `spectra_snapshot`/`spectra_analyze`.
+- **Capture the planned proof:** `spectra_step`/`spectra_act`/`spectra_discover` → `spectra_capture`; use real UI and representative data.
+- **Record a source workflow:** start/stop video capture or the current record command; enable cursor telemetry when pointer motion carries meaning.
+- **Polish:** use current `spectra_demo` polish/run-script actions with the selected style, captions, optional spotlight, and voiceover.
+- **Preserve:** add durable, approved source and derivatives to `spectra_library` with campaign, audience, channel, and feature tags.
 
-Once the plan is set, produce with Spectra — tailored by the plan:
-- **Capture** the real workflow: `spectra_connect` → `spectra_step`/`spectra_discover` → `spectra_capture` (real UI only — Apple + PH audiences reject mockups).
-- **Polish** to the chosen preset + aspect/duration: the `polish-clip`/`polish-script` demo actions with `style` + optional `spotlight`/`voiceover`.
-- **Specs by channel**: App Store = H.264 High, **constant 30fps**, 15–30s, AAC stereo 44.1/48kHz ~256kbps, yuv420p, faststart, correct per-device resolution, no device frames/pricing/competitor refs. LinkedIn/PH/other = 9:16 or 1:1, **H.264 mp4 (no VFR)**, burned-in captions, hook in first 2–3s.
-Full mapping + specs: `references/spectra-production-map.md`.
+Confirm an operation exists in the live tool list before promising production. On failure, return the exact failed operation and recovery step; never invent an artifact.
 
-> The `polish-clip`/`polish-script` demo actions are part of the current Spectra build —
-> if `spectra_demo` isn't in your live tool list, the plugin needs a rebuild + Claude Code
-> restart (MCP restart boundary). Confirm the tool exists before assuming the production step.
+## App Store accuracy
 
-## Sound-off default
-Burn in captions (don't rely on auto-overlays); on-screen text must carry the message;
-cursor highlights/zoom guide the eye. Design for silent autoplay, deliver for sound-on.
+Apple's current upload specification requires 15–30 seconds, accepts H.264 up to High Profile Level 4.0 or ProRes 422 HQ, accepts `.mov`/`.m4v`/`.mp4`, permits at most 30 fps, and restricts macOS previews to landscape. If audio is present, follow Apple's AAC stereo bitrate/sample-rate specification.
 
-## References (load on demand)
-- `references/SOURCE-GUIDE.md` — the full playbook (canonical source).
-- `references/audience-segmentation.md` — dev/enterprise/SMB/consumer: wants + what kills credibility.
-- `references/channel-playbooks.md` — LinkedIn, YouTube, App Store (Apple specs + rejection causes), Product Hunt.
-- `references/product-playbooks.md` — AI agent, plugin, iOS, macOS, Apple Watch, web app.
-- `references/production-measurement.md` — solo "film once publish many", lean stack, metrics, checklists.
-- `references/spectra-production-map.md` — plan → Spectra tools/actions/specs/preset (the integration glue).
+Spectra's stricter **house export** is H.264/yuv420p, constant 30 fps, fast-start MP4, and clean AAC stereo when audio is used. Constant frame rate, yuv420p, and fast-start are compatibility choices; do not mislabel them as Apple requirements.
 
-For the visual/sound/pacing DESIGN layer — color, typography specs, cut rate, music,
-philosophy — load `Skill("spectra:video-design")`.
+Apple's creative guidance requires app-only footage, prohibits filming hands/devices, advises a cohesive story, and says previews autoplay muted by default. Do not include specific prices; disclose when shown functionality requires purchase, subscription, or login.
 
-For end-to-end autonomous planning (and optional production), dispatch the
-`marketing-planner` agent.
+## Sound-off and evidence defaults
+
+- Burn in readable captions when dialogue or narration matters.
+- On-screen text must carry the promise and CTA without relying on audio.
+- Use zoom, cursor emphasis, and spotlight to guide attention, not decorate.
+- A material spoken or written claim must point to a product shot, current source, measurement, or attributable customer evidence.
+
+## Derivatives and measurement
+
+Capture one complete source workflow when feasible, then create distinct narratives for the magic-moment clip, teaser, proof clip, overview, demo, and tutorial. Do not call arbitrary shorter cuts a content strategy.
+
+After launch, test one variable at a time: hook, first visual, proposition, demo scenario, proof format, runtime, CTA, thumbnail, or audience segment. Connect attention and retention metrics to the brief's desired action and business success metric.
+
+## References
+
+- `references/creative-loop.md` — state, artifacts, concept scoring, claim ledger, storyboard, audit, repair, termination.
+- `references/audience-segmentation.md` — audience credibility and format guidance.
+- `references/channel-playbooks.md` — placement-specific starting points.
+- `references/product-playbooks.md` — product-type guidance.
+- `references/production-measurement.md` — source capture, derivative, and measurement workflow.
+- `references/spectra-production-map.md` — strategy-to-operation mapping and export policy.
+- `references/SOURCE-GUIDE.md` — original full playbook; current official channel rules override stale claims.
+
+For visual, sound, and pacing design, load `spectra:video-design`. For end-to-end autonomous planning and optional production, dispatch `marketing-planner`.

@@ -218,7 +218,7 @@ YouTube SEO matters. Target specific long-tail problem searches: "how to debug A
 - Cross-link: every tutorial links to GitHub repo, landing page, docs
 - Embed video in GitHub READMEs as linked preview images for developer discovery[^18]
 
-### App Store (iOS, macOS, Apple Watch)
+### App Store (iOS, iPadOS, macOS)
 
 App Store preview videos are the highest-leverage asset for consumer and prosumer app conversion.
 
@@ -228,22 +228,20 @@ App Store preview videos are the highest-leverage asset for consumer and prosume
 |---|---|
 | Format | H.264 High Profile (Level 4.0) or ProRes 422 HQ |
 | Duration | 15–30 seconds (strictly enforced) |
-| Frame rate | Constant 30fps (screen recordings default to VFR — must re-encode) |
-| Audio | AAC stereo, 48kHz, present even if silent |
-| Color space | YUV 4:2:0 (yuv420p) |
-| Container | .mp4 or .mov with faststart flag |
+| Frame rate | Maximum 30fps |
+| Audio | When present: stereo, 256kbps AAC, 44.1kHz or 48kHz, all tracks enabled |
+| Color space | Not specified on Apple's upload-specification page; Spectra exports yuv420p for compatibility |
+| Container | H.264: .mov, .m4v, or .mp4; ProRes 422 HQ: .mov |
 | iPhone 6.9" | Portrait: 886×1920 / Landscape: 1920×886 |
 | Mac | Landscape only: 1920×1080 |
-| Apple Watch | Short, portrait-native glanceable demos |
 
-**Common rejection causes:** HEVC/H.265 codec (iOS screen recordings default to this — re-encode to H.264), variable frame rate, mono or missing audio track, wrong resolution, no faststart flag.[^19]
+**Spectra house export:** H.264/yuv420p, constant 30fps, fast-start MP4, and clean AAC stereo when audio is used. These stricter choices reduce playback/editor risk but are not all Apple requirements.[^19]
 
 **Content rules Apple enforces:**[^20]
-- Must show actual app functionality, not mockups or prototypes
-- No pricing information in the video
-- No device frames/bezels around the recording
-- No references to other platforms
-- No competitor comparisons
+- Show only content within the app itself; do not film hands or people using the device
+- Do not include specific prices
+- Disclose when demonstrated functionality requires purchase, subscription, or login
+- Do not imply functionality the app does not include
 
 **Preview video strategy:**
 - Front-load the hook: your best "aha moment" should appear in the first 3–5 seconds[^21]
@@ -252,7 +250,7 @@ App Store preview videos are the highest-leverage asset for consumer and prosume
 - Design for silent autoplay: text overlays must convey the value independently[^22]
 - Create device-specific versions: iPhone portrait, iPad landscape, Mac landscape[^20]
 
-**Apple Watch preview considerations:** WatchOS app previews must demonstrate quick, glanceable interactions that reflect the actual wrist-based use case. Show the complication, the notification, and the primary action — the full workflow in 15–20 seconds. The constraint is a feature: it forces you to identify the true core value proposition.
+Apple's current App Store Connect specification does not publish a watchOS app-preview resolution/upload surface. Use screenshots for the watchOS App Store listing and distribute glance-moment video through the website and social channels.
 
 ### Product Hunt
 
@@ -347,7 +345,7 @@ Apple Watch apps require the most constrained video strategy. The value proposit
 - Emphasize the "no phone needed" or "quick access" value if applicable
 - Production tip: use a physical Apple Watch or high-fidelity simulator recording; overlay the watch bezel in post (this is fine for marketing videos outside App Store previews)
 
-**App Store preview for Watch:** 15–30 seconds, portrait orientation matching Watch face dimensions, real app UI, no device frames in App Store submission.[^20]
+**App Store for Watch:** use current required screenshots. Do not promise a watchOS preview-video upload unless Apple adds a supported surface.
 
 **Marketing videos (outside App Store):** Can show the watch in the context of real life — on a wrist during a workout, during a commute, in a meeting — to communicate the situational value.
 
@@ -461,7 +459,7 @@ Bootstrapped apps have demonstrated that consistent TikTok/Reels posting (2 vide
 ### Production Checklist
 - [ ] Audio clean: mic close, quiet room, noise removal enabled
 - [ ] Lighting: window-facing or softbox, no harsh shadows
-- [ ] Screen recording: constant 30fps set, notifications off, correct resolution
+- [ ] Screen recording: stable frame rate, notifications off, correct target resolution
 - [ ] Camera angle: eye level for any talking-head segments
 - [ ] First 5 seconds planned: immediate value, no logo, no slow intro
 
@@ -474,13 +472,13 @@ Bootstrapped apps have demonstrated that consistent TikTok/Reels posting (2 vide
 
 ### App Store Submission Checklist (Apple)
 - [ ] H.264 High Profile codec (not HEVC)
-- [ ] Constant 30fps (re-encoded from VFR screen recording)
+- [ ] Maximum 30fps; Spectra house export uses constant 30fps
 - [ ] Correct pixel resolution for target device (see spec table above)
 - [ ] Duration 15–30 seconds
-- [ ] AAC stereo audio track present at 48kHz (even if silent)
-- [ ] YUV 4:2:0 color space
-- [ ] .mp4 with faststart flag
-- [ ] No device frames, no pricing, no competitor references
+- [ ] If audio is present: stereo 256kbps AAC at 44.1kHz or 48kHz, all tracks enabled
+- [ ] Valid extension for selected codec (.mov/.m4v/.mp4 for H.264; .mov for ProRes)
+- [ ] Spectra compatibility preflight: yuv420p and fast-start MP4 when using the H.264 house export
+- [ ] App-only footage, no specific prices, and purchase/subscription/login disclosure when applicable
 
 ---
 
@@ -539,4 +537,3 @@ Bootstrapped apps have demonstrated that consistent TikTok/Reels posting (2 vide
 26. [How Bootstrapped Startups Can Turn Long‑Form Content into ...](https://www.startupbooted.com/how-bootstrapped-startups-can-turn-long-form-content-into-growth-driving-video-clips) - Repurposing long-form content—like webinars, product demos, podcast interviews, or panel discussions...
 
 27. [How Video Segments Your Audience & Improves Messaging | Marketing Strategy - Splashhhmedia](https://www.youtube.com/watch?v=pZtgQtkr09M) - Most brands treat their entire audience like one person. Video lets you see who's actually intereste...
-
