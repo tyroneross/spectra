@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spectra Campaign Studio — Aurora Glass</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09090b;
+      --surface: rgba(255,255,255,.035);
+      --surface-hover: rgba(255,255,255,.065);
+      --glass: rgba(255,255,255,.045);
+      --border: rgba(255,255,255,.09);
+      --divider: rgba(255,255,255,.07);
+      --primary: #fafafa;
+      --secondary: #a1a1aa;
+      --muted: #71717a;
+      --accent: #818cf8;
+      --accent-glow: rgba(129,140,248,.16);
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--primary);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background:
+        radial-gradient(ellipse at 18% 48%, rgba(129,140,248,.06) 0%, transparent 46%),
+        radial-gradient(ellipse at 82% 20%, rgba(34,211,238,.035) 0%, transparent 44%),
+        var(--bg);
+    }
+    .component-label {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .12em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .glass { background: var(--glass); border-color: var(--border); }
+    .group-row + .group-row { border-top: 1px solid var(--divider); }
+    .stage { border-left: 2px solid transparent; color: var(--secondary); }
+    .stage[aria-current="step"] { border-left-color: var(--accent); color: var(--primary); font-weight: 600; }
+    .stage[aria-disabled="true"] { cursor: default; }
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(129,140,248,.65);
+      outline-offset: 2px;
+    }
+    .placement[aria-pressed="true"] {
+      color: #c7d2fe;
+      border-color: rgba(129,140,248,.55);
+      background: var(--accent-glow);
+    }
+    .primary-action {
+      background: var(--accent);
+      box-shadow: 0 2px 8px rgba(99,102,241,.28);
+    }
+    .primary-action:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .primary-action:active { transform: translateY(0) scale(.99); }
+    @media (prefers-reduced-motion: no-preference) {
+      .primary-action { transition: transform .16s ease, filter .16s ease; }
+    }
+  </style>
+</head>
+<body class="p-6 lg:p-10">
+  <main class="mx-auto max-w-[1220px]">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3 px-1">
+      <div>
+        <p class="component-label mb-2">Aurora Glass visual proposal</p>
+        <h1 class="text-lg font-semibold tracking-[-.01em]">Spectra Campaign Studio</h1>
+      </div>
+      <p class="text-xs text-zinc-500">Example campaign · prototype controls only</p>
+    </div>
+
+    <section class="overflow-hidden rounded-[14px] border border-white/10 bg-zinc-950/80 shadow-[0_24px_80px_rgba(0,0,0,.5)] backdrop-blur-2xl" aria-label="Campaign Studio window">
+      <header data-component="WindowToolbar" class="border-b border-white/[.07] bg-white/[.025] px-5 py-3">
+        <p class="component-label mb-2">Component: WindowToolbar</p>
+        <div class="flex min-h-8 items-center gap-4">
+          <div class="flex gap-[7px]" aria-label="System window controls">
+            <span class="h-3 w-3 rounded-full bg-[#ff5f57]" aria-hidden="true"></span>
+            <span class="h-3 w-3 rounded-full bg-[#febc2e]" aria-hidden="true"></span>
+            <span class="h-3 w-3 rounded-full bg-[#28c840]" aria-hidden="true"></span>
+          </div>
+          <div class="h-4 w-px bg-white/10" aria-hidden="true"></div>
+          <p class="truncate text-[13px] font-medium text-zinc-200">Spectra <span class="text-zinc-600">›</span> Campaigns <span class="text-zinc-600">›</span> July product launch</p>
+          <div class="ml-auto flex items-center gap-4">
+            <span id="save-status" class="text-[11px] text-zinc-500">Draft saved just now</span>
+            <button type="button" disabled title="Available after implementation" class="cursor-not-allowed rounded-md border border-white/10 bg-white/[.035] px-3 py-1.5 text-xs text-zinc-500">Open folder</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="grid min-h-[700px] grid-cols-[210px_minmax(0,1fr)]">
+        <aside data-component="CampaignStageRail" class="border-r border-white/[.07] bg-white/[.018] px-4 py-6">
+          <p class="component-label mb-5">Component: CampaignStageRail</p>
+          <p class="text-[11px] text-zinc-500">Example campaign</p>
+          <h2 class="mt-1 text-sm font-semibold text-zinc-100">July product launch</h2>
+          <p class="mt-1 text-[11px] text-zinc-500">spectra · macOS app</p>
+
+          <nav aria-label="Campaign stages" class="mt-7 space-y-1">
+            <div class="stage flex w-full items-center gap-3 py-2.5 pl-3 text-left text-[13px]" aria-current="step">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full border border-indigo-400/70 text-[10px] text-indigo-300">1</span>
+              <span>Strategy</span>
+            </div>
+            <button type="button" disabled class="stage flex w-full items-center gap-3 py-2.5 pl-3 text-left text-[13px]" aria-disabled="true" title="Complete strategy first">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 text-[10px] text-zinc-600">2</span>
+              <span>Concepts</span>
+            </button>
+            <button type="button" disabled class="stage flex w-full items-center gap-3 py-2.5 pl-3 text-left text-[13px]" aria-disabled="true" title="Select a concept first">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 text-[10px] text-zinc-600">3</span>
+              <span>Proof</span>
+            </button>
+            <button type="button" disabled class="stage flex w-full items-center gap-3 py-2.5 pl-3 text-left text-[13px]" aria-disabled="true" title="Approve proof first">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 text-[10px] text-zinc-600">4</span>
+              <span>Storyboard</span>
+            </button>
+            <button type="button" disabled class="stage flex w-full items-center gap-3 py-2.5 pl-3 text-left text-[13px]" aria-disabled="true" title="Approve the storyboard first">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 text-[10px] text-zinc-600">5</span>
+              <span>Produce</span>
+            </button>
+            <button type="button" disabled class="stage flex w-full items-center gap-3 py-2.5 pl-3 text-left text-[13px]" aria-disabled="true" title="Produce a draft first">
+              <span class="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 text-[10px] text-zinc-600">6</span>
+              <span>Quality</span>
+            </button>
+          </nav>
+
+          <div class="mt-8 border-t border-white/[.07] pt-4">
+            <p class="text-[11px] font-medium text-zinc-300">Campaign artifacts</p>
+            <p class="mt-1 break-words text-[10px] leading-relaxed text-zinc-600">.spectra/campaigns/july-product-launch/</p>
+          </div>
+        </aside>
+
+        <div class="grid grid-cols-[minmax(0,1fr)_292px]">
+          <section data-component="CreativeBrief" class="px-8 py-7">
+            <p class="component-label mb-4">Component: CreativeBrief</p>
+            <div class="max-w-[700px]">
+              <p class="text-xs font-medium text-indigo-300">Strategy · Step 1 of 6</p>
+              <h2 class="mt-2 max-w-[650px] text-[30px] font-semibold leading-[1.16] tracking-[-.025em] text-zinc-50">Make Spectra feel inevitable to product teams</h2>
+              <p class="mt-3 max-w-[620px] text-[14px] leading-6 text-zinc-400">Define one audience, the question this video must answer, and the action the story should earn.</p>
+            </div>
+
+            <div class="mt-7 overflow-hidden rounded-[10px] border border-white/[.09] bg-white/[.025]">
+              <div class="group-row p-4">
+                <label class="text-[11px] font-medium text-zinc-500" for="audience">Primary audience</label>
+                <input id="audience" class="mt-1.5 w-full border-0 bg-transparent p-0 text-[14px] font-medium text-zinc-100 outline-none placeholder:text-zinc-700" value="Product teams shipping developer tools" />
+                <p class="mt-1 text-[11px] text-zinc-600">Specific enough that the right viewer recognizes themselves.</p>
+              </div>
+              <div class="group-row p-4">
+                <label class="text-[11px] font-medium text-zinc-500" for="question">Viewer question</label>
+                <input id="question" class="mt-1.5 w-full border-0 bg-transparent p-0 text-[14px] font-medium text-zinc-100 outline-none placeholder:text-zinc-700" value="Why trust Spectra to create launch-ready product footage?" />
+                <p class="mt-1 text-[11px] text-zinc-600">The story should answer this before it asks for action.</p>
+              </div>
+              <div class="group-row p-4">
+                <label class="text-[11px] font-medium text-zinc-500" for="action">Desired action</label>
+                <input id="action" class="mt-1.5 w-full border-0 bg-transparent p-0 text-[14px] font-medium text-zinc-100 outline-none placeholder:text-zinc-700" value="Start a campaign in Spectra" />
+                <p class="mt-1 text-[11px] text-zinc-600">One observable next step, not a vague feeling.</p>
+              </div>
+            </div>
+
+            <section data-component="PlacementSelector" class="mt-6">
+              <p class="component-label mb-3">Component: PlacementSelector</p>
+              <div class="flex items-baseline justify-between gap-4">
+                <div>
+                  <h3 class="text-[14px] font-semibold text-zinc-100">Where will people watch?</h3>
+                  <p class="mt-1 text-[12px] text-zinc-500">Placement changes the opening, runtime, and CTA.</p>
+                </div>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Placement options">
+                <button type="button" class="placement rounded-lg border border-white/10 bg-white/[.025] px-3 py-2 text-xs text-zinc-400" aria-pressed="true">Launch page</button>
+                <button type="button" class="placement rounded-lg border border-white/10 bg-white/[.025] px-3 py-2 text-xs text-zinc-400" aria-pressed="false">Social feed</button>
+                <button type="button" class="placement rounded-lg border border-white/10 bg-white/[.025] px-3 py-2 text-xs text-zinc-400" aria-pressed="false">Product docs</button>
+              </div>
+            </section>
+          </section>
+
+          <aside data-component="ReadinessPanel" class="border-l border-white/[.07] bg-white/[.018] p-5">
+            <p class="component-label mb-5">Component: ReadinessPanel</p>
+
+            <section class="rounded-[10px] border border-white/[.09] bg-white/[.03] p-4" aria-label="Format recommendation">
+              <p class="text-[11px] text-zinc-500">Recommended format</p>
+              <p class="mt-1 text-[28px] font-semibold tracking-[-.03em] text-zinc-50">30–45 sec</p>
+              <p class="mt-1 text-[12px] text-zinc-400">Proof-led launch video</p>
+              <div class="mt-4 flex h-1.5 overflow-hidden rounded-full" aria-label="Suggested story timeline">
+                <span class="w-[12%] bg-indigo-400" title="Hook"></span>
+                <span class="w-[70%] bg-cyan-400/70" title="Proof"></span>
+                <span class="w-[18%] bg-emerald-400/70" title="Action"></span>
+              </div>
+              <div class="mt-2 grid grid-cols-3 text-[10px] text-zinc-600">
+                <span>Hook</span><span class="text-center">Proof</span><span class="text-right">Action</span>
+              </div>
+            </section>
+
+            <section class="mt-5" aria-labelledby="brief-readiness">
+              <h3 id="brief-readiness" class="text-[13px] font-semibold text-zinc-100">Strategy readiness</h3>
+              <div class="mt-3 divide-y divide-white/[.07] border-y border-white/[.07]">
+                <div class="flex items-center justify-between py-2.5 text-[12px]"><span class="text-zinc-400">Audience</span><span class="text-emerald-400">✓ Complete</span></div>
+                <div class="flex items-center justify-between py-2.5 text-[12px]"><span class="text-zinc-400">Viewer question</span><span class="text-emerald-400">✓ Complete</span></div>
+                <div class="flex items-center justify-between py-2.5 text-[12px]"><span class="text-zinc-400">Desired action</span><span class="text-emerald-400">✓ Complete</span></div>
+                <div class="flex items-center justify-between py-2.5 text-[12px]"><span class="text-zinc-400">Placement</span><span class="text-emerald-400">✓ Complete</span></div>
+              </div>
+            </section>
+
+            <section data-component="PrimaryAction" class="mt-7">
+              <p class="component-label mb-3">Component: PrimaryAction</p>
+              <button id="generate-concepts" type="button" class="primary-action w-full rounded-lg px-4 py-3 text-[13px] font-semibold text-white">Generate concepts</button>
+              <button id="save-draft" type="button" class="mt-2 w-full rounded-lg px-4 py-2 text-[12px] text-zinc-500 hover:text-zinc-300">Save draft</button>
+              <p id="prototype-status" class="mt-3 min-h-8 text-[11px] leading-4 text-zinc-600" aria-live="polite">Next: compare three evidence-backed creative directions.</p>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const placementButtons = [...document.querySelectorAll('.placement')];
+    placementButtons.forEach((button) => button.addEventListener('click', () => {
+      placementButtons.forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === button)));
+      document.querySelector('#prototype-status').textContent = `${button.textContent} selected in this prototype.`;
+    }));
+
+    document.querySelector('#generate-concepts').addEventListener('click', (event) => {
+      event.currentTarget.textContent = 'Concepts ready';
+      document.querySelector('#prototype-status').textContent = 'Prototype complete: the production app would open Concepts next.';
+    });
+
+    document.querySelector('#save-draft').addEventListener('click', () => {
+      document.querySelector('#save-status').textContent = 'Prototype draft saved';
+      document.querySelector('#prototype-status').textContent = 'Draft saved in this prototype only.';
+    });
+  </script>
+</body>
+</html>

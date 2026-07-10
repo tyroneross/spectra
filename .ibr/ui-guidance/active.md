@@ -2,7 +2,7 @@
 
 **Decision date:** 2026-05-24
 **Re-skin run:** `feat/ui-reskin-aurora-glass`
-**Source template:** `~/dev/git-folder/UI Guidance/aurora-glass.md`
+**Source template:** `~/dev/git-folder/UI Guidance/references/modes/style-mode-aurora-glass.md`
 
 ## Why Aurora Glass
 
