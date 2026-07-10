@@ -70,10 +70,27 @@ Or add to `.claude/settings.json`:
 
 | Command | Purpose |
 |---------|---------|
+| `/spectra [intent]` | Route to the right Spectra workflow |
 | `/spectra:connect <target>` | Start a capture session |
 | `/spectra:walk <description>` | Walk through a flow with natural language |
 | `/spectra:capture` | Screenshot current state |
 | `/spectra:sessions` | List active sessions |
+| `/spectra:record composite` | Record two macOS windows side by side |
+| `/spectra:library` | Find, tag, preserve, and export captures |
+| `/spectra:marketing <brief>` | Plan, produce, improve, or audit audience-specific marketing content |
+
+### Marketing content loop
+
+`/spectra:marketing` runs an evidence-backed creative loop above Spectra's capture and polish tools:
+
+```text
+brief → diagnose → three concepts → weighted selection → claim evidence
+→ storyboard → capture/render → 15-dimension audit → repair (maximum two)
+```
+
+Plan-only requests stop at `PLAN_READY`. Produced work reaches `READY_TO_TEST` only at 65/75 or higher with no unsupported claim, missing proof, broken CTA/destination continuity, unreadable media, or technical-output blocker. Campaign artifacts are stored under `.spectra/campaigns/<slug>/` when the host can write files.
+
+The agent is included in the npm package and uses current Spectra operations; it does not add a second capture runtime.
 
 ### Routing: Host-Routed vs Standalone
 
