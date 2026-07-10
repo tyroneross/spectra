@@ -1,19 +1,65 @@
-# Goal — Spectra macOS UI Best-Practices Pass
+# Goal — Spectra Marketing Content Quality System
 
 ## Goal
-Update Spectra macOS SwiftUI views to match Apple HIG + Calm Precision standards with full a11y, distinct button-state ramps, explicit async-state handling, and plain-language copy — without breaking the 25/25 test baseline.
 
-## Scoring criteria (acceptance)
-1. **Button state ramp** — every action button (Save, Start, Stop, Done, Install, Run, Remove, Browse) has a distinct enabled (prominent) vs disabled (muted) visual via a shared modifier. Verified by reading each button declaration.
-2. **Accessibility labels** — every interactive control has `.accessibilityLabel`; non-obvious actions add `.accessibilityHint`. Verified by grep count ≥ button count.
-3. **Async state handling** — RepoPicker, sessions list, walkthrough, daemon-status all show empty/loading/error explicitly. No silent-zero states. Verified by reading view code.
-4. **Graceful failures** — Anthropic API + Keychain + connection failures surface a user-readable recovery action, not raw `error.localizedDescription`. Verified by reading the 3 error sites.
-5. **No user-facing jargon** — `grep -nE "AX tree|stdio|JSON-RPC|MCP|IPC"` plus user-facing `daemon` strings return ZERO matches in displayed Swift string literals. Internal API symbols may keep `daemonStatus` etc. since they're not displayed.
-6. **3 user journeys documented** — `docs/UX_JOURNEYS.md` lists them with friction notes.
-7. **Tests green** — `xcodebuild -scheme Spectra -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test` returns 25/25 passing.
-8. **App + DMG rebuilt** — `npm run build:dmg:adhoc` produces `Spectra.app` + `Spectra.dmg` at repo root.
+Ship the smallest complete host-agent creative loop that turns a marketing brief into a selected concept, evidence-backed storyboard, Spectra production run, and bounded audit/repair result, while also porting the only unique branch fix required to make recorded output reliably playable.
 
-## Pass / partial / fail
-- **Pass**: 8/8 criteria green.
-- **Partial**: 6/8 — explain which are deferred and why.
-- **Fail**: < 6/8 or tests regress.
+## Scoring criteria
+
+1. **Recording integrity** — every stopped real recording is finalized to broadly compatible H.264/yuv420p with fast-start metadata and validated before registration; existing stub/test behavior remains supported.
+2. **Narrative quality contract** — the product-marketing skill defines the brief, three concept routes, weighted selection, evidence ledger, dual-track storyboard, audit threshold, and maximum two repair passes.
+3. **Agent determinism** — the planner prompt names state, artifacts, tool routing, transitions, failure modes, termination conditions, and a structured final response.
+4. **Distribution and discoverability** — `/spectra:marketing` exists, `/spectra` routes marketing intent and lists current record/library surfaces, and npm packaging includes `agents/`.
+5. **Assessment fidelity** — a durable report separates current technical strengths, creative gaps, native-app status, branch disposition, verified external constraints, and the next native adoption slice.
+6. **Regression safety** — focused contract/media tests, build, full tests, and package dry-run pass after the final mutation.
+
+```acceptance_probe
+[
+  {
+    "id": "C1",
+    "criterion": "Recording output is finalized and validated before it is registered",
+    "acceptance_probe": "test -f src/media/finalize-recording.ts || printf 'missing-recording-finalizer\\n'",
+    "baseline": "missing-recording-finalizer",
+    "boundary": "data",
+    "defect_class": true
+  },
+  {
+    "id": "C2",
+    "criterion": "The shipped marketing skill defines a bounded creative quality loop",
+    "acceptance_probe": "test -f skills/product-marketing/references/creative-loop.md || printf 'missing-creative-loop\\n'",
+    "baseline": "missing-creative-loop",
+    "boundary": "data",
+    "defect_class": false
+  },
+  {
+    "id": "C3",
+    "criterion": "Marketing intent has a discoverable slash-command entrypoint",
+    "acceptance_probe": "test -f commands/marketing.md || printf 'missing-marketing-command\\n'",
+    "baseline": "missing-marketing-command",
+    "boundary": "console",
+    "defect_class": false
+  },
+  {
+    "id": "C4",
+    "criterion": "The npm package includes the marketing agent surface",
+    "acceptance_probe": "node -e \"const p=require('./package.json'); if (!(p.files||[]).includes('agents/')) process.stdout.write('missing-agents-package-surface\\\\n')\"",
+    "baseline": "missing-agents-package-surface",
+    "boundary": "data",
+    "defect_class": true
+  },
+  {
+    "id": "C5",
+    "criterion": "The current and native marketing-content assessment is durable in the repo",
+    "acceptance_probe": "test -f docs/research/spectra-marketing-content-system-2026-07-10.md || printf 'missing-marketing-assessment\\n'",
+    "baseline": "missing-marketing-assessment",
+    "boundary": "data",
+    "defect_class": false
+  }
+]
+```
+
+## Pass conditions
+
+- Pass: all six criteria have current evidence and no acceptance probe remains at baseline.
+- Partial: implementation works but native adoption remains deferred by the already-recorded Rally blocker.
+- Fail: any recording regression, unshipped agent surface, unsupported-claim path, or failed final verification.
