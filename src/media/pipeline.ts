@@ -81,6 +81,15 @@ export function resetProcessRunner(): void {
   runner = defaultRunner
 }
 
+/**
+ * Returns the active process runner so other media helpers (e.g. the recording
+ * finalizer) route ffmpeg/ffprobe through the same mockable seam that
+ * `setProcessRunner` controls in tests.
+ */
+export function getProcessRunner(): ProcessRunner {
+  return runner
+}
+
 // ─── Argument Builders (probe + poster) ──────────────────────
 
 export function buildProbeArgs(inputPath: string): string[] {

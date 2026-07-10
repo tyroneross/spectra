@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { resetProcessRunner, setProcessRunner } from '../../src/media/pipeline.js'
 import { API_VERSION, type DaemonEvent } from '../../src/contract/wire.js'
 import { createDaemonCore } from '../../src/daemon/core.js'
 import { CoreApiImplementation } from '../../src/daemon/core-impl.js'
@@ -110,7 +111,56 @@ class PidlessCursorSamplerTestCore extends CoreApiImplementation {
   }
 }
 
+// A 2048-byte buffer carrying an `ftyp`/`moov` marker so the recording-finalize
+// gate (finalizeRecording) validates it. The mocked ffmpeg below writes this to
+// the finalize output; single-window stop() fakes write it as the raw source.
+const VALID_MP4 = (() => {
+  const b = Buffer.alloc(2048)
+  b.write('ftypmoov', 0, 'ascii')
+  return b
+})()
+
+/**
+ * Routes finalize's ffprobe/ffmpeg through a mock: ffprobe reports an h264 +
+ * yuv420p stream (so finalize takes the lossless remux fast-path) with the
+ * given duration, and ffmpeg writes VALID_MP4 to the output. Lets the daemon
+ * recording tests exercise the real stopRecording → finalize → addArtifact path
+ * without depending on host ffmpeg or a real capture.
+ */
+function installFinalizeRunner(durationSec = 1.25): void {
+  setProcessRunner((cmd, args) => {
+    const target = args[args.length - 1]
+    if (cmd === 'ffprobe') {
+      return {
+        kill: () => {},
+        waitForExit: () => Promise.resolve(0),
+        stdout: () => Promise.resolve(JSON.stringify({
+          streams: [{ codec_type: 'video', codec_name: 'h264', pix_fmt: 'yuv420p', width: 800, height: 600, duration: String(durationSec) }],
+          format: { duration: String(durationSec) },
+        })),
+        stderr: () => Promise.resolve(''),
+      }
+    }
+    return {
+      kill: () => {},
+      waitForExit: () => {
+        writeFileSync(target, VALID_MP4)
+        return Promise.resolve(0)
+      },
+      stderr: () => Promise.resolve(''),
+    }
+  })
+}
+
 describe('daemon core', () => {
+  beforeEach(() => {
+    installFinalizeRunner()
+  })
+
+  afterEach(() => {
+    resetProcessRunner()
+  })
+
   it('reports versioned daemon health with structured permission states', async () => {
     const core = createDaemonCore({
       startedAt: 123,
@@ -319,6 +369,7 @@ describe('daemon core', () => {
           },
           stop: async () => {
             calls.push(`stop:${input.recordingId}`)
+            writeFileSync(input.outPath, VALID_MP4)
             return {
               recordingId: input.recordingId,
               path: input.outPath,
@@ -406,6 +457,77 @@ describe('daemon core', () => {
     }
   })
 
+  it('marks a stub recording failed, preserves the raw, and registers no artifact', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-stub-'))
+    const ctx = createContext()
+    const events: DaemonEvent[] = []
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const core = createDaemonCore({
+      context: ctx,
+      eventSink: (event) => events.push(event),
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => ({
+        pid: 999,
+        started: {
+          recordingId: input.recordingId,
+          path: input.outPath,
+          startedAt: Date.now(),
+          fps: input.fps,
+          codec: input.codec,
+          bitrate: input.bitrate,
+          width: 800,
+          height: 600,
+        },
+        stop: async () => {
+          writeFileSync(input.outPath, 'video')
+          return { path: input.outPath, format: 'mp4', durationMs: 1 }
+        },
+        abort: async () => {},
+      }),
+    })
+
+    try {
+      await core.startRecording({ sessionId: session.id })
+      await expect(core.stopRecording({ sessionId: session.id })).rejects.toMatchObject({
+        code: 'recording_failed',
+        retryable: false,
+      })
+
+      const run = ctx.sessions.getRun(session.id)
+      expect(run?.recording).toMatchObject({
+        state: 'failed',
+        rawPath: expect.stringContaining('.raw.mp4'),
+        error: expect.stringContaining('produced a stub'),
+      })
+      expect(existsSync(run?.recording?.rawPath ?? '')).toBe(true)
+      expect(run?.artifacts).toEqual([])
+      expect(events.map((event) => event.type)).toEqual([
+        'recording.status',
+        'recording.status',
+      ])
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
   it('does not spawn a cursor sampler or add cursor telemetry fields when captureCursor is off', async () => {
     const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-no-cursor-'))
     const keepAwake = new FakeKeepAwake()
@@ -447,7 +569,7 @@ describe('daemon core', () => {
           height: 600,
         },
         stop: async () => {
-          writeFileSync(input.outPath, 'video')
+          writeFileSync(input.outPath, VALID_MP4)
           return {
             recordingId: input.recordingId,
             path: input.outPath,
@@ -544,7 +666,7 @@ describe('daemon core', () => {
           height: 600,
         },
         stop: async () => {
-          writeFileSync(input.outPath, 'video')
+          writeFileSync(input.outPath, VALID_MP4)
           return {
             recordingId: input.recordingId,
             path: input.outPath,
@@ -643,7 +765,7 @@ describe('daemon core', () => {
           height: 600,
         },
         stop: async () => {
-          writeFileSync(input.outPath, 'video')
+          writeFileSync(input.outPath, VALID_MP4)
           return {
             recordingId: input.recordingId,
             path: input.outPath,
@@ -720,7 +842,7 @@ describe('daemon core', () => {
           height: 600,
         },
         stop: async () => {
-          writeFileSync(input.outPath, 'video')
+          writeFileSync(input.outPath, VALID_MP4)
           return {
             recordingId: input.recordingId,
             path: input.outPath,

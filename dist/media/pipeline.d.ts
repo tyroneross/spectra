@@ -31,6 +31,12 @@ export type ProcessRunner = (cmd: string, args: string[]) => {
 };
 export declare function setProcessRunner(r: ProcessRunner): void;
 export declare function resetProcessRunner(): void;
+/**
+ * Returns the active process runner so other media helpers (e.g. the recording
+ * finalizer) route ffmpeg/ffprobe through the same mockable seam that
+ * `setProcessRunner` controls in tests.
+ */
+export declare function getProcessRunner(): ProcessRunner;
 export declare function buildProbeArgs(inputPath: string): string[];
 export declare function buildPosterFrameArgs(inputPath: string, outputPath: string, options?: PosterFrameOptions): string[];
 export declare function probeVideo(inputPath: string): Promise<VideoProbeResult | undefined>;

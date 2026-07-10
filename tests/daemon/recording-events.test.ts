@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createDaemonCore } from '../../src/daemon/core.js'
+import { resetProcessRunner, setProcessRunner } from '../../src/media/pipeline.js'
 import type { DaemonEvent } from '../../src/contract/wire.js'
 import type { ToolContext } from '../../src/mcp/context.js'
 import type { KeepAwakeController } from '../../src/daemon/keep-awake.js'
@@ -170,6 +171,41 @@ describe('SSE emission — recordComposite', () => {
 })
 
 describe('SSE emission — R2 startRecording/stopRecording', () => {
+  // A ≥1KB buffer with a moov marker so the recording-finalize gate validates it.
+  const VALID_MP4 = (() => {
+    const b = Buffer.alloc(2048)
+    b.write('ftypmoov', 0, 'ascii')
+    return b
+  })()
+
+  beforeEach(() => {
+    // Route finalize's ffprobe/ffmpeg through a mock: h264+yuv420p probe → remux
+    // fast-path; ffmpeg writes VALID_MP4 to the output. No host ffmpeg needed.
+    setProcessRunner((cmd, args) => {
+      const target = args[args.length - 1]
+      if (cmd === 'ffprobe') {
+        return {
+          kill: () => {},
+          waitForExit: () => Promise.resolve(0),
+          stdout: () => Promise.resolve(JSON.stringify({
+            streams: [{ codec_type: 'video', codec_name: 'h264', pix_fmt: 'yuv420p', width: 800, height: 600, duration: '1.234' }],
+            format: { duration: '1.234' },
+          })),
+          stderr: () => Promise.resolve(''),
+        }
+      }
+      return {
+        kill: () => {},
+        waitForExit: () => { writeFileSync(target, VALID_MP4); return Promise.resolve(0) },
+        stderr: () => Promise.resolve(''),
+      }
+    })
+  })
+
+  afterEach(() => {
+    resetProcessRunner()
+  })
+
   it('runs the real ops and emits recording.status(recording) on start, recording.status(saved) + artifact.added on stop', async () => {
     const events: DaemonEvent[] = []
     const recPath = join(tmpRoot, 'rec.mp4')
@@ -177,7 +213,7 @@ describe('SSE emission — R2 startRecording/stopRecording', () => {
       pid: 4242,
       started: { width: 800, height: 600 },
       stop: async () => {
-        writeFileSync(recPath, 'x')
+        writeFileSync(recPath, VALID_MP4)
         return { path: recPath, format: 'mp4', durationMs: 1234, codec: 'h264', fps: 60, width: 800, height: 600 }
       },
       abort: async () => {},
