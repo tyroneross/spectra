@@ -7,8 +7,9 @@
 // constructor options + its `protected` AX-bridge/vision-fallback factory
 // methods) so the real TS daemon — real server.ts, real core-impl.ts business
 // logic, real session/library/security code — runs headless, with no
-// ScreenCaptureKit, no Accessibility permission, no ffmpeg binary, and no
-// booted simulator required.
+// ScreenCaptureKit, no Accessibility permission, and no booted simulator
+// required. The recording fake emits a checked-in MP4 fixture so the real
+// production finalizer remains inside the conformance path.
 //
 // Nothing here edits src/daemon/** or native/** (both read-only per the M2B
 // ownership boundary) — every seam used below is a pre-existing, intentional
@@ -17,6 +18,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
+import { copyFile } from 'node:fs/promises'
 import { CoreApiImplementation, type CoreApiImplementationOptions } from '../../../src/daemon/core-impl.js'
 import type { AxBridgePort, RawAxSnapshot, RawActResult } from '../../../src/computer-use/port.js'
 import type { AxTarget } from '../../../src/computer-use/types.js'
@@ -173,22 +175,23 @@ export async function fakeWindowListProvider(): Promise<WindowRecord[]> {
 }
 
 export function fakeSingleWindowRecordingRunner() {
-  return async (_input: unknown) => {
+  return async (input: { outPath: string }) => {
+    await copyFile(new URL('../fixtures/fixture-input.mp4', import.meta.url), input.outPath)
     let stopped = false
     return {
       pid: 999999,
-      started: { recordingId: 'fake', path: '/tmp/fake-conformance-recording.mp4', width: 800, height: 600 },
+      started: { recordingId: 'fake', path: input.outPath, width: 320, height: 240 },
       async stop() {
         stopped = true
         return {
-          path: '/tmp/fake-conformance-recording.mp4',
+          path: input.outPath,
           format: 'mp4',
-          durationMs: 1000,
-          sizeBytes: 4096,
+          durationMs: 3000,
+          sizeBytes: 111048,
           codec: 'h264',
           fps: 60,
-          width: 800,
-          height: 600,
+          width: 320,
+          height: 240,
           droppedFrames: 0,
         }
       },
