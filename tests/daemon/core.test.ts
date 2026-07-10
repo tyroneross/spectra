@@ -66,6 +66,7 @@ class FakeSamplerChild extends EventEmitter {
 }
 
 class CursorSamplerTestCore extends CoreApiImplementation {
+  readonly cursorSamplerBinaries: string[] = []
   readonly cursorSamplerArgs: string[][] = []
   readonly cursorSamplerChildren: FakeSamplerChild[] = []
 
@@ -74,7 +75,8 @@ class CursorSamplerTestCore extends CoreApiImplementation {
     return '/fake/path/spectra-cursor-sampler'
   }
 
-  protected override spawnCursorSampler(args: string[]): ChildProcess {
+  protected override spawnCursorSampler(binaryPath: string, args: string[]): ChildProcess {
+    this.cursorSamplerBinaries.push(binaryPath)
     this.cursorSamplerArgs.push(args)
     const child = new FakeSamplerChild()
     this.cursorSamplerChildren.push(child)
@@ -90,7 +92,7 @@ class EnsureCursorSamplerBinaryFailsTestCore extends CoreApiImplementation {
     throw new Error('compile failed: no toolchain available')
   }
 
-  protected override spawnCursorSampler(args: string[]): ChildProcess {
+  protected override spawnCursorSampler(_binaryPath: string, args: string[]): ChildProcess {
     this.cursorSamplerArgs.push(args)
     return new FakeSamplerChild() as unknown as ChildProcess
   }
@@ -104,7 +106,7 @@ class PidlessCursorSamplerTestCore extends CoreApiImplementation {
     return '/fake/path/spectra-cursor-sampler'
   }
 
-  protected override spawnCursorSampler(args: string[]): ChildProcess {
+  protected override spawnCursorSampler(_binaryPath: string, _args: string[]): ChildProcess {
     const child = new FakeSamplerChild(null)
     this.cursorSamplerChildren.push(child)
     return child as unknown as ChildProcess
@@ -709,6 +711,7 @@ describe('daemon core', () => {
         '--fps', '30',
         '--out', cursorTelemetryPath,
       ]])
+      expect(core.cursorSamplerBinaries).toEqual(['/fake/path/spectra-cursor-sampler'])
       expect(core.cursorSamplerChildren[0].killSignals).toEqual(['SIGTERM'])
       expect(run?.recording?.cursorTelemetryPath).toBe(cursorTelemetryPath)
       expect(artifact?.metadata).toMatchObject({ cursorTelemetryPath })
@@ -727,6 +730,8 @@ describe('daemon core', () => {
   })
 
   it('f2: warns and skips the spawn when the cursor sampler binary cannot be (re)built', async () => {
+    const priorHelperMode = process.env.SPECTRA_HELPER_MODE
+    process.env.SPECTRA_HELPER_MODE = 'development'
     const repoPath = mkdtempSync(join('/private/tmp', 'spectra-recording-cursor-nobuild-'))
     const keepAwake = new FakeKeepAwake()
     const ctx = createContext()
@@ -797,9 +802,21 @@ describe('daemon core', () => {
           expect.stringContaining('cursor telemetry requested but the sampler produced no output'),
         ]),
       })
+
+      process.env.SPECTRA_HELPER_MODE = 'bundle'
+      await expect(core.startRecording({
+        sessionId: session.id,
+        fps: 30,
+        codec: 'h264',
+        bitrate: '4M',
+        captureCursor: true,
+      })).rejects.toThrow('cursor sampler unavailable')
+      expect(keepAwake.activeRecordings).toBe(0)
     } finally {
       await core.close()
       rmSync(repoPath, { recursive: true, force: true })
+      if (priorHelperMode === undefined) delete process.env.SPECTRA_HELPER_MODE
+      else process.env.SPECTRA_HELPER_MODE = priorHelperMode
     }
   })
 

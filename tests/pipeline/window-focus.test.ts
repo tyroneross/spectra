@@ -8,8 +8,46 @@
 // canvas), the app/title CLI arg passthrough, and graceful `undefined`
 // fallback for a missing binary, a non-zero exit (no matching window), and
 // unparseable output.
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { resolveFocalRect, toFocalRect, windowBoundsBinaryPath } from '../../src/pipeline/window-focus.js'
+
+const HELPER_ENV_KEYS = [
+  'SPECTRA_HELPER_MODE',
+  'SPECTRA_APP_BUNDLE_HELPERS_DIR',
+  'SPECTRA_APP_BUNDLE_PATH',
+  'SPECTRA_WINDOW_BOUNDS_BIN',
+] as const
+
+let priorEnv: Partial<Record<(typeof HELPER_ENV_KEYS)[number], string>>
+let tempDirs: string[]
+
+function tempDirectory(prefix: string): string {
+  const path = realpathSync(mkdtempSync(join(tmpdir(), prefix)))
+  tempDirs.push(path)
+  return path
+}
+
+beforeEach(() => {
+  priorEnv = {}
+  tempDirs = []
+  for (const key of HELPER_ENV_KEYS) {
+    if (process.env[key] !== undefined) priorEnv[key] = process.env[key]
+    delete process.env[key]
+  }
+  process.env.SPECTRA_HELPER_MODE = 'development'
+})
+
+afterEach(() => {
+  for (const key of HELPER_ENV_KEYS) {
+    const prior = priorEnv[key]
+    if (prior === undefined) delete process.env[key]
+    else process.env[key] = prior
+  }
+  for (const path of tempDirs) rmSync(path, { recursive: true, force: true })
+})
 
 describe('resolveFocalRect', () => {
   it('converts normalized (0..1) binary output into a pixel FocalRect scaled to the canvas', async () => {
@@ -68,6 +106,17 @@ describe('resolveFocalRect', () => {
     expect(focal).toBeUndefined()
   })
 
+  it('propagates strict bundle-resolution failures before invoking the runner', async () => {
+    const helpersDir = tempDirectory('spectra-window-helper-')
+    process.env.SPECTRA_HELPER_MODE = 'bundle'
+    process.env.SPECTRA_APP_BUNDLE_HELPERS_DIR = helpersDir
+    const runBinary = vi.fn(() => ({ status: 0, stdout: '{}' }))
+
+    await expect(resolveFocalRect({ canvas: { w: 100, h: 100 }, runBinary }))
+      .rejects.toThrow('spectra-window-bounds')
+    expect(runBinary).not.toHaveBeenCalled()
+  })
+
   it('returns undefined when the binary exits non-zero (e.g. no matching window found)', async () => {
     const runBinary = vi.fn(() => ({ status: 65, stdout: '' }))
 
@@ -113,23 +162,31 @@ describe('toFocalRect', () => {
 
 describe('windowBoundsBinaryPath', () => {
   it('honors the SPECTRA_WINDOW_BOUNDS_BIN env override', () => {
-    const prior = process.env.SPECTRA_WINDOW_BOUNDS_BIN
-    process.env.SPECTRA_WINDOW_BOUNDS_BIN = '/tmp/custom-window-bounds'
-    try {
-      expect(windowBoundsBinaryPath()).toBe('/tmp/custom-window-bounds')
-    } finally {
-      if (prior === undefined) delete process.env.SPECTRA_WINDOW_BOUNDS_BIN
-      else process.env.SPECTRA_WINDOW_BOUNDS_BIN = prior
-    }
+    process.env.SPECTRA_WINDOW_BOUNDS_BIN = process.execPath
+    expect(windowBoundsBinaryPath()).toBe(process.execPath)
   })
 
   it('falls back to the default ~/.spectra/bin path when unset', () => {
-    const prior = process.env.SPECTRA_WINDOW_BOUNDS_BIN
-    delete process.env.SPECTRA_WINDOW_BOUNDS_BIN
-    try {
-      expect(windowBoundsBinaryPath()).toMatch(/\.spectra\/bin\/spectra-window-bounds$/)
-    } finally {
-      if (prior !== undefined) process.env.SPECTRA_WINDOW_BOUNDS_BIN = prior
-    }
+    expect(windowBoundsBinaryPath()).toMatch(/\.spectra\/bin\/spectra-window-bounds$/)
+  })
+
+  it('resolves the exact executable from an authoritative bundle', () => {
+    const helpersDir = tempDirectory('spectra-window-helper-')
+    const helper = join(helpersDir, 'spectra-window-bounds')
+    writeFileSync(helper, '#!/bin/sh\nexit 0\n')
+    chmodSync(helper, 0o755)
+    process.env.SPECTRA_HELPER_MODE = 'bundle'
+    process.env.SPECTRA_APP_BUNDLE_HELPERS_DIR = helpersDir
+
+    expect(windowBoundsBinaryPath()).toBe(helper)
+  })
+
+  it('fails closed when the configured bundle helper is not executable', () => {
+    const helpersDir = tempDirectory('spectra-window-helper-')
+    writeFileSync(join(helpersDir, 'spectra-window-bounds'), 'not executable')
+    process.env.SPECTRA_HELPER_MODE = 'bundle'
+    process.env.SPECTRA_APP_BUNDLE_HELPERS_DIR = helpersDir
+
+    expect(() => windowBoundsBinaryPath()).toThrow('spectra-window-bounds')
   })
 })

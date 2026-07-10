@@ -55,13 +55,11 @@ if [[ ${#SWIFT_SOURCES[@]} -eq 0 ]]; then
 fi
 
 echo "build-daemon-core: compiling ${#SWIFT_SOURCES[@]} source file(s) -> $OUT"
-swiftc "${SWIFT_SOURCES[@]}" \
+bash "$REPO_ROOT/scripts/build-swift-helper.sh" "$OUT" \
+    "${SWIFT_SOURCES[@]}" \
     -framework Foundation \
     -framework AppKit \
     -framework ApplicationServices \
-    -framework CoreGraphics \
-    -o "$OUT"
-
-bash "$REPO_ROOT/scripts/codesign-native.sh" "$OUT"
+    -framework CoreGraphics
 
 echo "build-daemon-core: built $OUT"

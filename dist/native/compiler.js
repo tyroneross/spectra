@@ -1,9 +1,9 @@
 // src/native/compiler.ts
 import { execFileSync, execSync, spawnSync } from 'node:child_process';
-import { accessSync, closeSync, constants as fsConstants, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, } from 'node:fs';
+import { accessSync, closeSync, constants as fsConstants, existsSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, readdirSync, rmSync, statSync, writeFileSync, } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 const BIN_DIR = join(homedir(), '.spectra', 'bin');
 const BINARY_PATH = join(BIN_DIR, 'spectra-native');
 const HASH_PATH = join(BIN_DIR, '.source-hash');
@@ -16,6 +16,7 @@ const CURSOR_SAMPLER_HASH_PATH = join(BIN_DIR, '.cursor-sampler-source-hash');
 const TEXT_RENDER_BINARY_PATH = join(BIN_DIR, 'spectra-text-render');
 const TEXT_RENDER_HASH_PATH = join(BIN_DIR, '.text-render-source-hash');
 const DAEMON_LAUNCHER_PATH = join(BIN_DIR, 'spectra-daemon-launcher');
+const WINDOW_BOUNDS_BINARY_PATH = join(BIN_DIR, 'spectra-window-bounds');
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app');
 // GUARDRAIL: default to AD-HOC signing ('-') — no keychain access, no prompt.
 // The user's real Apple Development identity is used ONLY when they explicitly
@@ -131,21 +132,19 @@ function signNativeBinary(binaryPath) {
         throw new Error(`codesign failed for ${binaryPath}:\n${msg}`);
     }
 }
-// ─── Bundle-first helper resolution (native-Swift migration M1, additive) ──
+// ─── Shared native-helper resolution ─────────────────────────────────
 //
-// Once a signed Spectra.app bundle exists with the M1 postBuildScripts embed
-// phase (macos/project.yml + macos/Makefile's `embed-helpers`), it carries
-// its own copies of these helpers under Contents/Helpers/, ideally signed
-// with the SAME identity as the running app -- which is what lets a helper
-// inherit the app's Screen-Recording/Accessibility TCC grant on macOS 26.1
-// instead of needing its own bare-exec grant. When a bundle is found on
-// disk, PREFER its embedded copy. When it is not (the plugin/dev/CI path --
-// the default everywhere today, including this environment), resolution is
-// unchanged: compile-if-stale into ~/.spectra/bin and return that path. This
-// is purely additive -- no existing call site's behavior changes unless a
-// bundle actually exists on disk.
-const BUNDLE_HELPERS_DIR_ENV = 'SPECTRA_APP_BUNDLE_HELPERS_DIR';
-const BUNDLE_PATH_ENV = 'SPECTRA_APP_BUNDLE_PATH';
+// Production launchers select `bundle`, where the configured app bundle is
+// authoritative and every requested helper must be an executable file.
+// Local callers must explicitly select `development` before the historical
+// compile-if-stale ~/.spectra/bin behavior is available. Specific helper
+// overrides remain the highest-precedence, authoritative seam in either mode.
+export const HELPER_MODE_ENV = 'SPECTRA_HELPER_MODE';
+export const BUNDLE_HELPERS_DIR_ENV = 'SPECTRA_APP_BUNDLE_HELPERS_DIR';
+export const BUNDLE_PATH_ENV = 'SPECTRA_APP_BUNDLE_PATH';
+export const NATIVE_HELPER_PATH_ENV = 'SPECTRA_NATIVE_HELPER_PATH';
+export const CURSOR_SAMPLER_PATH_ENV = 'SPECTRA_CURSOR_SAMPLER_PATH';
+export const WINDOW_BOUNDS_PATH_ENV = 'SPECTRA_WINDOW_BOUNDS_BIN';
 const DEFAULT_BUNDLE_CANDIDATES = [
     '/Applications/Spectra.app',
     join(homedir(), 'Applications', 'Spectra.app'),
@@ -154,43 +153,154 @@ function isExecutableFile(path) {
     if (!existsSync(path))
         return false;
     try {
+        const attributes = lstatSync(path);
+        if (attributes.isSymbolicLink() || !attributes.isFile())
+            return false;
         accessSync(path, fsConstants.X_OK);
-        return statSync(path).isFile();
+        return true;
     }
     catch {
         return false;
     }
 }
-/**
- * Locate `Contents/Helpers/` of an installed Spectra.app bundle, if any.
- * Override with `SPECTRA_APP_BUNDLE_HELPERS_DIR` (points straight at the
- * Helpers dir) or `SPECTRA_APP_BUNDLE_PATH` (points at the .app) -- useful
- * for tests/dev without a real install. Falls back to the standard
- * `/Applications` locations. Returns null when nothing is found, which is
- * the case in every environment today (nothing has shipped the bundle yet).
- */
-export function resolveBundleHelpersDir() {
-    const explicitDir = process.env[BUNDLE_HELPERS_DIR_ENV]?.trim();
-    if (explicitDir && existsSync(explicitDir))
-        return explicitDir;
-    const explicitBundle = process.env[BUNDLE_PATH_ENV]?.trim();
-    const candidates = explicitBundle
-        ? [explicitBundle, ...DEFAULT_BUNDLE_CANDIDATES]
-        : DEFAULT_BUNDLE_CANDIDATES;
-    for (const bundlePath of candidates) {
-        const helpersDir = join(bundlePath, 'Contents', 'Helpers');
-        if (existsSync(helpersDir))
-            return helpersDir;
+export function resolveHelperMode() {
+    const raw = process.env[HELPER_MODE_ENV]?.trim();
+    if (!raw)
+        return undefined;
+    if (raw === 'bundle' || raw === 'development')
+        return raw;
+    throw new Error(`${HELPER_MODE_ENV} must be "bundle" or "development"; received ${JSON.stringify(raw)}`);
+}
+function configuredEnvironmentValue(key) {
+    if (!Object.prototype.hasOwnProperty.call(process.env, key))
+        return null;
+    const value = process.env[key]?.trim() ?? '';
+    if (!value)
+        throw new Error(`${key} is configured but empty`);
+    return value;
+}
+function configuredBundleHelpersDir() {
+    const explicitDir = configuredEnvironmentValue(BUNDLE_HELPERS_DIR_ENV);
+    if (explicitDir)
+        return { path: explicitDir, source: BUNDLE_HELPERS_DIR_ENV };
+    const explicitBundle = configuredEnvironmentValue(BUNDLE_PATH_ENV);
+    if (explicitBundle) {
+        return {
+            path: join(explicitBundle, 'Contents', 'Helpers'),
+            source: BUNDLE_PATH_ENV,
+        };
     }
     return null;
 }
-/** Bundle-embedded copy of `helperName`, only if a bundle carries it. */
-function resolveEmbeddedHelper(helperName) {
+function requirePhysicalBundleHelpersDir(path, source) {
+    const expectedPath = resolve(path);
+    try {
+        const attributes = lstatSync(path);
+        const physicalPath = realpathSync(path);
+        if (attributes.isSymbolicLink() || !attributes.isDirectory() || physicalPath !== expectedPath) {
+            throw new Error('not a physical directory');
+        }
+        return expectedPath;
+    }
+    catch {
+        throw new Error(`Bundle Helpers directory from ${source} must be a physical, non-symlink directory: ${path}`);
+    }
+}
+/** Locate an available bundle Helpers directory for unset-mode app discovery. */
+export function resolveBundleHelpersDir() {
+    const configured = configuredBundleHelpersDir();
+    if (configured) {
+        return requirePhysicalBundleHelpersDir(configured.path, configured.source);
+    }
+    for (const bundlePath of DEFAULT_BUNDLE_CANDIDATES) {
+        const helpersDir = join(bundlePath, 'Contents', 'Helpers');
+        if (!existsSync(helpersDir))
+            continue;
+        try {
+            return requirePhysicalBundleHelpersDir(helpersDir, 'installed Spectra.app');
+        }
+        catch {
+            continue;
+        }
+    }
+    return null;
+}
+function requireExecutableHelper(path, source) {
+    if (isExecutableFile(path))
+        return path;
+    throw new Error(`Spectra helper from ${source} must be a regular, non-symlink executable: ${path}`);
+}
+function requireBundledExecutableHelper(helpersDir, helperName, source) {
+    const physicalHelpersDir = requirePhysicalBundleHelpersDir(helpersDir, source);
+    const candidate = resolve(physicalHelpersDir, helperName);
+    const relativeCandidate = relative(physicalHelpersDir, candidate);
+    if (relativeCandidate === '..'
+        || relativeCandidate.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
+        || isAbsolute(relativeCandidate)) {
+        throw new Error(`Spectra helper from ${source} escapes Contents/Helpers: ${candidate}`);
+    }
+    try {
+        if (realpathSync(candidate) !== candidate) {
+            throw new Error('helper resolves through a symbolic link');
+        }
+    }
+    catch {
+        throw new Error(`Spectra helper from ${source} must remain a physical file inside Contents/Helpers: ${candidate}`);
+    }
+    return requireExecutableHelper(candidate, source);
+}
+/**
+ * Resolve a bundle-contained helper without enabling a home fallback.
+ * Bundle mode requires an explicit bundle/helpers setting. Development
+ * returns directly to the caller's home/compile path so one process never
+ * mixes bare and bundled helper attribution.
+ */
+export function resolveBundledHelperPath(helperName) {
+    const mode = resolveHelperMode();
+    if (mode === 'bundle') {
+        const configured = configuredBundleHelpersDir();
+        if (!configured) {
+            throw new Error(`${HELPER_MODE_ENV}=bundle requires ${BUNDLE_HELPERS_DIR_ENV} or ${BUNDLE_PATH_ENV}`);
+        }
+        return requireBundledExecutableHelper(configured.path, helperName, configured.source);
+    }
+    if (mode === 'development')
+        return null;
+    // With no explicit mode, a configured bundle is still authoritative. This
+    // prevents a malformed production environment from silently reaching home.
+    const configured = configuredBundleHelpersDir();
+    if (configured) {
+        return requireBundledExecutableHelper(configured.path, helperName, configured.source);
+    }
     const helpersDir = resolveBundleHelpersDir();
     if (!helpersDir)
         return null;
-    const candidate = join(helpersDir, helperName);
-    return isExecutableFile(candidate) ? candidate : null;
+    return requireBundledExecutableHelper(helpersDir, helperName, 'installed Spectra.app');
+}
+function resolveHelperPath(helperName, overrideEnv) {
+    if (overrideEnv) {
+        const override = configuredEnvironmentValue(overrideEnv);
+        if (override) {
+            if (resolveHelperMode() === 'bundle') {
+                const configured = configuredBundleHelpersDir();
+                if (!configured) {
+                    throw new Error(`${HELPER_MODE_ENV}=bundle requires ${BUNDLE_HELPERS_DIR_ENV} or ${BUNDLE_PATH_ENV}`);
+                }
+                const expectedOverride = resolve(configured.path, helperName);
+                if (resolve(override) !== expectedOverride) {
+                    throw new Error(`${overrideEnv} must resolve to ${expectedOverride} in bundle mode; received ${override}`);
+                }
+                return requireBundledExecutableHelper(configured.path, helperName, overrideEnv);
+            }
+            return requireExecutableHelper(override, overrideEnv);
+        }
+    }
+    const bundled = resolveBundledHelperPath(helperName);
+    if (bundled)
+        return bundled;
+    if (resolveHelperMode() === 'development')
+        return null;
+    throw new Error(`No executable bundle helper resolved for ${helperName}; set ${HELPER_MODE_ENV}=development to use ${BIN_DIR}`);
 }
 export function isStale() {
     if (!existsSync(BINARY_PATH))
@@ -443,9 +553,9 @@ export function compileTextRender() {
     writeFileSync(TEXT_RENDER_HASH_PATH, hash);
 }
 export function ensureBinary() {
-    const embedded = resolveEmbeddedHelper('spectra-native');
-    if (embedded)
-        return embedded;
+    const resolved = resolveHelperPath('spectra-native', NATIVE_HELPER_PATH_ENV);
+    if (resolved)
+        return resolved;
     if (isStale()) {
         withCompileLock('native', () => {
             if (isStale())
@@ -455,9 +565,9 @@ export function ensureBinary() {
     return BINARY_PATH;
 }
 export function ensureCompositeBinary() {
-    const embedded = resolveEmbeddedHelper('spectra-composite-capture');
-    if (embedded)
-        return embedded;
+    const resolved = resolveHelperPath('spectra-composite-capture', undefined);
+    if (resolved)
+        return resolved;
     if (isCompositeStale()) {
         withCompileLock('composite', () => {
             if (isCompositeStale())
@@ -467,9 +577,9 @@ export function ensureCompositeBinary() {
     return COMPOSITE_BINARY_PATH;
 }
 export function ensureScreenRecordingPreflightBinary() {
-    const embedded = resolveEmbeddedHelper('spectra-screen-recording-preflight');
-    if (embedded)
-        return embedded;
+    const resolved = resolveHelperPath('spectra-screen-recording-preflight', undefined);
+    if (resolved)
+        return resolved;
     if (isScreenRecordingPreflightStale()) {
         withCompileLock('screen-recording-preflight', () => {
             if (isScreenRecordingPreflightStale())
@@ -479,9 +589,9 @@ export function ensureScreenRecordingPreflightBinary() {
     return SCREEN_RECORDING_PREFLIGHT_PATH;
 }
 export function ensureCursorSamplerBinary() {
-    const embedded = resolveEmbeddedHelper('spectra-cursor-sampler');
-    if (embedded)
-        return embedded;
+    const resolved = resolveHelperPath('spectra-cursor-sampler', CURSOR_SAMPLER_PATH_ENV);
+    if (resolved)
+        return resolved;
     if (isCursorSamplerStale()) {
         withCompileLock('cursor-sampler', () => {
             if (isCursorSamplerStale())
@@ -491,9 +601,9 @@ export function ensureCursorSamplerBinary() {
     return CURSOR_SAMPLER_BINARY_PATH;
 }
 export function ensureTextRenderBinary() {
-    const embedded = resolveEmbeddedHelper('spectra-text-render');
-    if (embedded)
-        return embedded;
+    const resolved = resolveHelperPath('spectra-text-render', undefined);
+    if (resolved)
+        return resolved;
     if (isTextRenderStale()) {
         withCompileLock('text-render', () => {
             if (isTextRenderStale())
@@ -501,6 +611,11 @@ export function ensureTextRenderBinary() {
         });
     }
     return TEXT_RENDER_BINARY_PATH;
+}
+/** Window bounds has a build-script-owned development binary, not an on-demand compiler. */
+export function ensureWindowBoundsBinary() {
+    return resolveHelperPath('spectra-window-bounds', WINDOW_BOUNDS_PATH_ENV)
+        ?? WINDOW_BOUNDS_BINARY_PATH;
 }
 function withCompileLock(name, fn) {
     mkdirSync(BIN_DIR, { recursive: true });
@@ -576,5 +691,5 @@ export function compileTestApp() {
     execSync(cmd, { stdio: 'pipe' });
     return TEST_APP_PATH;
 }
-export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, TEXT_RENDER_BINARY_PATH, };
+export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, TEXT_RENDER_BINARY_PATH, WINDOW_BOUNDS_BINARY_PATH, };
 //# sourceMappingURL=compiler.js.map

@@ -8,11 +8,10 @@
 // is the ONLY one of the 5 register-hooks with a return value.
 //
 // ND-2 (no in-process ScreenCaptureKit): startRecording/stopRecording spawn
-// the EXISTING `spectra-native` helper binary (native/swift/main.swift,
-// compiled+signed to ~/.spectra/bin/spectra-native by src/native/compiler.ts
-// `ensureBinary()` — that compile/sign step is NOT ported here, this daemon
-// assumes the binary already exists, same as the TS daemon does) as a
-// SUBPROCESS, and talks to it over its EXISTING newline-delimited JSON-RPC
+// the EXISTING `spectra-native` helper binary (native/swift/main.swift) from
+// the signed app bundle in production or ~/.spectra/bin in explicit
+// development mode. This daemon never compiles/signs the binary. It talks to
+// the helper as a SUBPROCESS over its EXISTING newline-delimited JSON-RPC
 // stdio contract (main.swift's `handleStartRecording`/`handleStopRecording`,
 // backed by `SingleWindowRecordingStore.shared`) — mirroring
 // src/daemon/core-impl.ts's `NativeRecordingProcess` class byte-for-byte:
@@ -26,8 +25,9 @@
 // window resolution (native CGWindowList enumeration — the same API
 // PermissionOps.swift's `listMacWindows` uses; that helper is file-private
 // there so this file has its own narrowly-scoped copy of just the
-// resolve-one-target logic, not a full listWindows port), cursor-sampler
-// spawn + skip-warning semantics, a keep-awake analog (`caffeinate -d -i`,
+// resolve-one-target logic, not a full listWindows port), mode-aware cursor-
+// sampler resolution (bundle failures abort; explicit development may warn
+// and skip), a keep-awake analog (`caffeinate -d -i`,
 // ref-counted across concurrent recordings), the black-frame guard +
 // probeVideo fallback chain (FfmpegProbe.swift), and the stopRecording
 // `Completed | AlreadyStopped` union.
@@ -281,36 +281,25 @@ private func errorMessage(_ error: Error) -> String {
     return String(describing: error)
 }
 
-/// ROOT-CAUSE FIX (M3.G2 V-C startRecording-timeout investigation): this used
-/// to resolve via bare `NSHomeDirectory()`, which does NOT reliably honor an
-/// env-var-only `HOME` override under a launchd-spawned process — unlike its
-/// sibling `BridgeClient.swift:84` (`env["HOME"] ?? NSHomeDirectory()`,
-/// the same pattern `StoragePath.swift:81` uses), which IS what `screenshot`
-/// goes through. Confirmed live: under the G2 on-device test harness (HOME
-/// set to an isolated `~/.spectra-g2-ondevice` via the launchd plist's
-/// EnvironmentVariables), `screenshot` (via BridgeClient) correctly spawned
-/// the test-provisioned helper while `startRecording` (via this function,
-/// pre-fix) silently spawned the REAL `~/.spectra/bin/spectra-native`
-/// instead — a stale/mismatched binary the test never provisioned. Even
-/// with a correctly-provisioned helper this divergence is live-dangerous:
-/// it means `startRecording` can never be test-isolated the way every other
-/// native op in this daemon is, and in this investigation the two installs
-/// disagreed enough (one built from `native/swift/main.swift` predating the
-/// real ScreenCaptureKit recording implementation) to produce a hard
-/// "coming in Phase 3a" stub failure instead of ever reaching the RPC's
-/// timeout path at all.
+/// Resolve the recording helper through the same authoritative contract as
+/// BridgeClient. Bundle mode never falls through to a home binary; local
+/// HOME-based resolution requires explicit development mode.
 private func resolveNativeBinaryPath() throws -> String {
-    let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-    let path = (home as NSString).appendingPathComponent(".spectra/bin/spectra-native")
-    guard FileManager.default.fileExists(atPath: path) else {
-        throw RecordingOpError(message: "spectra-native helper binary not found at \(path) — run the TS Spectra daemon/MCP server once (or `npm run build:native`) to compile + sign it; the Swift daemon-core spawns this EXISTING binary rather than re-implementing ScreenCaptureKit in-process (ND-2)")
+    do {
+        return try BundleHelperPaths.resolveExecutable(
+            helperName: "spectra-native",
+            overrideEnvironmentKey: "SPECTRA_NATIVE_HELPER_PATH"
+        )
+    } catch {
+        throw RecordingOpError(message: "spectra-native helper resolution failed: \(error)")
     }
-    return path
 }
 
-private func cursorSamplerBinaryPath() -> String {
-    let home = ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()
-    return (home as NSString).appendingPathComponent(".spectra/bin/spectra-cursor-sampler")
+private func cursorSamplerResolution() throws -> OptionalHelperResolution {
+    try BundleHelperPaths.resolveOptionalExecutable(
+        helperName: "spectra-cursor-sampler",
+        overrideEnvironmentKey: "SPECTRA_CURSOR_SAMPLER_PATH"
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -375,10 +364,11 @@ final class KeepAwakeController: @unchecked Sendable {
 
 /// Ports the REAL `spectra-cursor-sampler` CLI contract verified from
 /// core-impl.ts:957-968 (`--duration <maxDurationSeconds> --fps <fps> --out
-/// <path>`), not a fabricated one. If the binary is missing, startRecording
-/// sets `cursorSamplerSkippedWarning` and never spawns — the recording itself
-/// still succeeds (matches CURSOR_SAMPLER_SILENT_FAILURE_WARNING's own
-/// framing: a missing/failed sampler is a warning, never a recording_failed).
+/// <path>`), not a fabricated one. Bundle-mode resolution is authoritative:
+/// a missing or unsafe sampler fails startRecording before this type spawns.
+/// Explicit development mode preserves the local workflow by warning and
+/// continuing when its optional sampler cannot be resolved. Spawn failures
+/// after a path resolves remain recording_failed in every mode.
 final class CursorSamplerHandle: @unchecked Sendable {
     private let process: Process
     let outPath: String
@@ -778,10 +768,25 @@ private func handleStartRecording(_ params: Any?, _ ctx: DaemonContext, recordin
     var cursorSampler: CursorSamplerHandle?
     var cursorSamplerSkippedWarning: String?
     if (dict["captureCursor"] as? Bool) == true {
-        let binaryPath = cursorSamplerBinaryPath()
-        if !FileManager.default.fileExists(atPath: binaryPath) {
-            cursorSamplerSkippedWarning = "cursor telemetry requested but the sampler produced no output (is spectra-cursor-sampler built? run npm run build:cursor-sampler)"
-        } else {
+        let binaryPath: String?
+        do {
+            switch try cursorSamplerResolution() {
+            case .executable(let path):
+                binaryPath = path
+            case .unavailableInDevelopment(let warning):
+                binaryPath = nil
+                cursorSamplerSkippedWarning = "cursor telemetry requested but the development sampler helper could not be resolved: \(warning)"
+            }
+        } catch {
+            liveRpc.abort()
+            keepAwake.recordingStopped(recordingId)
+            throw DaemonApiError(
+                .recordingFailed,
+                "startRecording cursor sampler resolution failed: \(errorMessage(error))",
+                status: 500
+            )
+        }
+        if let binaryPath {
             let cursorOutPath = (sessionDir as NSString).appendingPathComponent("\(recordingId).cursor.json")
             do {
                 cursorSampler = try CursorSamplerHandle.spawn(binaryPath: binaryPath, maxDurationSeconds: maxDurationSeconds, fps: fps, outPath: cursorOutPath)

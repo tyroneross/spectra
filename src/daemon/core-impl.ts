@@ -1,7 +1,6 @@
 import { execFile, spawn, spawnSync, type ChildProcess, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { stat, mkdir, rename } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface, type Interface } from 'node:readline'
 import { promisify } from 'node:util'
@@ -101,7 +100,13 @@ import { handleSession } from '../mcp/tools/session.js'
 import { handleSnapshot } from '../mcp/tools/snapshot.js'
 import { handleStep } from '../mcp/tools/step.js'
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js'
-import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary } from '../native/compiler.js'
+import {
+  ensureBinary,
+  ensureCompositeBinary,
+  ensureCursorSamplerBinary,
+  ensureScreenRecordingPreflightBinary,
+  resolveHelperMode,
+} from '../native/compiler.js'
 import {
   COMPOSITE_WORKER_DEFAULTS,
   parseLuminance,
@@ -171,8 +176,8 @@ export class CoreApiImplementation implements CoreApi {
     this.eventSink = options.eventSink
   }
 
-  protected spawnCursorSampler(args: string[]): ChildProcess {
-    const child = spawn(cursorSamplerBinaryPath(), args, { stdio: 'ignore' })
+  protected spawnCursorSampler(binaryPath: string, args: string[]): ChildProcess {
+    const child = spawn(binaryPath, args, { stdio: 'ignore' })
     child.on('error', () => {})
     return child
   }
@@ -384,18 +389,40 @@ export class CoreApiImplementation implements CoreApi {
     let cursorSampler: ActiveCursorSampler | undefined
     let cursorSamplerSkippedWarning: string | undefined
     if (params.captureCursor === true) {
+      let cursorSamplerBinary: string | undefined
       try {
-        this.ensureCursorSamplerBinary()
-      } catch {
+        cursorSamplerBinary = this.ensureCursorSamplerBinary()
+      } catch (error) {
+        let developmentMode = false
+        try {
+          developmentMode = resolveHelperMode() === 'development'
+        } catch {
+          // An invalid mode is a production configuration failure, not a
+          // development fallback signal.
+        }
+        if (!developmentMode) {
+          await handle.abort().catch(() => {})
+          await this.keepAwake.recordingStopped(recordingId).catch(() => {})
+          throw new DaemonApiError(
+            'recording_failed',
+            `startRecording cursor sampler unavailable: ${error instanceof Error ? error.message : String(error)}`,
+            { status: 500, retryable: false, cause: error },
+          )
+        }
         // Binary missing/stale and (re)build failed — skip the spawn entirely
-        // rather than shell out to a binary we know is broken. The recording
-        // itself still succeeds; the gap is surfaced as an artifact warning
-        // at stop time instead of failing silently.
+        // in explicit development mode. The recording itself still succeeds;
+        // the gap is surfaced as an artifact warning at stop time.
         cursorSamplerSkippedWarning = CURSOR_SAMPLER_SILENT_FAILURE_WARNING
       }
-      if (!cursorSamplerSkippedWarning) {
+      if (cursorSamplerBinary) {
         try {
-          cursorSampler = this.startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds)
+          cursorSampler = this.startCursorSampler(
+            cursorSamplerBinary,
+            recordingId,
+            sessionDir,
+            fps,
+            maxDurationSeconds,
+          )
         } catch (error) {
           await handle.abort().catch(() => {})
           await this.keepAwake.recordingStopped(recordingId).catch(() => {})
@@ -999,7 +1026,8 @@ export class CoreApiImplementation implements CoreApi {
     await this.keepAwake.close()
   }
 
-  private startCursorSampler(
+  protected startCursorSampler(
+    binaryPath: string,
     recordingId: string,
     sessionDir: string,
     fps: number,
@@ -1012,7 +1040,7 @@ export class CoreApiImplementation implements CoreApi {
       '--out', outPath,
     ]
     return {
-      child: this.spawnCursorSampler(args),
+      child: this.spawnCursorSampler(binaryPath, args),
       outPath,
     }
   }
@@ -1440,10 +1468,6 @@ async function startNativeSingleWindowRecording(input: NativeStartRecordingInput
   }
 }
 
-function cursorSamplerBinaryPath(): string {
-  return join(homedir(), '.spectra', 'bin', 'spectra-cursor-sampler')
-}
-
 async function waitForChildExit(child: ChildProcess, timeoutMs: number): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return
   await new Promise<void>((resolve, reject) => {
@@ -1511,7 +1535,7 @@ async function probePermission(permission: PermissionKind): Promise<PermissionSt
   }
   if (permission === 'screen-recording') {
     try {
-      await execFileAsync(ensureScreenRecordingPreflightBinary(), [], {
+      await execFileAsync(ensureScreenRecordingPreflightBinary(), ['--no-request'], {
         timeout: 2_000,
         maxBuffer: 1024 * 1024,
       })

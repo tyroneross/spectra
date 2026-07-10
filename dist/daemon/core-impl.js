@@ -1,7 +1,6 @@
 import { execFile, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { stat, mkdir, rename } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
@@ -26,7 +25,7 @@ import { handleSession } from '../mcp/tools/session.js';
 import { handleSnapshot } from '../mcp/tools/snapshot.js';
 import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
-import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary } from '../native/compiler.js';
+import { ensureBinary, ensureCompositeBinary, ensureCursorSamplerBinary, ensureScreenRecordingPreflightBinary, resolveHelperMode, } from '../native/compiler.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
@@ -70,8 +69,8 @@ export class CoreApiImplementation {
         this.windowListProvider = options.windowListProvider ?? listMacWindows;
         this.eventSink = options.eventSink;
     }
-    spawnCursorSampler(args) {
-        const child = spawn(cursorSamplerBinaryPath(), args, { stdio: 'ignore' });
+    spawnCursorSampler(binaryPath, args) {
+        const child = spawn(binaryPath, args, { stdio: 'ignore' });
         child.on('error', () => { });
         return child;
     }
@@ -253,19 +252,32 @@ export class CoreApiImplementation {
         let cursorSampler;
         let cursorSamplerSkippedWarning;
         if (params.captureCursor === true) {
+            let cursorSamplerBinary;
             try {
-                this.ensureCursorSamplerBinary();
+                cursorSamplerBinary = this.ensureCursorSamplerBinary();
             }
-            catch {
+            catch (error) {
+                let developmentMode = false;
+                try {
+                    developmentMode = resolveHelperMode() === 'development';
+                }
+                catch {
+                    // An invalid mode is a production configuration failure, not a
+                    // development fallback signal.
+                }
+                if (!developmentMode) {
+                    await handle.abort().catch(() => { });
+                    await this.keepAwake.recordingStopped(recordingId).catch(() => { });
+                    throw new DaemonApiError('recording_failed', `startRecording cursor sampler unavailable: ${error instanceof Error ? error.message : String(error)}`, { status: 500, retryable: false, cause: error });
+                }
                 // Binary missing/stale and (re)build failed — skip the spawn entirely
-                // rather than shell out to a binary we know is broken. The recording
-                // itself still succeeds; the gap is surfaced as an artifact warning
-                // at stop time instead of failing silently.
+                // in explicit development mode. The recording itself still succeeds;
+                // the gap is surfaced as an artifact warning at stop time.
                 cursorSamplerSkippedWarning = CURSOR_SAMPLER_SILENT_FAILURE_WARNING;
             }
-            if (!cursorSamplerSkippedWarning) {
+            if (cursorSamplerBinary) {
                 try {
-                    cursorSampler = this.startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds);
+                    cursorSampler = this.startCursorSampler(cursorSamplerBinary, recordingId, sessionDir, fps, maxDurationSeconds);
                 }
                 catch (error) {
                     await handle.abort().catch(() => { });
@@ -833,7 +845,7 @@ export class CoreApiImplementation {
         }));
         await this.keepAwake.close();
     }
-    startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds) {
+    startCursorSampler(binaryPath, recordingId, sessionDir, fps, maxDurationSeconds) {
         const outPath = join(sessionDir, `${recordingId}.cursor.json`);
         const args = [
             '--duration', String(maxDurationSeconds),
@@ -841,7 +853,7 @@ export class CoreApiImplementation {
             '--out', outPath,
         ];
         return {
-            child: this.spawnCursorSampler(args),
+            child: this.spawnCursorSampler(binaryPath, args),
             outPath,
         };
     }
@@ -1169,9 +1181,6 @@ async function startNativeSingleWindowRecording(input) {
         throw error;
     }
 }
-function cursorSamplerBinaryPath() {
-    return join(homedir(), '.spectra', 'bin', 'spectra-cursor-sampler');
-}
 async function waitForChildExit(child, timeoutMs) {
     if (child.exitCode !== null || child.signalCode !== null)
         return;
@@ -1237,7 +1246,7 @@ async function probePermission(permission) {
     }
     if (permission === 'screen-recording') {
         try {
-            await execFileAsync(ensureScreenRecordingPreflightBinary(), [], {
+            await execFileAsync(ensureScreenRecordingPreflightBinary(), ['--no-request'], {
                 timeout: 2_000,
                 maxBuffer: 1024 * 1024,
             });

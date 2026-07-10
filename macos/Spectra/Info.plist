@@ -22,6 +22,8 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Spectra controls applications for UI capture and walkthrough.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Spectra records system audio only when you enable audio for a demo capture.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright (c) 2026 Tyrone Ross, Jr</string>
 </dict>

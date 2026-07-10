@@ -23,6 +23,7 @@ settings:
     INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright (c) 2026 Tyrone Ross, Jr"
     INFOPLIST_KEY_CFBundleDisplayName: "Spectra"
     INFOPLIST_KEY_NSAppleEventsUsageDescription: "Spectra controls applications for UI capture and walkthrough."
+    INFOPLIST_KEY_NSAudioCaptureUsageDescription: "Spectra records system audio only when you enable audio for a demo capture."
     PRODUCT_BUNDLE_IDENTIFIER: dev.spectra.app
     MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "1"
@@ -45,6 +46,12 @@ targets:
       - path: Spectra
         excludes:
           - "**/.DS_Store"
+          # DaemonCore is a separately built command-line executable with its
+          # own top-level main.swift. Never sweep it into the SwiftUI app.
+          - "DaemonCore/**"
+          # Internal porting notes are repository documentation, not runtime
+          # application resources.
+          - "CDP/PORT-NOTES.md"
     resources:
       - path: Spectra/Assets.xcassets
     settings:
@@ -61,21 +68,25 @@ targets:
         CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: "1"
         NSAppleEventsUsageDescription: "Spectra controls applications for UI capture and walkthrough."
+        NSAudioCaptureUsageDescription: "Spectra records system audio only when you enable audio for a demo capture."
         NSHumanReadableCopyright: "Copyright (c) 2026 Tyrone Ross, Jr"
-    # Additive bundling step (native-Swift migration M1): embeds whichever
-    # already-built native helper executables exist at ~/.spectra/bin (produced
-    # by the existing `npm run build:native` / `build:composite` / etc. bare-exec
-    # pipeline — unchanged) into Contents/Helpers/ of the built app, so a signed
-    # Spectra.app carries its own capture/AX/vision helpers and they can inherit
-    # the app's Screen-Recording/AX TCC identity. Runs LAST (postBuildScripts),
+    # Bundle production boundary (native-Swift migration M1): embeds the
+    # already-built native helper executables from ~/.spectra/bin (the complete
+    # eight-helper inventory is produced by scripts/build-and-refresh.sh) into
+    # Contents/Helpers/ of the built app, so a signed
+    # Spectra.app carries its own capture/AX/vision helpers inside one signed
+    # boundary. Screen Recording/AX attribution is verified separately on the
+    # installed app. Runs LAST (postBuildScripts),
     # before Xcode's own automatic bundle codesign, so the copied+resigned files
-    # are covered by the app's final signature. Never fails the build: a helper
-    # missing from ~/.spectra/bin (not yet built) is skipped with a warning —
-    # the bare-exec ~/.spectra/bin path remains the fallback, unaffected.
+    # are covered by the app's final signature. Release is strict: one missing
+    # helper fails the build. Debug remains permissive for local UI work.
     postBuildScripts:
       - name: Embed Native Helpers
         script: |
           set -euo pipefail
+          if [ "${CONFIGURATION}" = "Release" ]; then
+            export SPECTRA_REQUIRE_BUNDLED_HELPERS=1
+          fi
           make -C "${SRCROOT}" embed-helpers
         basedOnDependencyAnalysis: false
 
@@ -83,7 +94,10 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - SpectraTests
+      - path: SpectraTests
+      # Compile the Foundation-only resolver into the test bundle without
+      # adding the rest of DaemonCore (or its main.swift) to the app target.
+      - path: Spectra/DaemonCore/BundleHelperPaths.swift
     dependencies:
       - target: Spectra
     settings:

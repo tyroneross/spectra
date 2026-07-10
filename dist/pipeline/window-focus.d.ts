@@ -1,6 +1,6 @@
 import type { CanvasSize, FocalRect } from '../media/spotlight.js';
 export declare const DEFAULT_WINDOW_BOUNDS_BINARY: string;
-/** Resolved binary path -- `SPECTRA_WINDOW_BOUNDS_BIN` env override wins (used by tests/CI). */
+/** Resolve through the shared override/bundle/development helper contract. */
 export declare function windowBoundsBinaryPath(): string;
 export interface WindowBoundsJson {
     x: number;
@@ -33,9 +33,9 @@ export interface ResolveFocalRectOptions {
 /**
  * Resolves the on-screen bounds of the frontmost window (or a window
  * matching `app`/`title`) as a pixel FocalRect scaled to `canvas`. Returns
- * `undefined` -- never throws -- when the binary is missing, exits non-zero
- * (no matching window, e.g. no GUI session), or emits unparseable/empty
- * output.
+ * `undefined` when the resolved binary cannot run, exits non-zero (no matching
+ * window, e.g. no GUI session), or emits unparseable/empty output. Strict
+ * helper-resolution errors reject before the runner executes.
  */
 export declare function resolveFocalRect(opts: ResolveFocalRectOptions): Promise<FocalRect | undefined>;
 /**

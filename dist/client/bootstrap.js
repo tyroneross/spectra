@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { resolveBundleHelpersDir } from '../native/compiler.js';
+import { BUNDLE_HELPERS_DIR_ENV, BUNDLE_PATH_ENV, CURSOR_SAMPLER_PATH_ENV, HELPER_MODE_ENV, NATIVE_HELPER_PATH_ENV, WINDOW_BOUNDS_PATH_ENV, resolveBundledHelperPath, } from '../native/compiler.js';
 // ─── §G3 bootstrap rogue-spawn guard (M3.G1 flip, Q-01 APPROVED option (b),
 // docs/plans/m3-g1-flip-plan.md) ────────────────────────────────────────────
 //
@@ -71,16 +71,27 @@ export function resolveDaemonEntry() {
  * embed phase), prefer spawning the daemon through it so the daemon and its
  * native helpers run under the bundle's own TCC identity. Mirrors the
  * pattern LaunchAgentManager.swift already uses for the LaunchAgent path.
- * Falls back to the existing bare-exec behavior (spawn node directly against
- * dist/daemon/server.js) whenever no bundle is found -- which is every
- * environment today (plugin/dev/CI), so default behavior is unchanged.
+ * Falls back to the existing bare-exec behavior only after explicitly
+ * selecting development mode for the spawned daemon.
  */
 function resolveEmbeddedDaemonLauncher() {
-    const helpersDir = resolveBundleHelpersDir();
-    if (!helpersDir)
-        return null;
-    const candidate = join(helpersDir, 'spectra-daemon-launcher');
-    return existsSync(candidate) ? candidate : null;
+    return resolveBundledHelperPath('spectra-daemon-launcher');
+}
+function daemonBootstrapEnv(embeddedLauncher) {
+    if (!embeddedLauncher) {
+        return { ...process.env, [HELPER_MODE_ENV]: 'development' };
+    }
+    const helpersDir = dirname(embeddedLauncher);
+    const bundlePath = resolve(helpersDir, '..', '..');
+    return {
+        ...process.env,
+        [HELPER_MODE_ENV]: 'bundle',
+        [BUNDLE_HELPERS_DIR_ENV]: helpersDir,
+        [BUNDLE_PATH_ENV]: bundlePath,
+        [NATIVE_HELPER_PATH_ENV]: join(helpersDir, 'spectra-native'),
+        [CURSOR_SAMPLER_PATH_ENV]: join(helpersDir, 'spectra-cursor-sampler'),
+        [WINDOW_BOUNDS_PATH_ENV]: join(helpersDir, 'spectra-window-bounds'),
+    };
 }
 /**
  * Build a BootstrapFn that spawns the BE daemon detached and polls until the
@@ -109,14 +120,17 @@ export function spawnDaemonBootstrap(client, opts = {}) {
             return false;
         try {
             const embeddedLauncher = resolveEmbeddedDaemonLauncher();
+            const env = daemonBootstrapEnv(embeddedLauncher);
             const child = embeddedLauncher
                 ? spawn(embeddedLauncher, ['--node', process.execPath, '--script', daemonEntry], {
                     detached: true,
                     stdio: 'ignore',
+                    env,
                 })
                 : spawn(process.execPath, [daemonEntry], {
                     detached: true,
                     stdio: 'ignore',
+                    env,
                 });
             child.unref();
         }

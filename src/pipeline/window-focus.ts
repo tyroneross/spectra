@@ -6,22 +6,22 @@
 // Accessibility-API AXBridge -- and turns its window-bounds JSON into a
 // pixel FocalRect the dark-crush spotlight stage can consume directly.
 //
-// Never throws: a missing binary, a non-GUI session (no matching window), or
-// unparseable output all resolve to `undefined` so callers can gracefully
-// skip auto-focus rather than fail the whole render (see NOTE in the
-// polishClip wiring -- live window-bounds needs a GUI session, so this path
-// is designed to degrade rather than error).
+// Runtime execution failures, a non-GUI session, and unparseable output all
+// resolve to `undefined` so callers can skip auto-focus. Configuration and
+// bundle-integrity failures are intentionally propagated before execution;
+// production must not hide a missing or unsafe bundled helper.
 import { spawnSync } from 'node:child_process'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import type { CanvasSize, FocalRect } from '../media/spotlight.js'
+import {
+  ensureWindowBoundsBinary,
+  WINDOW_BOUNDS_BINARY_PATH,
+} from '../native/compiler.js'
 
-export const DEFAULT_WINDOW_BOUNDS_BINARY = join(homedir(), '.spectra', 'bin', 'spectra-window-bounds')
+export const DEFAULT_WINDOW_BOUNDS_BINARY = WINDOW_BOUNDS_BINARY_PATH
 
-/** Resolved binary path -- `SPECTRA_WINDOW_BOUNDS_BIN` env override wins (used by tests/CI). */
+/** Resolve through the shared override/bundle/development helper contract. */
 export function windowBoundsBinaryPath(): string {
-  const override = process.env.SPECTRA_WINDOW_BOUNDS_BIN?.trim()
-  return override && override.length > 0 ? override : DEFAULT_WINDOW_BOUNDS_BINARY
+  return ensureWindowBoundsBinary()
 }
 
 export interface WindowBoundsJson {
@@ -65,9 +65,9 @@ function defaultRunBinary(binaryPath: string, args: string[]): BinaryRunResult {
 /**
  * Resolves the on-screen bounds of the frontmost window (or a window
  * matching `app`/`title`) as a pixel FocalRect scaled to `canvas`. Returns
- * `undefined` -- never throws -- when the binary is missing, exits non-zero
- * (no matching window, e.g. no GUI session), or emits unparseable/empty
- * output.
+ * `undefined` when the resolved binary cannot run, exits non-zero (no matching
+ * window, e.g. no GUI session), or emits unparseable/empty output. Strict
+ * helper-resolution errors reject before the runner executes.
  */
 export async function resolveFocalRect(opts: ResolveFocalRectOptions): Promise<FocalRect | undefined> {
   const binaryPath = opts.binaryPath ?? windowBoundsBinaryPath()

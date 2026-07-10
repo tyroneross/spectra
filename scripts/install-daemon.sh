@@ -6,6 +6,8 @@
 #
 # Usage:
 #   bash scripts/install-daemon.sh               # install + bootstrap
+#   SPECTRA_HELPER_MODE=development bash scripts/install-daemon.sh
+#                                                # explicit ~/.spectra/bin mode
 #   bash scripts/install-daemon.sh --uninstall   # bootout + remove plist
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -13,10 +15,13 @@
 
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/spectra-helper-paths.sh
+source "$REPO_ROOT/scripts/spectra-helper-paths.sh"
+
 LABEL="dev.spectra.daemon"
 PLIST_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
 DAEMON_SCRIPT="$HOME/.spectra/dist/cli/index.js"
-DAEMON_LAUNCHER="$HOME/.spectra/bin/spectra-daemon-launcher"
 LOG_DIR="$HOME/.spectra/logs"
 
 resolve_node() {
@@ -31,6 +36,11 @@ resolve_node() {
 install_agent() {
     local node_path
     local program_args
+    local daemon_launcher
+    local log_dir_xml
+    spectra_resolve_helper_paths
+    daemon_launcher="$SPECTRA_RESOLVED_DAEMON_LAUNCHER"
+    log_dir_xml="$(spectra_xml_escape "$LOG_DIR")"
     node_path="$(resolve_node)"
 
     if [[ ! -f "$DAEMON_SCRIPT" ]]; then
@@ -42,18 +52,16 @@ install_agent() {
     mkdir -p "$(dirname "$PLIST_PATH")"
     mkdir -p "$LOG_DIR"
 
-    if [[ -x "$DAEMON_LAUNCHER" ]]; then
-        program_args="\
-        <string>$DAEMON_LAUNCHER</string>
-        <string>--node</string>
-        <string>$node_path</string>
-        <string>--script</string>
-        <string>$DAEMON_SCRIPT</string>"
+    if [[ "$SPECTRA_RESOLVED_HELPER_MODE" == "bundle" ]]; then
+        spectra_require_bundle_inventory
+    fi
+
+    if [[ -x "$daemon_launcher" ]]; then
+        program_args="$(spectra_program_arguments_xml "        " \
+            "$daemon_launcher" "--node" "$node_path" "--script" "$DAEMON_SCRIPT")"
     else
-        program_args="\
-        <string>$node_path</string>
-        <string>$DAEMON_SCRIPT</string>
-        <string>daemon</string>"
+        program_args="$(spectra_program_arguments_xml "        " \
+            "$node_path" "$DAEMON_SCRIPT" "daemon")"
     fi
 
     cat > "$PLIST_PATH" <<EOF
@@ -63,6 +71,7 @@ install_agent() {
 <dict>
     <key>Label</key>
     <string>$LABEL</string>
+$(spectra_associated_bundle_identifiers_xml "    ")
     <key>ProgramArguments</key>
     <array>
 $program_args
@@ -75,11 +84,12 @@ $program_args
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+$(spectra_helper_environment_xml "        ")
     </dict>
     <key>StandardOutPath</key>
-    <string>$LOG_DIR/daemon.out.log</string>
+    <string>$log_dir_xml/daemon.out.log</string>
     <key>StandardErrorPath</key>
-    <string>$LOG_DIR/daemon.err.log</string>
+    <string>$log_dir_xml/daemon.err.log</string>
     <key>ProcessType</key>
     <string>Background</string>
 </dict>
@@ -88,6 +98,8 @@ EOF
     echo "Wrote $PLIST_PATH"
 
     # Bootstrap (idempotent — bootout first to clear any stale registration)
+    launchctl bootout "gui/$(id -u)/dev.spectra.daemon-ts" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/dev.spectra.daemon-ts.plist"
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
     launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"
     echo "Bootstrapped — daemon should be reachable at http://127.0.0.1:47823 in a moment."
@@ -95,7 +107,9 @@ EOF
 }
 
 uninstall_agent() {
+    launchctl bootout "gui/$(id -u)/dev.spectra.daemon-ts" 2>/dev/null || true
     launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/dev.spectra.daemon-ts.plist"
     if [[ -f "$PLIST_PATH" ]]; then
         rm -f "$PLIST_PATH"
         echo "Removed $PLIST_PATH"

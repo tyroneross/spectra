@@ -9,7 +9,7 @@ Ship and verify a backward-compatible production bundle contract that makes the 
 
 1. **Bundle-owned launch chain** — every production LaunchAgent producer executes daemon-core/daemon-launcher under a stable `Spectra.app/Contents/Helpers`, propagates the same helper-mode contract, and associates with `dev.spectra.app`.
 2. **Strict production, explicit development** — `SPECTRA_HELPER_MODE=bundle` never falls through to a home binary when a configured helper is missing, non-executable, stale, or moved; `SPECTRA_HELPER_MODE=development` preserves the current local fallback.
-3. **Complete signed packaging** — Release embeds daemon-core, text-render, and every required helper; one missing helper fails the Release build; the generated app target excludes the standalone DaemonCore entry point.
+3. **Complete signed packaging** — Release embeds exactly daemon-core, text-render, and every required helper; copy/sign failures and missing or architecture-incompatible helpers fail the build; the app and helpers cover arm64 and x86_64, retain hardened runtime, and share the requested signing identity; the generated app target excludes the standalone DaemonCore entry point.
 4. **Shared deterministic resolution** — Swift AX/recording and TypeScript native/cursor/window-bounds callers consume resolved executable paths with the same override/bundle/development precedence.
 5. **Non-prompting status and complete privacy metadata** — status-only Screen Recording probes always pass `--no-request`, the visible app remains the prompt owner, and the built app declares a system-audio capture purpose string.
 6. **Compatibility and rollback safety** — labels, sockets, public lifecycle signatures, wire/API contracts, backend-first dual-agent activation, and single-TS primary-socket rollback behavior remain stable.
@@ -27,8 +27,8 @@ Ship and verify a backward-compatible production bundle contract that makes the 
   },
   {
     "id": "M1-B",
-    "criterion": "Release helper embedding succeeds with a complete inventory and fails when one required helper is absent",
-    "acceptance_probe": "if test -x tests/macos/helper-packaging-contract.sh; then tests/macos/helper-packaging-contract.sh; else printf 'missing-helper-packaging-contract-test\\n'; fi",
+    "criterion": "Release helper embedding fails on missing, unsafe, or failed copy/sign inventory and the built app has exact universal helpers with hardened, mode-correct outer/nested signatures",
+    "acceptance_probe": "if test -x tests/macos/helper-packaging-contract.sh && test -x tests/macos/release-bundle-contract.sh; then tests/macos/helper-packaging-contract.sh && tests/macos/release-bundle-contract.sh \"${SPECTRA_RELEASE_APP_PATH:-$PWD/Spectra.app}\"; else printf 'missing-helper-packaging-contract-test\\n'; fi",
     "baseline": "missing-helper-packaging-contract-test",
     "boundary": "data",
     "defect_class": true

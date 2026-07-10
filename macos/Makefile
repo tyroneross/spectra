@@ -22,16 +22,15 @@ TEAM_ID      = Q6TB8685V9
 .PHONY: build build-adhoc dmg dmg-adhoc clean run test test-adhoc size verify embed-helpers
 
 # Native helper executables embedded into Contents/Helpers/ (native-Swift
-# migration M1). These are the SAME binaries produced today by the bare-exec
-# pipeline (`npm run build:native` / `build:composite` / `build:cursor-sampler`
-# / `build:window-bounds` / `build:daemon-helper`, from the repo root) at
-# ~/.spectra/bin — this target only copies + (re)signs whatever already
-# exists there. It does not build/compile Swift itself, so it never touches
-# native/swift/ sources.
-SPECTRA_HELPERS = spectra-native spectra-composite-capture \
+# migration M1). The build-and-refresh entrypoint produces all eight helpers,
+# including daemon-core and text-render, in ~/.spectra/bin before this target
+# copies and (when enabled) signs them. This target performs no compilation.
+SPECTRA_HELPERS = spectra-daemon-core spectra-daemon-launcher \
+	spectra-native spectra-composite-capture \
 	spectra-screen-recording-preflight spectra-cursor-sampler \
-	spectra-daemon-launcher spectra-window-bounds
-SPECTRA_BIN_DIR = $(HOME)/.spectra/bin
+	spectra-window-bounds spectra-text-render
+SPECTRA_BIN_DIR ?= $(HOME)/.spectra/bin
+SPECTRA_EMBED_DEST ?=
 
 # Debug build, for local run from Xcode-style invocations
 run:
@@ -61,9 +60,12 @@ build-adhoc:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) \
 		-configuration $(CONFIG) \
 		-derivedDataPath $(DERIVED) \
+		CODE_SIGN_STYLE=Manual \
+		DEVELOPMENT_TEAM= \
 		CODE_SIGN_IDENTITY="-" \
-		CODE_SIGNING_REQUIRED=NO \
-		CODE_SIGNING_ALLOWED=NO \
+		CODE_SIGNING_REQUIRED=YES \
+		CODE_SIGNING_ALLOWED=YES \
+		AD_HOC_CODE_SIGNING_ALLOWED=YES \
 		build
 
 # Test (XCTest unit tests)
@@ -109,36 +111,110 @@ _dmg-package:
 
 # Copy already-built native helper executables from ~/.spectra/bin into the
 # built app's Contents/Helpers/, then re-sign each with the app's own signing
-# identity (when signing is enabled) so it inherits Spectra.app's TCC identity.
+# identity (when signing is enabled) so every executable stays inside one
+# signed app boundary. Installed-app TCC attribution remains a separate live
+# acceptance check.
 # Invoked as a postBuildScripts phase from project.yml (env vars like
 # CODESIGNING_FOLDER_PATH / CODE_SIGNING_ALLOWED / EXPANDED_CODE_SIGN_IDENTITY
 # come from the enclosing xcodebuild script-phase environment). Safe to run
 # standalone too (e.g. `make embed-helpers` after `make build`) — falls back
 # to $(DERIVED)/Build/Products/$(CONFIG)/$(APP_NAME).app when the Xcode-only
-# env vars aren't set. Additive/idempotent; never fails the enclosing build —
-# a helper not yet built at $(SPECTRA_BIN_DIR) is skipped with a warning.
+# env vars aren't set. Additive/idempotent. Debug/development builds warn when
+# a helper is absent. Release phases and callers that set
+# SPECTRA_REQUIRE_BUNDLED_HELPERS=1 fail closed.
 embed-helpers:
-	@if [ -n "$${CODESIGNING_FOLDER_PATH:-}" ]; then \
+	@set -eu; \
+	if [ -n "$(SPECTRA_EMBED_DEST)" ]; then \
+		dest="$(SPECTRA_EMBED_DEST)"; \
+	elif [ -n "$${CODESIGNING_FOLDER_PATH:-}" ]; then \
 		dest="$${CODESIGNING_FOLDER_PATH}/Contents/Helpers"; \
 	elif [ -n "$${TARGET_BUILD_DIR:-}" ] && [ -n "$${CONTENTS_FOLDER_PATH:-}" ]; then \
 		dest="$${TARGET_BUILD_DIR}/$${CONTENTS_FOLDER_PATH}/Helpers"; \
 	else \
 		dest="$(DERIVED)/Build/Products/$(CONFIG)/$(APP_NAME).app/Contents/Helpers"; \
 	fi; \
+	reject_symlink_component() { \
+		check_path="$$1"; \
+		anchor="$$2"; \
+		while [ -n "$$check_path" ] && [ "$$check_path" != "/" ] && [ "$$check_path" != "." ]; do \
+			if [ -L "$$check_path" ]; then return 1; fi; \
+			base="$$(basename "$$check_path")"; \
+			if [ "$$anchor" = "app" ]; then \
+				case "$$base" in *.app) return 0 ;; esac; \
+			elif [ "$$anchor" = "spectra-home" ] && [ "$$base" = ".spectra" ]; then \
+				return 0; \
+			fi; \
+			check_path="$$(dirname "$$check_path")"; \
+		done; \
+		return 0; \
+	}; \
+	if ! reject_symlink_component "$$dest" app; then \
+		echo "embed-helpers: ERROR destination path contains a symlink: $$dest" >&2; \
+		exit 1; \
+	fi; \
+	if ! reject_symlink_component "$(SPECTRA_BIN_DIR)" spectra-home; then \
+		echo "embed-helpers: ERROR source path contains a symlink: $(SPECTRA_BIN_DIR)" >&2; \
+		exit 1; \
+	fi; \
+	if [ -e "$$dest" ] && [ ! -d "$$dest" ]; then \
+		echo "embed-helpers: ERROR destination is not a directory: $$dest" >&2; \
+		exit 1; \
+	fi; \
 	mkdir -p "$$dest"; \
+	strict="$${SPECTRA_REQUIRE_BUNDLED_HELPERS:-0}"; \
+	require_arch_parity="$${SPECTRA_REQUIRE_HELPER_ARCH_PARITY:-0}"; \
+	if [ "$${CONFIGURATION:-}" = "Release" ]; then strict=1; fi; \
+	if [ "$${CONFIGURATION:-}" = "Release" ]; then require_arch_parity=1; fi; \
+	app_executable="$${dest%/Contents/Helpers}/Contents/MacOS/$(APP_NAME)"; \
+	app_archs=""; \
+	if [ "$$require_arch_parity" = "1" ]; then \
+		if ! command -v lipo >/dev/null 2>&1 || [ ! -x "$$app_executable" ]; then \
+			echo "embed-helpers: ERROR cannot inspect Release app architectures at $$app_executable" >&2; \
+			exit 1; \
+		fi; \
+		app_archs="$$(lipo -archs "$$app_executable")"; \
+	fi; \
+	missing=""; \
+	unsafe=""; \
+	wrong_arch=""; \
 	for h in $(SPECTRA_HELPERS); do \
 		src="$(SPECTRA_BIN_DIR)/$$h"; \
-		if [ -x "$$src" ]; then \
-			cp -f "$$src" "$$dest/$$h"; \
+		target="$$dest/$$h"; \
+		if [ -L "$$target" ] || { [ -e "$$target" ] && [ ! -f "$$target" ]; }; then \
+			unsafe="$$unsafe $$h"; \
+			echo "embed-helpers: UNSAFE existing destination $$target" >&2; \
+			continue; \
+		fi; \
+		if [ -f "$$src" ] && [ ! -L "$$src" ] && [ -x "$$src" ]; then \
+			cp -f "$$src" "$$target"; \
+			if [ "$$require_arch_parity" = "1" ]; then \
+			helper_archs="$$(lipo -archs "$$target" 2>/dev/null || true)"; \
+				for arch in $$app_archs; do \
+					case " $$helper_archs " in *" $$arch "*) ;; *) wrong_arch="$$wrong_arch $$h(missing-$$arch)" ;; esac; \
+				done; \
+			fi; \
 			if [ "$${CODE_SIGNING_ALLOWED:-YES}" != "NO" ] && [ -n "$${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then \
 				codesign --force --timestamp=none --options runtime \
 					--sign "$${EXPANDED_CODE_SIGN_IDENTITY}" "$$dest/$$h"; \
 			fi; \
 			echo "embed-helpers: embedded $$h -> $$dest/$$h"; \
 		else \
-			echo "embed-helpers: SKIP $$h (not built at $$src -- run the repo-root npm build:* scripts first)"; \
+			missing="$$missing $$h"; \
+			echo "embed-helpers: MISSING or unsafe $$h at $$src"; \
 		fi; \
-	done
+	done; \
+	if [ -n "$$unsafe" ]; then \
+		echo "embed-helpers: ERROR unsafe destination inventory:$$unsafe" >&2; \
+		exit 1; \
+	fi; \
+	if [ -n "$$missing" ] && [ "$$strict" = "1" ]; then \
+		echo "embed-helpers: ERROR required helper inventory incomplete:$$missing" >&2; \
+		exit 1; \
+	fi; \
+	if [ -n "$$wrong_arch" ]; then \
+		echo "embed-helpers: ERROR helper architectures do not cover app architectures ($$app_archs):$$wrong_arch" >&2; \
+		exit 1; \
+	fi
 
 # codesign --verify the most-recent build product
 verify:

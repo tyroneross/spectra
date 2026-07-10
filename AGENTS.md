@@ -2,7 +2,10 @@
 
 Spectra captures screenshots, videos, and app usage sequences from running applications. The output is media files ready for blog posts, social media, and documentation — eliminating manual demo recording, screenshot cropping, and feature annotation.
 
-**Setup:** Add `artifacts/` and `.spectra/` to `.gitignore`
+**Setup:** Add `artifacts/` and `.spectra/` to `.gitignore`. Bare helpers under
+`~/.spectra/bin` are development-only and require
+`SPECTRA_HELPER_MODE=development`; production LaunchAgents must resolve the
+complete helper inventory from a stable installed `Spectra.app` bundle.
 
 ## Design Guidance
 
