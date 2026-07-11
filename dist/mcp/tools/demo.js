@@ -55,6 +55,10 @@ const DemoScriptBeatActionSchema = z.object({
     target: z.string().optional(),
     value: z.string().optional(),
 });
+const DemoScriptBeatSoundSchema = z.object({
+    file: z.string(),
+    offsetMs: z.number().optional(),
+});
 const DemoScriptBeatSchema = z.object({
     id: z.string(),
     stepLabel: z.string().optional(),
@@ -62,6 +66,7 @@ const DemoScriptBeatSchema = z.object({
     startMs: z.number(),
     endMs: z.number(),
     zoom: z.object({ cx: z.number(), cy: z.number(), scale: z.number() }).optional(),
+    sound: DemoScriptBeatSoundSchema.optional(),
     action: DemoScriptBeatActionSchema.optional(),
 });
 const DemoScriptSchema = z.object({
@@ -117,6 +122,8 @@ export const DemoSchema = z.discriminatedUnion('action', [
         out: z.string().describe('Output mp4 path'),
         fps: z.number().optional().describe('Output fps (default 60)'),
         voiceover: z.string().optional().describe('Path to a voiceover audio file — REPLACES input audio, synced to t=0 and padded/trimmed to the video duration'),
+        music: z.string().optional().describe('Path to a music-bed audio file — MIXED under the base track (voiceover or source audio), ducked under sfx cues, padded/trimmed to the video duration'),
+        sfx: z.array(z.object({ atMs: z.number(), file: z.string() })).optional().describe('Sound-effect cues mixed over the base track + music bed — atMs is on the source content timeline'),
     }),
     z.object({
         action: z.literal('run-script'),
@@ -157,6 +164,8 @@ export async function handleDemo(params, _ctx) {
             outPath: parsed.out,
             fps: parsed.fps,
             voiceover: parsed.voiceover,
+            music: parsed.music,
+            sfx: parsed.sfx,
         });
     }
     if (parsed.action === 'run-script') {

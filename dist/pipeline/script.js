@@ -123,6 +123,7 @@ function cloneBeat(beat) {
     return {
         ...beat,
         zoom: beat.zoom ? { ...beat.zoom } : undefined,
+        sound: beat.sound ? { ...beat.sound } : undefined,
         action: beat.action ? { ...beat.action } : undefined,
     };
 }

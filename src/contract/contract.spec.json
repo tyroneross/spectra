@@ -1397,6 +1397,22 @@
                         "id": {
                           "kind": "string"
                         },
+                        "sound": {
+                          "kind": "object",
+                          "properties": {
+                            "file": {
+                              "kind": "string"
+                            },
+                            "offsetMs": {
+                              "kind": "number",
+                              "optional": true
+                            }
+                          },
+                          "required": [
+                            "file"
+                          ],
+                          "optional": true
+                        },
                         "startMs": {
                           "kind": "number"
                         },
@@ -1530,6 +1546,22 @@
                         },
                         "id": {
                           "kind": "string"
+                        },
+                        "sound": {
+                          "kind": "object",
+                          "properties": {
+                            "file": {
+                              "kind": "string"
+                            },
+                            "offsetMs": {
+                              "kind": "number",
+                              "optional": true
+                            }
+                          },
+                          "required": [
+                            "file"
+                          ],
+                          "optional": true
                         },
                         "startMs": {
                           "kind": "number"
@@ -8342,5 +8374,5 @@
       ]
     }
   },
-  "hash": "9844f0f105e6ad3b9c7a624a7489ea596ac51ffaf84c404d7ba31bc3c0e93d8a"
+  "hash": "0306c5df56d8a09d0355de628547e5faea83247a451c20da9386b522f09a3af0"
 }

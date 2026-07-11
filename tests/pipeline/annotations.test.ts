@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cardsFromScript, normalizeStepLabel, timedStepCardsFilter, timedStepCardsOverlayPlan } from '../../src/pipeline/annotations.js'
+import { cardsFromScript, normalizeStepLabel, soundCuesFromScript, timedStepCardsFilter, timedStepCardsOverlayPlan } from '../../src/pipeline/annotations.js'
 import type { DemoScript } from '../../src/pipeline/script.js'
 import { setTextRendererAvailabilityForTests, textRendererAvailability } from '../../src/pipeline/text-render.js'
 
@@ -150,5 +150,22 @@ describe('timed step cards', () => {
     expect(plan.filter).toContain("enable='between(t\\,0\\,1.2)'")
     expect(plan.filter).toContain("enable='between(t\\,1.2\\,2.4)'")
     expect(plan.filter).toContain('[v]')
+  })
+})
+
+describe('sound cues from script', () => {
+  it('maps only beats with sound, applies offsets, and preserves beat order', () => {
+    const cueScript: DemoScript = {
+      beats: [
+        { id: 'later', startMs: 500, endMs: 700, sound: { file: 'open.wav' } },
+        { id: 'silent', startMs: 700, endMs: 900 },
+        { id: 'earlier', startMs: 100, endMs: 300, sound: { file: 'click.wav', offsetMs: 25 } },
+      ],
+    }
+
+    expect(soundCuesFromScript(cueScript)).toEqual([
+      { atMs: 500, file: 'open.wav' },
+      { atMs: 125, file: 'click.wav' },
+    ])
   })
 })

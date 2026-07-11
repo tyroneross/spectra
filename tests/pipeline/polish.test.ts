@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildAudioArgs, buildVoiceoverAudioArgs, finalCaptionWindow, polishClip, polishScript } from '../../src/pipeline/polish.js'
+import { buildAudioArgs, buildMixedAudioArgs, buildVoiceoverAudioArgs, finalCaptionWindow, polishClip, polishScript } from '../../src/pipeline/polish.js'
 import { ffmpegAvailable, makeTestVideo, probeVideo, runProcess } from './ffmpeg-helpers.js'
 
 let workDir: string | null = null
@@ -290,6 +290,64 @@ describe('buildVoiceoverAudioArgs — voiceover audio-arg branch (no ffmpeg need
       ['-c:a', 'aac', '-af', 'adelay=2200:all=1,apad,atrim=end=4.000000'],
     )
     expect(buildVoiceoverAudioArgs(3, 4, 0)).toEqual(buildVoiceoverAudioArgs(3, 4))
+  })
+})
+
+describe('buildMixedAudioArgs — layered audio graph (no ffmpeg needed)', () => {
+  it('ducks music under SFX and delays each cue by its time plus the intro shift', () => {
+    const args = buildMixedAudioArgs({
+      music: 'bed.m4a',
+      sfx: [
+        { atMs: 250, file: 'click.wav' },
+        { atMs: 900, file: 'chime.wav' },
+      ],
+      base: { kind: 'source' },
+      nextInputIndex: 4,
+      videoDurationSec: 3,
+      delayMs: 1800,
+    })
+
+    expect(args.inputArgs).toEqual(['-i', 'bed.m4a', '-i', 'click.wav', '-i', 'chime.wav'])
+    expect(args.filter).toContain('[5:a]adelay=2050:all=1[asfx0]')
+    expect(args.filter).toContain('[6:a]adelay=2700:all=1[asfx1]')
+    expect(args.filter).toContain('[asfx0][asfx1]amix=inputs=2:duration=longest:normalize=0[asfxmix]')
+    expect(args.filter).toContain('[asfxmix]asplit=2[aduck][asfxout]')
+    expect(args.filter).toContain('[4:a][aduck]sidechaincompress=threshold=0.02:ratio=8:attack=5:release=250[abed]')
+    expect(args.filter).toContain('[abase][abed][asfxout]amix=inputs=3:duration=longest:normalize=0,apad,atrim=end=3.000000[aout]')
+  })
+
+  it('pins a music-only graph to the video duration with apad and atrim', () => {
+    const args = buildMixedAudioArgs({
+      music: 'bed.m4a',
+      sfx: [],
+      base: { kind: 'none' },
+      nextInputIndex: 3,
+      videoDurationSec: 2.25,
+    })
+
+    expect(args.inputArgs).toEqual(['-i', 'bed.m4a'])
+    expect(args.filter).toBe('[3:a]apad,atrim=end=2.250000[aout]')
+  })
+
+  it('uses the supplied voiceover input label for the base track', () => {
+    const args = buildMixedAudioArgs({
+      sfx: [{ atMs: 300, file: 'click.wav' }],
+      base: { kind: 'voiceover', inputIndex: 7 },
+      nextInputIndex: 8,
+      videoDurationSec: 1.5,
+    })
+
+    expect(args.filter).toContain('[7:a]anull[abase]')
+    expect(args.filter).not.toContain('[0:a]')
+  })
+
+  it('rejects an empty graph with no base, music, or SFX', () => {
+    expect(() => buildMixedAudioArgs({
+      sfx: [],
+      base: { kind: 'none' },
+      nextInputIndex: 1,
+      videoDurationSec: 1,
+    })).toThrow('buildMixedAudioArgs requires at least one of base/music/sfx')
   })
 })
 

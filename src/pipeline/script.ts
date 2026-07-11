@@ -7,6 +7,7 @@ export type Beat = {
   startMs: number
   endMs: number
   zoom?: { cx: number; cy: number; scale: number }
+  sound?: { file: string; offsetMs?: number }
   action?: {
     kind: 'search' | 'click' | 'scroll' | 'navigate' | 'hold'
     target?: string
@@ -159,6 +160,7 @@ function cloneBeat(beat: Beat): Beat {
   return {
     ...beat,
     zoom: beat.zoom ? { ...beat.zoom } : undefined,
+    sound: beat.sound ? { ...beat.sound } : undefined,
     action: beat.action ? { ...beat.action } : undefined,
   }
 }

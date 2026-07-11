@@ -18,6 +18,11 @@ export function cardsFromScript(script) {
         endMs: beat.endMs,
     }));
 }
+export function soundCuesFromScript(script) {
+    return script.beats.flatMap((beat) => beat.sound
+        ? [{ atMs: beat.startMs + (beat.sound.offsetMs ?? 0), file: beat.sound.file }]
+        : []);
+}
 export function timedStepCardsFilter(opts) {
     const outW = positiveInteger(opts.outW ?? DEFAULT_OUT_W, 'outW');
     const outH = positiveInteger(opts.outH ?? DEFAULT_OUT_H, 'outH');

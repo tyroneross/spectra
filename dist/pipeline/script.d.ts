@@ -10,6 +10,10 @@ export type Beat = {
         cy: number;
         scale: number;
     };
+    sound?: {
+        file: string;
+        offsetMs?: number;
+    };
     action?: {
         kind: 'search' | 'click' | 'scroll' | 'navigate' | 'hold';
         target?: string;

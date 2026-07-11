@@ -84,6 +84,10 @@ const demoScriptBeatActionShape = z.object({
   target: z.string().optional(),
   value: z.string().optional(),
 })
+const demoScriptBeatSoundShape = z.object({
+  file: z.string(),
+  offsetMs: z.number().optional(),
+})
 const demoScriptBeatShape = z.object({
   id: z.string(),
   stepLabel: z.string().optional(),
@@ -91,6 +95,7 @@ const demoScriptBeatShape = z.object({
   startMs: z.number(),
   endMs: z.number(),
   zoom: z.object({ cx: z.number(), cy: z.number(), scale: z.number() }).optional(),
+  sound: demoScriptBeatSoundShape.optional(),
   action: demoScriptBeatActionShape.optional(),
 })
 const demoScriptShape = z.object({

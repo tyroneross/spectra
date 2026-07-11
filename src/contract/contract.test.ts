@@ -154,6 +154,32 @@ describe('demoParamsSchema — rich polish pipeline actions (src/pipeline/polish
     expect(result.success).toBe(true)
   })
 
+  it('accepts layered audio plus a per-beat sound cue', () => {
+    const result = demoParamsSchema.safeParse({
+      action: 'polish-script',
+      input: '/tmp/input.mp4',
+      script: {
+        beats: [
+          {
+            id: 'cue',
+            startMs: 100,
+            endMs: 500,
+            sound: { file: '/tmp/click.wav', offsetMs: 25 },
+          },
+        ],
+      },
+      out: '/tmp/out.mp4',
+      music: '/tmp/bed.wav',
+      sfx: [{ atMs: 300, file: '/tmp/chime.wav' }],
+    })
+    expect(result.success).toBe(true)
+    if (result.success && result.data.action === 'polish-script') {
+      expect(result.data.script.beats[0].sound).toEqual({ file: '/tmp/click.wav', offsetMs: 25 })
+      expect(result.data.music).toBe('/tmp/bed.wav')
+      expect(result.data.sfx).toEqual([{ atMs: 300, file: '/tmp/chime.wav' }])
+    }
+  })
+
   it('rejects polish-clip missing required fields', () => {
     const result = demoParamsSchema.safeParse({ action: 'polish-clip', input: '/tmp/input.mp4' })
     expect(result.success).toBe(false)

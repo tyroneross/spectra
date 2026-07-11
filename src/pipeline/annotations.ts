@@ -1,4 +1,5 @@
 import { bitmapTextLayer, hexColor, type BitmapTextLayer } from './framing.js'
+import type { SfxCue } from './polish.js'
 import type { DemoScript } from './script.js'
 import { CAPTION_BANNER_SPEC, renderStepCardPng, type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js'
 
@@ -67,6 +68,12 @@ export function cardsFromScript(script: DemoScript): TimedStepCard[] {
       startMs: beat.startMs,
       endMs: beat.endMs,
     }))
+}
+
+export function soundCuesFromScript(script: DemoScript): SfxCue[] {
+  return script.beats.flatMap((beat) => beat.sound
+    ? [{ atMs: beat.startMs + (beat.sound.offsetMs ?? 0), file: beat.sound.file }]
+    : [])
 }
 
 export function timedStepCardsFilter(opts: TimedStepCardsFilterOptions): string {

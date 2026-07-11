@@ -1101,6 +1101,12 @@ export interface DemoScriptAction {
   value?: string
 }
 
+/** Mirrors pipeline/script.ts Beat['sound']. */
+export interface DemoScriptSound {
+  file: string
+  offsetMs?: number
+}
+
 /** Mirrors pipeline/script.ts Beat. */
 export interface DemoScriptBeat {
   id: string
@@ -1109,6 +1115,7 @@ export interface DemoScriptBeat {
   startMs: number
   endMs: number
   zoom?: DemoScriptZoom
+  sound?: DemoScriptSound
   action?: DemoScriptAction
 }
 

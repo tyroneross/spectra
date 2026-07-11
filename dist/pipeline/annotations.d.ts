@@ -1,3 +1,4 @@
+import type { SfxCue } from './polish.js';
 import type { DemoScript } from './script.js';
 import { type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js';
 export interface TimedStepCard {
@@ -30,6 +31,7 @@ export interface TimedStepCardsFilterPlan {
     nextInputIndex: number;
 }
 export declare function cardsFromScript(script: DemoScript): TimedStepCard[];
+export declare function soundCuesFromScript(script: DemoScript): SfxCue[];
 export declare function timedStepCardsFilter(opts: TimedStepCardsFilterOptions): string;
 export declare function timedStepCardsOverlayPlan(opts: TimedStepCardsFilterOptions): Promise<TimedStepCardsFilterPlan>;
 export declare function timedStepCardsPngFilter(opts: TimedStepCardsFilterOptions): Promise<TimedStepCardsFilterPlan | undefined>;

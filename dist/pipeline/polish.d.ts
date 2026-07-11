@@ -71,6 +71,21 @@ export interface PolishScriptOptions {
     autoFocus?: AutoFocusOption;
     /** Same caption banner style preset as PolishClipOptions.style. */
     style?: CaptionBannerStyle | CaptionBannerStyleName;
+    /**
+     * Path to a music-bed audio file. Unlike `voiceover`, this MIXES rather
+     * than replaces: the bed plays under the base track (voiceover or source
+     * audio), starts at t=0 (so it runs under the intro title card too), and is
+     * padded/trimmed to the video duration. When `sfx` cues are present the bed
+     * is ducked under each cue via sidechaincompress. No gain is applied —
+     * supply a pre-leveled asset.
+     */
+    music?: string;
+    /**
+     * Sound-effect cues mixed over the base track and music bed. Each `atMs`
+     * is authored against the source content timeline (pre-intro-shift), the
+     * same clock as beat times — the intro shift is applied internally.
+     */
+    sfx?: SfxCue[];
 }
 export interface PolishClipResult {
     outPath: string;
@@ -123,5 +138,57 @@ export declare function buildAudioArgs(hasAudio: boolean, delayMs?: number): Aud
  * aligned with the demo content when the intro title card shifts it later.
  */
 export declare function buildVoiceoverAudioArgs(voiceoverInputIndex: number, videoDurationSec: number, delayMs?: number): AudioArgs;
+/** A sound-effect cue: play `file` starting at `atMs` on the source content timeline. */
+export interface SfxCue {
+    atMs: number;
+    file: string;
+}
+/**
+ * The base (non-layered) track under a mixed-audio graph. `source` maps
+ * `[0:a]` and must only be used when the input is KNOWN to have audio (the
+ * filter graph has no `0:a?`-style optional mapping — a missing stream is a
+ * hard ffmpeg error); `voiceover` maps a separate narration input by index.
+ */
+export type MixedAudioBase = {
+    kind: 'none';
+} | {
+    kind: 'source';
+} | {
+    kind: 'voiceover';
+    inputIndex: number;
+};
+export interface MixedAudioOptions {
+    /** Music-bed file path. Starts at t=0, no gain applied. */
+    music?: string;
+    /** SFX cues; each `atMs` is on the source timeline and shifted by `delayMs` here. */
+    sfx: SfxCue[];
+    base: MixedAudioBase;
+    /** ffmpeg `-i` index the FIRST input added by this function will occupy. */
+    nextInputIndex: number;
+    /** True output video duration (frames / fps) — the mix is pinned to it. */
+    videoDurationSec: number;
+    /** Intro title-card shift; delays the base track and every SFX cue, not the music bed. */
+    delayMs?: number;
+}
+export interface MixedAudioArgs extends AudioArgs {
+    /** Extra `-i` inputs (music, then each SFX file) — append after all existing inputs. */
+    inputArgs: string[];
+    /** Audio filter graph ending in `[aout]` — join into the video `-filter_complex`. */
+    filter: string;
+}
+/**
+ * Builds a layered-audio ffmpeg graph: an optional base track (source audio
+ * or voiceover) + an optional music bed + SFX cues, MIXED together rather
+ * than one replacing the other. Each SFX is adelay'd to its cue time; when
+ * both a bed and cues are present, the combined SFX stream also drives a
+ * sidechaincompress that ducks the bed under every cue. All amix stages use
+ * `normalize=0` so layering never rescales the individual tracks. The final
+ * mix is pinned to the video duration the same way buildVoiceoverAudioArgs
+ * pins narration: `apad` so short audio never truncates the video, then
+ * `atrim=end` so long audio never outlasts it. Because the mix is built in
+ * the filter graph, the returned args carry the graph fragment and the extra
+ * `-i` inputs; the caller splices both into its ffmpeg invocation.
+ */
+export declare function buildMixedAudioArgs(opts: MixedAudioOptions): MixedAudioArgs;
 export {};
 //# sourceMappingURL=polish.d.ts.map

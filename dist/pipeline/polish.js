@@ -4,7 +4,7 @@ import { access, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js';
+import { cardsFromScript, soundCuesFromScript, timedStepCardsOverlayPlan } from './annotations.js';
 import { deriveZoomTrackFromActivity } from './auto-zoom.js';
 import { frameChromeRenderPlan, framingFilter } from './framing.js';
 import { scriptDurationMs, scriptZoomWindows, shiftScriptBy } from './script.js';
@@ -45,7 +45,7 @@ const DEFAULT_FPS = 60;
 const DEFAULT_FADE_MS = 250;
 // Intro title card: duration of the full-frame card rendered from
 // script.title, prepended to the timeline, and its fade+scale envelope.
-const INTRO_CARD_MS = 2200;
+const INTRO_CARD_MS = 1800;
 const INTRO_FADE_MS = 300;
 const INTRO_SCALE = 1.08;
 const CHROME_CACHE_VERSION = 1;
@@ -237,12 +237,28 @@ export async function polishScript(options) {
         ].join(';');
         // Input order is load-bearing for the filter graph: 0 = source video, 1 =
         // chrome mask, then the looped overlay images. A voiceover, when present, is
-        // appended LAST so its input index is deterministic and the existing
-        // [0:v]/mask/image indices are undisturbed.
+        // appended after those so its input index is deterministic and the existing
+        // [0:v]/mask/image indices are undisturbed; music + SFX inputs (when
+        // mixing) are appended last, after the voiceover.
         const voiceoverIndex = 2 + imagePaths.length; // 0=video, 1=mask, 2..=images
-        const audio = options.voiceover
+        const sfx = [...(options.sfx ?? []), ...soundCuesFromScript(options.script)];
+        const mixed = options.music || sfx.length > 0
+            ? buildMixedAudioArgs({
+                music: options.music,
+                sfx,
+                base: options.voiceover
+                    ? { kind: 'voiceover', inputIndex: voiceoverIndex }
+                    : hasAudio
+                        ? { kind: 'source' }
+                        : { kind: 'none' },
+                nextInputIndex: voiceoverIndex + (options.voiceover ? 1 : 0),
+                videoDurationSec: frames / fps,
+                delayMs: introMs,
+            })
+            : undefined;
+        const audio = mixed ?? (options.voiceover
             ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps, introMs)
-            : buildAudioArgs(hasAudio, introMs);
+            : buildAudioArgs(hasAudio, introMs));
         await mkdir(dirname(options.outPath), { recursive: true });
         await runProcess('ffmpeg', [
             '-y',
@@ -250,7 +266,8 @@ export async function polishScript(options) {
             ...chrome.maskInputArgs,
             ...imageInputArgs(imagePaths, fps),
             ...(options.voiceover ? ['-i', options.voiceover] : []),
-            '-filter_complex', filterComplex,
+            ...(mixed ? mixed.inputArgs : []),
+            '-filter_complex', mixed ? `${filterComplex};${mixed.filter}` : filterComplex,
             '-map', '[v]',
             ...audio.mapArgs,
             '-frames:v', String(Math.max(1, frames)),
@@ -505,6 +522,72 @@ export function buildVoiceoverAudioArgs(voiceoverInputIndex, videoDurationSec, d
     return {
         mapArgs: ['-map', `${voiceoverInputIndex}:a`],
         codecArgs: ['-c:a', 'aac', '-af', `${delay}apad,atrim=end=${end}`],
+    };
+}
+/**
+ * Builds a layered-audio ffmpeg graph: an optional base track (source audio
+ * or voiceover) + an optional music bed + SFX cues, MIXED together rather
+ * than one replacing the other. Each SFX is adelay'd to its cue time; when
+ * both a bed and cues are present, the combined SFX stream also drives a
+ * sidechaincompress that ducks the bed under every cue. All amix stages use
+ * `normalize=0` so layering never rescales the individual tracks. The final
+ * mix is pinned to the video duration the same way buildVoiceoverAudioArgs
+ * pins narration: `apad` so short audio never truncates the video, then
+ * `atrim=end` so long audio never outlasts it. Because the mix is built in
+ * the filter graph, the returned args carry the graph fragment and the extra
+ * `-i` inputs; the caller splices both into its ffmpeg invocation.
+ */
+export function buildMixedAudioArgs(opts) {
+    const delayMs = Math.max(0, Math.round(opts.delayMs ?? 0));
+    const inputArgs = [];
+    const chains = [];
+    let index = opts.nextInputIndex;
+    let baseLabel;
+    if (opts.base.kind !== 'none') {
+        const src = opts.base.kind === 'source' ? '0:a' : `${opts.base.inputIndex}:a`;
+        chains.push(`[${src}]${delayMs > 0 ? `adelay=${delayMs}:all=1` : 'anull'}[abase]`);
+        baseLabel = '[abase]';
+    }
+    let bedLabel;
+    if (opts.music) {
+        inputArgs.push('-i', opts.music);
+        bedLabel = `[${index}:a]`;
+        index += 1;
+    }
+    const sfxLabels = opts.sfx.map((cue, i) => {
+        inputArgs.push('-i', cue.file);
+        chains.push(`[${index}:a]adelay=${Math.max(0, Math.round(cue.atMs + delayMs))}:all=1[asfx${i}]`);
+        index += 1;
+        return `[asfx${i}]`;
+    });
+    let sfxLabel = sfxLabels[0];
+    if (sfxLabels.length > 1) {
+        chains.push(`${sfxLabels.join('')}amix=inputs=${sfxLabels.length}:duration=longest:normalize=0[asfxmix]`);
+        sfxLabel = '[asfxmix]';
+    }
+    if (bedLabel && sfxLabel) {
+        chains.push(`${sfxLabel}asplit=2[aduck][asfxout]`);
+        chains.push(`${bedLabel}[aduck]sidechaincompress=threshold=0.02:ratio=8:attack=5:release=250[abed]`);
+        bedLabel = '[abed]';
+        sfxLabel = '[asfxout]';
+    }
+    const layers = [baseLabel, bedLabel, sfxLabel].filter((label) => Boolean(label));
+    if (layers.length === 0) {
+        throw new Error('buildMixedAudioArgs requires at least one of base/music/sfx');
+    }
+    const end = opts.videoDurationSec.toFixed(6);
+    const pin = `apad,atrim=end=${end}[aout]`;
+    if (layers.length === 1) {
+        chains.push(`${layers[0]}${pin}`);
+    }
+    else {
+        chains.push(`${layers.join('')}amix=inputs=${layers.length}:duration=longest:normalize=0,${pin}`);
+    }
+    return {
+        inputArgs,
+        filter: chains.join(';'),
+        mapArgs: ['-map', '[aout]'],
+        codecArgs: ['-c:a', 'aac'],
     };
 }
 async function parseClicksJson(input) {

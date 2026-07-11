@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   atomizeScript,
   buildScriptZoomTrack,
+  clipScriptToDuration,
   scaleScriptToDuration,
   scriptDurationMs,
   scriptZoomWindows,
@@ -56,6 +57,24 @@ describe('scripted demo schema helpers', () => {
     )
     // Source script untouched (beats are cloned).
     expect(atomizeScript.beats[0].startMs).toBe(0)
+  })
+
+  it('deep-copies beat sound cues through scale, shift, and clamp helpers', () => {
+    const sound = { file: 'click.wav', offsetMs: 75 }
+    const source: DemoScript = {
+      beats: [{ id: 'cue', startMs: 100, endMs: 1000, sound }],
+    }
+
+    const transformed = [
+      scaleScriptToDuration(source, 2000),
+      shiftScriptBy(source, 250),
+      clipScriptToDuration(source, 750),
+    ]
+
+    for (const script of transformed) {
+      expect(script.beats[0].sound).toEqual(sound)
+      expect(script.beats[0].sound).not.toBe(sound)
+    }
   })
 
   it('returns the same script for a zero shift and rejects negative offsets', () => {

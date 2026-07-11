@@ -74,6 +74,10 @@ const demoScriptBeatActionShape = z.object({
     target: z.string().optional(),
     value: z.string().optional(),
 });
+const demoScriptBeatSoundShape = z.object({
+    file: z.string(),
+    offsetMs: z.number().optional(),
+});
 const demoScriptBeatShape = z.object({
     id: z.string(),
     stepLabel: z.string().optional(),
@@ -81,6 +85,7 @@ const demoScriptBeatShape = z.object({
     startMs: z.number(),
     endMs: z.number(),
     zoom: z.object({ cx: z.number(), cy: z.number(), scale: z.number() }).optional(),
+    sound: demoScriptBeatSoundShape.optional(),
     action: demoScriptBeatActionShape.optional(),
 });
 const demoScriptShape = z.object({
@@ -146,6 +151,8 @@ export const spectraDemoInputShape = {
     clicksJson: demoClicksJsonShape.optional().describe('polish-clip: click/cursor track driving the zoom — JSON string, inline array of {tMs,cx,cy}, or {clicks?,cursorPath?} object'),
     script: demoScriptShape.optional().describe('polish-script/run-script: structured beat script — {title?, finalCaption?, beats:[{id,startMs,endMs,stepLabel?,stepText?,zoom?,action?}]}'),
     voiceover: z.string().optional().describe('polish-script: path to a voiceover/narration audio file — REPLACES input audio, starts at t=0, padded/trimmed to the video duration (short VO never truncates the video; long VO is cut to video length)'),
+    music: z.string().optional().describe('polish-script: path to a music-bed audio file — MIXED under the base track (voiceover or source audio) rather than replacing it, ducked under sfx cues via sidechain compression, padded/trimmed to the video duration'),
+    sfx: z.array(z.object({ atMs: z.number(), file: z.string() })).optional().describe('polish-script: sound-effect cues mixed over the base track + music bed — atMs is on the source content timeline (pre-intro-shift, same clock as beat times)'),
     cdpUrl: z.string().optional().describe('run-script: WebSocket debugger URL of an already-open CDP page target to drive the script against'),
 };
 // ─── spectra_computer_use: AX-first, focused-window computer use ───────────

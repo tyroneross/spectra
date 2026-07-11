@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { CanvasSize, FocalRect } from '../media/spotlight.js'
-import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js'
+import { cardsFromScript, soundCuesFromScript, timedStepCardsOverlayPlan } from './annotations.js'
 import { deriveZoomTrackFromActivity } from './auto-zoom.js'
 import { frameChromeRenderPlan, framingFilter, type FrameChromeAssets } from './framing.js'
 import { scriptDurationMs, scriptZoomWindows, shiftScriptBy, type DemoScript } from './script.js'
@@ -378,7 +378,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     // [0:v]/mask/image indices are undisturbed; music + SFX inputs (when
     // mixing) are appended last, after the voiceover.
     const voiceoverIndex = 2 + imagePaths.length // 0=video, 1=mask, 2..=images
-    const sfx = options.sfx ?? []
+    const sfx = [...(options.sfx ?? []), ...soundCuesFromScript(options.script)]
     const mixed = options.music || sfx.length > 0
       ? buildMixedAudioArgs({
           music: options.music,

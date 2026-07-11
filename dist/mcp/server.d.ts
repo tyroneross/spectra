@@ -258,6 +258,16 @@ export declare const spectraDemoInputShape: {
                 cy: number;
                 scale: number;
             }>>;
+            sound: z.ZodOptional<z.ZodObject<{
+                file: z.ZodString;
+                offsetMs: z.ZodOptional<z.ZodNumber>;
+            }, "strip", z.ZodTypeAny, {
+                file: string;
+                offsetMs?: number | undefined;
+            }, {
+                file: string;
+                offsetMs?: number | undefined;
+            }>>;
             action: z.ZodOptional<z.ZodObject<{
                 kind: z.ZodEnum<["search", "click", "scroll", "navigate", "hold"]>;
                 target: z.ZodOptional<z.ZodString>;
@@ -287,6 +297,10 @@ export declare const spectraDemoInputShape: {
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }, {
             id: string;
             startMs: number;
@@ -302,6 +316,10 @@ export declare const spectraDemoInputShape: {
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
@@ -320,6 +338,10 @@ export declare const spectraDemoInputShape: {
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }[];
         title?: string | undefined;
@@ -341,11 +363,26 @@ export declare const spectraDemoInputShape: {
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }[];
         title?: string | undefined;
         finalCaption?: string | undefined;
     }>>;
     voiceover: z.ZodOptional<z.ZodString>;
+    music: z.ZodOptional<z.ZodString>;
+    sfx: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        atMs: z.ZodNumber;
+        file: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        file: string;
+        atMs: number;
+    }, {
+        file: string;
+        atMs: number;
+    }>, "many">>;
     cdpUrl: z.ZodOptional<z.ZodString>;
 };
 export declare const spectraComputerUseInputShape: {

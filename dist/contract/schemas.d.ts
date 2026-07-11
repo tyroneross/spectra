@@ -1375,6 +1375,16 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             }>>;
+            sound: z.ZodOptional<z.ZodObject<{
+                file: z.ZodString;
+                offsetMs: z.ZodOptional<z.ZodNumber>;
+            }, "strip", z.ZodTypeAny, {
+                file: string;
+                offsetMs?: number | undefined;
+            }, {
+                file: string;
+                offsetMs?: number | undefined;
+            }>>;
             action: z.ZodOptional<z.ZodObject<{
                 kind: z.ZodEnum<["search", "click", "scroll", "navigate", "hold"]>;
                 target: z.ZodOptional<z.ZodString>;
@@ -1404,6 +1414,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }, {
             id: string;
             startMs: number;
@@ -1419,6 +1433,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
@@ -1437,6 +1455,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }[];
         title?: string | undefined;
@@ -1458,6 +1480,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }[];
         title?: string | undefined;
         finalCaption?: string | undefined;
@@ -1465,6 +1491,17 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     out: z.ZodString;
     fps: z.ZodOptional<z.ZodNumber>;
     voiceover: z.ZodOptional<z.ZodString>;
+    music: z.ZodOptional<z.ZodString>;
+    sfx: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        atMs: z.ZodNumber;
+        file: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        file: string;
+        atMs: number;
+    }, {
+        file: string;
+        atMs: number;
+    }>, "many">>;
 }, "strip", z.ZodTypeAny, {
     action: "polish-script";
     input: string;
@@ -1486,12 +1523,21 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }[];
         title?: string | undefined;
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
     voiceover?: string | undefined;
+    music?: string | undefined;
+    sfx?: {
+        file: string;
+        atMs: number;
+    }[] | undefined;
 }, {
     action: "polish-script";
     input: string;
@@ -1513,12 +1559,21 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }[];
         title?: string | undefined;
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
     voiceover?: string | undefined;
+    music?: string | undefined;
+    sfx?: {
+        file: string;
+        atMs: number;
+    }[] | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"run-script">;
     script: z.ZodObject<{
@@ -1543,6 +1598,16 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             }>>;
+            sound: z.ZodOptional<z.ZodObject<{
+                file: z.ZodString;
+                offsetMs: z.ZodOptional<z.ZodNumber>;
+            }, "strip", z.ZodTypeAny, {
+                file: string;
+                offsetMs?: number | undefined;
+            }, {
+                file: string;
+                offsetMs?: number | undefined;
+            }>>;
             action: z.ZodOptional<z.ZodObject<{
                 kind: z.ZodEnum<["search", "click", "scroll", "navigate", "hold"]>;
                 target: z.ZodOptional<z.ZodString>;
@@ -1572,6 +1637,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }, {
             id: string;
             startMs: number;
@@ -1587,6 +1656,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
@@ -1605,6 +1678,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }[];
         title?: string | undefined;
@@ -1625,6 +1702,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }[];
         title?: string | undefined;
@@ -1650,6 +1731,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cy: number;
                 scale: number;
             } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
+            } | undefined;
         }[];
         title?: string | undefined;
         finalCaption?: string | undefined;
@@ -1673,6 +1758,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 cx: number;
                 cy: number;
                 scale: number;
+            } | undefined;
+            sound?: {
+                file: string;
+                offsetMs?: number | undefined;
             } | undefined;
         }[];
         title?: string | undefined;
@@ -3008,6 +3097,16 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 }>>;
+                sound: z.ZodOptional<z.ZodObject<{
+                    file: z.ZodString;
+                    offsetMs: z.ZodOptional<z.ZodNumber>;
+                }, "strip", z.ZodTypeAny, {
+                    file: string;
+                    offsetMs?: number | undefined;
+                }, {
+                    file: string;
+                    offsetMs?: number | undefined;
+                }>>;
                 action: z.ZodOptional<z.ZodObject<{
                     kind: z.ZodEnum<["search", "click", "scroll", "navigate", "hold"]>;
                     target: z.ZodOptional<z.ZodString>;
@@ -3037,6 +3136,10 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
+                } | undefined;
             }, {
                 id: string;
                 startMs: number;
@@ -3052,6 +3155,10 @@ export declare const operationParamSchemas: {
                     cx: number;
                     cy: number;
                     scale: number;
+                } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
                 } | undefined;
             }>, "many">;
         }, "strip", z.ZodTypeAny, {
@@ -3070,6 +3177,10 @@ export declare const operationParamSchemas: {
                     cx: number;
                     cy: number;
                     scale: number;
+                } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
                 } | undefined;
             }[];
             title?: string | undefined;
@@ -3091,6 +3202,10 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
+                } | undefined;
             }[];
             title?: string | undefined;
             finalCaption?: string | undefined;
@@ -3098,6 +3213,17 @@ export declare const operationParamSchemas: {
         out: z.ZodString;
         fps: z.ZodOptional<z.ZodNumber>;
         voiceover: z.ZodOptional<z.ZodString>;
+        music: z.ZodOptional<z.ZodString>;
+        sfx: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            atMs: z.ZodNumber;
+            file: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            file: string;
+            atMs: number;
+        }, {
+            file: string;
+            atMs: number;
+        }>, "many">>;
     }, "strip", z.ZodTypeAny, {
         action: "polish-script";
         input: string;
@@ -3119,12 +3245,21 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
+                } | undefined;
             }[];
             title?: string | undefined;
             finalCaption?: string | undefined;
         };
         fps?: number | undefined;
         voiceover?: string | undefined;
+        music?: string | undefined;
+        sfx?: {
+            file: string;
+            atMs: number;
+        }[] | undefined;
     }, {
         action: "polish-script";
         input: string;
@@ -3146,12 +3281,21 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
+                } | undefined;
             }[];
             title?: string | undefined;
             finalCaption?: string | undefined;
         };
         fps?: number | undefined;
         voiceover?: string | undefined;
+        music?: string | undefined;
+        sfx?: {
+            file: string;
+            atMs: number;
+        }[] | undefined;
     }>, z.ZodObject<{
         action: z.ZodLiteral<"run-script">;
         script: z.ZodObject<{
@@ -3176,6 +3320,16 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 }>>;
+                sound: z.ZodOptional<z.ZodObject<{
+                    file: z.ZodString;
+                    offsetMs: z.ZodOptional<z.ZodNumber>;
+                }, "strip", z.ZodTypeAny, {
+                    file: string;
+                    offsetMs?: number | undefined;
+                }, {
+                    file: string;
+                    offsetMs?: number | undefined;
+                }>>;
                 action: z.ZodOptional<z.ZodObject<{
                     kind: z.ZodEnum<["search", "click", "scroll", "navigate", "hold"]>;
                     target: z.ZodOptional<z.ZodString>;
@@ -3205,6 +3359,10 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
+                } | undefined;
             }, {
                 id: string;
                 startMs: number;
@@ -3220,6 +3378,10 @@ export declare const operationParamSchemas: {
                     cx: number;
                     cy: number;
                     scale: number;
+                } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
                 } | undefined;
             }>, "many">;
         }, "strip", z.ZodTypeAny, {
@@ -3238,6 +3400,10 @@ export declare const operationParamSchemas: {
                     cx: number;
                     cy: number;
                     scale: number;
+                } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
                 } | undefined;
             }[];
             title?: string | undefined;
@@ -3258,6 +3424,10 @@ export declare const operationParamSchemas: {
                     cx: number;
                     cy: number;
                     scale: number;
+                } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
                 } | undefined;
             }[];
             title?: string | undefined;
@@ -3283,6 +3453,10 @@ export declare const operationParamSchemas: {
                     cy: number;
                     scale: number;
                 } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
+                } | undefined;
             }[];
             title?: string | undefined;
             finalCaption?: string | undefined;
@@ -3306,6 +3480,10 @@ export declare const operationParamSchemas: {
                     cx: number;
                     cy: number;
                     scale: number;
+                } | undefined;
+                sound?: {
+                    file: string;
+                    offsetMs?: number | undefined;
                 } | undefined;
             }[];
             title?: string | undefined;

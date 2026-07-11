@@ -294,6 +294,10 @@ const demoScriptBeatActionSchema = z.object({
     target: z.string().optional(),
     value: z.string().optional(),
 });
+const demoScriptBeatSoundSchema = z.object({
+    file: z.string(),
+    offsetMs: z.number().optional(),
+});
 const demoScriptBeatSchema = z.object({
     id: z.string(),
     stepLabel: z.string().optional(),
@@ -301,12 +305,19 @@ const demoScriptBeatSchema = z.object({
     startMs: z.number(),
     endMs: z.number(),
     zoom: z.object({ cx: z.number(), cy: z.number(), scale: z.number() }).optional(),
+    sound: demoScriptBeatSoundSchema.optional(),
     action: demoScriptBeatActionSchema.optional(),
 });
 const demoScriptSchema = z.object({
     title: z.string().optional(),
     finalCaption: z.string().optional(),
     beats: z.array(demoScriptBeatSchema),
+});
+// Mirrors pipeline/polish.ts SfxCue — a sound-effect cue for the polish-script
+// layered-audio mix ({atMs} on the source content timeline).
+const demoSfxCueSchema = z.object({
+    atMs: z.number(),
+    file: z.string(),
 });
 // Mirrors pipeline/polish.ts PolishClipSpotlightOptions — an optional
 // whole-clip dark-crush spotlight pre-pass for polish-clip.
@@ -358,6 +369,8 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
         out: z.string(),
         fps: z.number().optional(),
         voiceover: z.string().optional(),
+        music: z.string().optional(),
+        sfx: z.array(demoSfxCueSchema).optional(),
     }),
     z.object({
         action: z.literal('run-script'),
