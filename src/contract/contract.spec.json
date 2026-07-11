@@ -1349,6 +1349,10 @@
               "input": {
                 "kind": "string"
               },
+              "music": {
+                "kind": "string",
+                "optional": true
+              },
               "out": {
                 "kind": "string"
               },
@@ -1444,6 +1448,25 @@
                 "required": [
                   "beats"
                 ]
+              },
+              "sfx": {
+                "kind": "array",
+                "items": {
+                  "kind": "object",
+                  "properties": {
+                    "atMs": {
+                      "kind": "number"
+                    },
+                    "file": {
+                      "kind": "string"
+                    }
+                  },
+                  "required": [
+                    "atMs",
+                    "file"
+                  ]
+                },
+                "optional": true
               },
               "voiceover": {
                 "kind": "string",
@@ -8319,5 +8342,5 @@
       ]
     }
   },
-  "hash": "772d70a62f741cec6538f818b1236997d2278518b5d77143e70565a50209d2be"
+  "hash": "9844f0f105e6ad3b9c7a624a7489ea596ac51ffaf84c404d7ba31bc3c0e93d8a"
 }

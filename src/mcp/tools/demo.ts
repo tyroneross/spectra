@@ -129,6 +129,8 @@ export const DemoSchema = z.discriminatedUnion('action', [
     out: z.string().describe('Output mp4 path'),
     fps: z.number().optional().describe('Output fps (default 60)'),
     voiceover: z.string().optional().describe('Path to a voiceover audio file — REPLACES input audio, synced to t=0 and padded/trimmed to the video duration'),
+    music: z.string().optional().describe('Path to a music-bed audio file — MIXED under the base track (voiceover or source audio), ducked under sfx cues, padded/trimmed to the video duration'),
+    sfx: z.array(z.object({ atMs: z.number(), file: z.string() })).optional().describe('Sound-effect cues mixed over the base track + music bed — atMs is on the source content timeline'),
   }),
   z.object({
     action: z.literal('run-script'),
@@ -175,6 +177,8 @@ export async function handleDemo(params: unknown, _ctx?: ToolContext): Promise<o
       outPath: parsed.out,
       fps: parsed.fps,
       voiceover: parsed.voiceover,
+      music: parsed.music,
+      sfx: parsed.sfx,
     })
   }
 

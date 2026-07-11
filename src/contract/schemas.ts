@@ -362,6 +362,13 @@ const demoScriptSchema = z.object({
   beats: z.array(demoScriptBeatSchema),
 })
 
+// Mirrors pipeline/polish.ts SfxCue — a sound-effect cue for the polish-script
+// layered-audio mix ({atMs} on the source content timeline).
+const demoSfxCueSchema = z.object({
+  atMs: z.number(),
+  file: z.string(),
+})
+
 // Mirrors pipeline/polish.ts PolishClipSpotlightOptions — an optional
 // whole-clip dark-crush spotlight pre-pass for polish-clip.
 const demoSpotlightSchema = z.object({
@@ -414,6 +421,8 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
     out: z.string(),
     fps: z.number().optional(),
     voiceover: z.string().optional(),
+    music: z.string().optional(),
+    sfx: z.array(demoSfxCueSchema).optional(),
   }),
   z.object({
     action: z.literal('run-script'),

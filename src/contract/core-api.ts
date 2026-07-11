@@ -1148,6 +1148,10 @@ export interface DemoPolishScriptParams {
   fps?: number
   /** Path to a voiceover audio file that REPLACES input audio, synced to t=0 and padded/trimmed to the video duration. */
   voiceover?: string
+  /** Path to a music-bed audio file — MIXED under the base track (voiceover or source audio), ducked under sfx cues, padded/trimmed to the video duration. */
+  music?: string
+  /** Sound-effect cues mixed over the base track + music bed; atMs is on the source content timeline. */
+  sfx?: Array<{ atMs: number; file: string }>
 }
 
 /** Mirrors pipeline/polish.ts PolishClipResult — shared by both polish-clip and polish-script. */

@@ -88,6 +88,21 @@ export interface PolishScriptOptions {
   autoFocus?: AutoFocusOption
   /** Same caption banner style preset as PolishClipOptions.style. */
   style?: CaptionBannerStyle | CaptionBannerStyleName
+  /**
+   * Path to a music-bed audio file. Unlike `voiceover`, this MIXES rather
+   * than replaces: the bed plays under the base track (voiceover or source
+   * audio), starts at t=0 (so it runs under the intro title card too), and is
+   * padded/trimmed to the video duration. When `sfx` cues are present the bed
+   * is ducked under each cue via sidechaincompress. No gain is applied —
+   * supply a pre-leveled asset.
+   */
+  music?: string
+  /**
+   * Sound-effect cues mixed over the base track and music bed. Each `atMs`
+   * is authored against the source content timeline (pre-intro-shift), the
+   * same clock as beat times — the intro shift is applied internally.
+   */
+  sfx?: SfxCue[]
 }
 
 /**
@@ -359,12 +374,28 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
 
     // Input order is load-bearing for the filter graph: 0 = source video, 1 =
     // chrome mask, then the looped overlay images. A voiceover, when present, is
-    // appended LAST so its input index is deterministic and the existing
-    // [0:v]/mask/image indices are undisturbed.
+    // appended after those so its input index is deterministic and the existing
+    // [0:v]/mask/image indices are undisturbed; music + SFX inputs (when
+    // mixing) are appended last, after the voiceover.
     const voiceoverIndex = 2 + imagePaths.length // 0=video, 1=mask, 2..=images
-    const audio = options.voiceover
+    const sfx = options.sfx ?? []
+    const mixed = options.music || sfx.length > 0
+      ? buildMixedAudioArgs({
+          music: options.music,
+          sfx,
+          base: options.voiceover
+            ? { kind: 'voiceover', inputIndex: voiceoverIndex }
+            : hasAudio
+              ? { kind: 'source' }
+              : { kind: 'none' },
+          nextInputIndex: voiceoverIndex + (options.voiceover ? 1 : 0),
+          videoDurationSec: frames / fps,
+          delayMs: introMs,
+        })
+      : undefined
+    const audio = mixed ?? (options.voiceover
       ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps, introMs)
-      : buildAudioArgs(hasAudio, introMs)
+      : buildAudioArgs(hasAudio, introMs))
     await mkdir(dirname(options.outPath), { recursive: true })
     await runProcess('ffmpeg', [
       '-y',
@@ -372,7 +403,8 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
       ...chrome.maskInputArgs,
       ...imageInputArgs(imagePaths, fps),
       ...(options.voiceover ? ['-i', options.voiceover] : []),
-      '-filter_complex', filterComplex,
+      ...(mixed ? mixed.inputArgs : []),
+      '-filter_complex', mixed ? `${filterComplex};${mixed.filter}` : filterComplex,
       '-map', '[v]',
       ...audio.mapArgs,
       '-frames:v', String(Math.max(1, frames)),
@@ -696,6 +728,116 @@ export function buildVoiceoverAudioArgs(voiceoverInputIndex: number, videoDurati
   return {
     mapArgs: ['-map', `${voiceoverInputIndex}:a`],
     codecArgs: ['-c:a', 'aac', '-af', `${delay}apad,atrim=end=${end}`],
+  }
+}
+
+/** A sound-effect cue: play `file` starting at `atMs` on the source content timeline. */
+export interface SfxCue {
+  atMs: number
+  file: string
+}
+
+/**
+ * The base (non-layered) track under a mixed-audio graph. `source` maps
+ * `[0:a]` and must only be used when the input is KNOWN to have audio (the
+ * filter graph has no `0:a?`-style optional mapping — a missing stream is a
+ * hard ffmpeg error); `voiceover` maps a separate narration input by index.
+ */
+export type MixedAudioBase =
+  | { kind: 'none' }
+  | { kind: 'source' }
+  | { kind: 'voiceover'; inputIndex: number }
+
+export interface MixedAudioOptions {
+  /** Music-bed file path. Starts at t=0, no gain applied. */
+  music?: string
+  /** SFX cues; each `atMs` is on the source timeline and shifted by `delayMs` here. */
+  sfx: SfxCue[]
+  base: MixedAudioBase
+  /** ffmpeg `-i` index the FIRST input added by this function will occupy. */
+  nextInputIndex: number
+  /** True output video duration (frames / fps) — the mix is pinned to it. */
+  videoDurationSec: number
+  /** Intro title-card shift; delays the base track and every SFX cue, not the music bed. */
+  delayMs?: number
+}
+
+export interface MixedAudioArgs extends AudioArgs {
+  /** Extra `-i` inputs (music, then each SFX file) — append after all existing inputs. */
+  inputArgs: string[]
+  /** Audio filter graph ending in `[aout]` — join into the video `-filter_complex`. */
+  filter: string
+}
+
+/**
+ * Builds a layered-audio ffmpeg graph: an optional base track (source audio
+ * or voiceover) + an optional music bed + SFX cues, MIXED together rather
+ * than one replacing the other. Each SFX is adelay'd to its cue time; when
+ * both a bed and cues are present, the combined SFX stream also drives a
+ * sidechaincompress that ducks the bed under every cue. All amix stages use
+ * `normalize=0` so layering never rescales the individual tracks. The final
+ * mix is pinned to the video duration the same way buildVoiceoverAudioArgs
+ * pins narration: `apad` so short audio never truncates the video, then
+ * `atrim=end` so long audio never outlasts it. Because the mix is built in
+ * the filter graph, the returned args carry the graph fragment and the extra
+ * `-i` inputs; the caller splices both into its ffmpeg invocation.
+ */
+export function buildMixedAudioArgs(opts: MixedAudioOptions): MixedAudioArgs {
+  const delayMs = Math.max(0, Math.round(opts.delayMs ?? 0))
+  const inputArgs: string[] = []
+  const chains: string[] = []
+  let index = opts.nextInputIndex
+
+  let baseLabel: string | undefined
+  if (opts.base.kind !== 'none') {
+    const src = opts.base.kind === 'source' ? '0:a' : `${opts.base.inputIndex}:a`
+    chains.push(`[${src}]${delayMs > 0 ? `adelay=${delayMs}:all=1` : 'anull'}[abase]`)
+    baseLabel = '[abase]'
+  }
+
+  let bedLabel: string | undefined
+  if (opts.music) {
+    inputArgs.push('-i', opts.music)
+    bedLabel = `[${index}:a]`
+    index += 1
+  }
+
+  const sfxLabels = opts.sfx.map((cue, i) => {
+    inputArgs.push('-i', cue.file)
+    chains.push(`[${index}:a]adelay=${Math.max(0, Math.round(cue.atMs + delayMs))}:all=1[asfx${i}]`)
+    index += 1
+    return `[asfx${i}]`
+  })
+  let sfxLabel: string | undefined = sfxLabels[0]
+  if (sfxLabels.length > 1) {
+    chains.push(`${sfxLabels.join('')}amix=inputs=${sfxLabels.length}:duration=longest:normalize=0[asfxmix]`)
+    sfxLabel = '[asfxmix]'
+  }
+
+  if (bedLabel && sfxLabel) {
+    chains.push(`${sfxLabel}asplit=2[aduck][asfxout]`)
+    chains.push(`${bedLabel}[aduck]sidechaincompress=threshold=0.02:ratio=8:attack=5:release=250[abed]`)
+    bedLabel = '[abed]'
+    sfxLabel = '[asfxout]'
+  }
+
+  const layers = [baseLabel, bedLabel, sfxLabel].filter((label): label is string => Boolean(label))
+  if (layers.length === 0) {
+    throw new Error('buildMixedAudioArgs requires at least one of base/music/sfx')
+  }
+  const end = opts.videoDurationSec.toFixed(6)
+  const pin = `apad,atrim=end=${end}[aout]`
+  if (layers.length === 1) {
+    chains.push(`${layers[0]}${pin}`)
+  } else {
+    chains.push(`${layers.join('')}amix=inputs=${layers.length}:duration=longest:normalize=0,${pin}`)
+  }
+
+  return {
+    inputArgs,
+    filter: chains.join(';'),
+    mapArgs: ['-map', '[aout]'],
+    codecArgs: ['-c:a', 'aac'],
   }
 }
 
