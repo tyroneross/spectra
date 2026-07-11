@@ -5,6 +5,7 @@ import {
   scaleScriptToDuration,
   scriptDurationMs,
   scriptZoomWindows,
+  shiftScriptBy,
   type DemoScript,
 } from '../../src/pipeline/script.js'
 import type { ZoomKeyframe } from '../../src/pipeline/zoom-keyframes.js'
@@ -42,6 +43,25 @@ describe('scripted demo schema helpers', () => {
       ['brief', 3920, 5880],
       ['payoff', 5880, 7000],
     ])
+  })
+
+  it('shifts every beat later by the offset while preserving durations and metadata', () => {
+    const shifted = shiftScriptBy(atomizeScript, 2200)
+
+    expect(shifted.title).toBe(atomizeScript.title)
+    expect(shifted.finalCaption).toBe(atomizeScript.finalCaption)
+    expect(scriptDurationMs(shifted)).toBe(52_200)
+    expect(shifted.beats.map((beat) => [beat.startMs, beat.endMs])).toEqual(
+      atomizeScript.beats.map((beat) => [beat.startMs + 2200, beat.endMs + 2200]),
+    )
+    // Source script untouched (beats are cloned).
+    expect(atomizeScript.beats[0].startMs).toBe(0)
+  })
+
+  it('returns the same script for a zero shift and rejects negative offsets', () => {
+    expect(shiftScriptBy(atomizeScript, 0)).toBe(atomizeScript)
+    expect(() => shiftScriptBy(atomizeScript, -1)).toThrow(/non-negative/)
+    expect(() => shiftScriptBy(atomizeScript, Number.NaN)).toThrow(/non-negative/)
   })
 
   it('derives per-beat zoom windows and eased frame tracks', () => {

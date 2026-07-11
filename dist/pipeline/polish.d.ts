@@ -102,8 +102,10 @@ interface AudioArgs {
  * payoff. `-shortest` then trims the (now-padded) audio at the video's end,
  * so video duration always wins regardless of which track was originally
  * longer. When there's no audio, behavior is unchanged from before (`-an`).
+ * `delayMs` front-pads the audio with silence (adelay) — used when the intro
+ * title card shifts the source content later, so audio stays in sync with it.
  */
-export declare function buildAudioArgs(hasAudio: boolean): AudioArgs;
+export declare function buildAudioArgs(hasAudio: boolean, delayMs?: number): AudioArgs;
 /**
  * Builds the audio map + codec ffmpeg args for a SEPARATE voiceover input
  * (mux a narration track instead of the source's own audio). The source's
@@ -117,7 +119,9 @@ export declare function buildAudioArgs(hasAudio: boolean): AudioArgs;
  * short clips. `voiceoverInputIndex` is the 0-based ffmpeg `-i` index of the
  * voiceover input, which polishScript appends after the source/mask/overlay
  * inputs; `videoDurationSec` is the true output video duration (frames / fps).
+ * `delayMs` front-pads the voiceover with silence (adelay) so narration stays
+ * aligned with the demo content when the intro title card shifts it later.
  */
-export declare function buildVoiceoverAudioArgs(voiceoverInputIndex: number, videoDurationSec: number): AudioArgs;
+export declare function buildVoiceoverAudioArgs(voiceoverInputIndex: number, videoDurationSec: number, delayMs?: number): AudioArgs;
 export {};
 //# sourceMappingURL=polish.d.ts.map

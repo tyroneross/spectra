@@ -31,6 +31,14 @@ export interface CaptionPngOptions {
   style?: CaptionBannerStyle | CaptionBannerStyleName
 }
 
+export interface TitleCardPngOptions {
+  text: string
+  outW?: number
+  outH?: number
+  fontSize?: number
+  cacheDir?: string
+}
+
 export interface FrameChromePngOptions {
   outW: number
   outH: number
@@ -77,6 +85,17 @@ type RenderRequest =
   }
   | {
     version: number
+    kind: 'title-card'
+    outPath: string
+    outW: number
+    outH: number
+    fontSize: number
+    fontPath: string
+    fontIndex: number
+    text: string
+  }
+  | {
+    version: number
     kind: 'frame-background' | 'frame-mask'
     outPath: string
     outW: number
@@ -95,6 +114,7 @@ const DEFAULT_STEP_X = 120
 const DEFAULT_STEP_Y = 92
 const DEFAULT_STEP_FONT_SIZE = 40
 const DEFAULT_CAPTION_FONT_SIZE = 48
+const DEFAULT_TITLE_FONT_SIZE = 112
 const DEFAULT_FONT_PATH = '/System/Library/Fonts/Helvetica.ttc'
 const DEFAULT_FONT_INDEX = 1
 const DEFAULT_CACHE_DIR = join(tmpdir(), 'spectra-text-render')
@@ -247,6 +267,31 @@ export async function renderCaptionPng(options: CaptionPngOptions): Promise<stri
   return renderCachedPng(request, outPath)
 }
 
+/**
+ * Renders a full-frame intro/outro title card: an opaque gradient background
+ * (same endpoints as the polish framing gradient, 0x12141a -> 0x20242e) with
+ * large centered typography. Style presets don't apply — the card matches the
+ * frame background, not the caption banner.
+ */
+export async function renderTitleCardPng(options: TitleCardPngOptions): Promise<string | undefined> {
+  const text = options.text.trim()
+  if (!text) return undefined
+
+  const requestBase = {
+    version: CACHE_VERSION,
+    kind: 'title-card' as const,
+    outW: positiveInteger(options.outW ?? DEFAULT_OUT_W, 'outW'),
+    outH: positiveInteger(options.outH ?? DEFAULT_OUT_H, 'outH'),
+    fontSize: positiveInteger(options.fontSize ?? DEFAULT_TITLE_FONT_SIZE, 'fontSize'),
+    fontPath: DEFAULT_FONT_PATH,
+    fontIndex: DEFAULT_FONT_INDEX,
+    text,
+  }
+  const outPath = cachedPath(options.cacheDir, requestBase)
+  const request: RenderRequest = { ...requestBase, outPath }
+  return renderCachedPng(request, outPath)
+}
+
 export async function renderFrameChromePng(options: FrameChromePngOptions): Promise<FrameChromePngResult | undefined> {
   const requestBase = {
     version: CACHE_VERSION,
@@ -296,9 +341,23 @@ async function probeTextRenderer(): Promise<TextRendererAvailability> {
 }
 
 async function runCoreTextRenderer(args: string[], stdin: string): Promise<{ ok: boolean; stderr?: string }> {
+  const first = await runTextRenderBinary({}, args, stdin)
+  if (first.ok || !first.stderr?.includes('unknown render kind')) return first
+  // An app-bundle-embedded helper can lag this source tree's render kinds
+  // (a kind added here ships before the bundle is rebuilt). Retry with the
+  // source-compiled binary, which ensureTextRenderBinary keeps fresh via its
+  // source hash.
+  return runTextRenderBinary({ skipEmbedded: true }, args, stdin)
+}
+
+async function runTextRenderBinary(
+  resolveOpts: { skipEmbedded?: boolean },
+  args: string[],
+  stdin: string,
+): Promise<{ ok: boolean; stderr?: string }> {
   let binaryPath: string
   try {
-    binaryPath = ensureTextRenderBinary()
+    binaryPath = ensureTextRenderBinary(resolveOpts)
   } catch (error) {
     return { ok: false, stderr: error instanceof Error ? error.message : String(error) }
   }

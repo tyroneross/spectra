@@ -248,6 +248,15 @@ describe('buildAudioArgs — arg-building branch (no ffmpeg needed)', () => {
       codecArgs: ['-an'],
     })
   })
+
+  it('front-pads audio with adelay when the intro title card shifts the content later', () => {
+    expect(buildAudioArgs(true, 2200)).toEqual({
+      mapArgs: ['-map', '0:a?'],
+      codecArgs: ['-c:a', 'aac', '-af', 'adelay=2200:all=1,apad', '-shortest'],
+    })
+    // No intro => identical to the delay-less call.
+    expect(buildAudioArgs(true, 0)).toEqual(buildAudioArgs(true))
+  })
 })
 
 describe('buildVoiceoverAudioArgs — voiceover audio-arg branch (no ffmpeg needed)', () => {
@@ -274,6 +283,13 @@ describe('buildVoiceoverAudioArgs — voiceover audio-arg branch (no ffmpeg need
 
   it('targets the supplied voiceover input index', () => {
     expect(buildVoiceoverAudioArgs(7, 2).mapArgs).toEqual(['-map', '7:a'])
+  })
+
+  it('delays the voiceover past the intro title card while still pinning to the video duration', () => {
+    expect(buildVoiceoverAudioArgs(3, 4, 2200).codecArgs).toEqual(
+      ['-c:a', 'aac', '-af', 'adelay=2200:all=1,apad,atrim=end=4.000000'],
+    )
+    expect(buildVoiceoverAudioArgs(3, 4, 0)).toEqual(buildVoiceoverAudioArgs(3, 4))
   })
 })
 
@@ -379,6 +395,58 @@ describe('polishScript — voiceover track', () => {
     // Unchanged: source audio is preserved (passthrough), still an aac stream.
     expect(await probeHasAudioStream(outPath)).toBe(true)
     expect(await probeAudioCodec(outPath)).toBe('aac')
+  }, 30_000)
+})
+
+describe('polishScript — intro title card', () => {
+  ffmpegIt('prepends a ~2.2s intro card when script.title is set (renderer available)', async () => {
+    const { textRendererAvailability } = await import('../../src/pipeline/text-render.js')
+    const available = (await textRendererAvailability()).available
+    const root = await makeWorkDir()
+    const input = join(root, 'input.mp4')
+    const outPath = join(root, 'scripted-title.mp4')
+    await makeTestVideo(input, 64, 36, 0.25)
+
+    const result = await polishScript({
+      input,
+      script: {
+        title: 'Spectra Demo',
+        finalCaption: 'Done',
+        beats: [
+          { id: 'a', stepLabel: '1', stepText: 'Step', startMs: 0, endMs: 250, zoom: { cx: 0.5, cy: 0.5, scale: 1.2 } },
+        ],
+      },
+      outPath,
+      fps: 30,
+    })
+
+    if (available) {
+      // Timeline extended by the intro: ~0.25s source + 2.2s card.
+      expect(result.durationMs).toBeGreaterThanOrEqual(2400)
+      const videoDur = await probeStreamDurationSec(outPath, 'v:0')
+      expect(videoDur).toBeGreaterThan(2.3)
+    } else {
+      // No native renderer: intro is skipped, unchanged behavior.
+      expect(result.durationMs).toBeLessThan(1000)
+    }
+  }, 60_000)
+
+  ffmpegIt('does not extend the timeline when the script has no title', async () => {
+    const root = await makeWorkDir()
+    const input = join(root, 'input.mp4')
+    const outPath = join(root, 'scripted-untitled.mp4')
+    await makeTestVideo(input, 64, 36, 0.25)
+
+    const result = await polishScript({
+      input,
+      script: { finalCaption: 'Done', beats: [{ id: 'a', stepText: 'Step', startMs: 0, endMs: 250 }] },
+      outPath,
+      fps: 30,
+    })
+
+    expect(result.durationMs).toBeLessThan(1000)
+    const videoDur = await probeStreamDurationSec(outPath, 'v:0')
+    expect(videoDur).toBeLessThan(1.0)
   }, 30_000)
 })
 

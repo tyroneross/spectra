@@ -21,6 +21,13 @@ export interface CaptionPngOptions {
     cacheDir?: string;
     style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
+export interface TitleCardPngOptions {
+    text: string;
+    outW?: number;
+    outH?: number;
+    fontSize?: number;
+    cacheDir?: string;
+}
 export interface FrameChromePngOptions {
     outW: number;
     outH: number;
@@ -111,5 +118,12 @@ export declare function textRendererAvailability(): Promise<TextRendererAvailabi
 export declare function setTextRendererAvailabilityForTests(availability: TextRendererAvailability | undefined): void;
 export declare function renderStepCardPng(options: StepCardPngOptions): Promise<string | undefined>;
 export declare function renderCaptionPng(options: CaptionPngOptions): Promise<string | undefined>;
+/**
+ * Renders a full-frame intro/outro title card: an opaque gradient background
+ * (same endpoints as the polish framing gradient, 0x12141a -> 0x20242e) with
+ * large centered typography. Style presets don't apply — the card matches the
+ * frame background, not the caption banner.
+ */
+export declare function renderTitleCardPng(options: TitleCardPngOptions): Promise<string | undefined>;
 export declare function renderFrameChromePng(options: FrameChromePngOptions): Promise<FrameChromePngResult | undefined>;
 //# sourceMappingURL=text-render.d.ts.map

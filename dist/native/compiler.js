@@ -490,10 +490,19 @@ export function ensureCursorSamplerBinary() {
     }
     return CURSOR_SAMPLER_BINARY_PATH;
 }
-export function ensureTextRenderBinary() {
-    const embedded = resolveEmbeddedHelper('spectra-text-render');
-    if (embedded)
-        return embedded;
+/**
+ * `skipEmbedded` bypasses the app-bundle-embedded helper and forces the
+ * source-compiled binary. An installed bundle's helper can lag this source
+ * tree (e.g. a render kind added here before the bundle is rebuilt);
+ * text-render.ts retries with this flag when the embedded helper rejects a
+ * request with "unknown render kind".
+ */
+export function ensureTextRenderBinary(opts = {}) {
+    if (!opts.skipEmbedded) {
+        const embedded = resolveEmbeddedHelper('spectra-text-render');
+        if (embedded)
+            return embedded;
+    }
     if (isTextRenderStale()) {
         withCompileLock('text-render', () => {
             if (isTextRenderStale())

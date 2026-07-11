@@ -19,10 +19,11 @@
 //                                          message on stderr on failure.
 //
 // Request shape (kept in lockstep with RenderRequest in text-render.ts):
-//   kind: "step-card" | "caption" | "frame-background" | "frame-mask"
+//   kind: "step-card" | "caption" | "title-card" | "frame-background" | "frame-mask"
 //   outPath, outW, outH, fontSize?, fontPath?, fontIndex?
 //   step-card: x, y, stepText, stepLabel?, style
 //   caption: text, style
+//   title-card: text (full-frame gradient card, large centered typography)
 //   frame-background / frame-mask: contentW, contentH, contentX, contentY, cornerRadius
 //   style (step-card/caption only): bannerBackground {r,g,b}, bannerBackgroundAlpha,
 //     bannerHeightRatio, chipColor {r,g,b}, chipScale
@@ -392,6 +393,55 @@ func renderCaption(_ request: JSONDict) throws -> CGImage {
     return image
 }
 
+/// Full-frame intro/outro title card: opaque gradient background using the
+/// SAME endpoints as the polish framing gradient (framing.ts `gradients`
+/// c0=0x12141a top-left -> c1=0x20242e bottom-right) so the card reads as
+/// part of the framed scene it fades into, with large centered typography.
+func renderTitleCard(_ request: JSONDict) throws -> CGImage {
+    let outW = try requireInt(request, "outW")
+    let outH = try requireInt(request, "outH")
+    let fontPath = asString(request["fontPath"]) ?? defaultFontPath
+    let fontIndex = asInt(request["fontIndex"]) ?? defaultFontIndex
+    let fontSize = asDouble(request["fontSize"]) ?? 112
+    let text = try requireString(request, "text")
+
+    let context = try makeRGBAContext(width: outW, height: outH)
+
+    let top: (Int, Int, Int) = (18, 20, 26) // 0x12141a
+    let bottom: (Int, Int, Int) = (32, 36, 46) // 0x20242e
+    let colors: [CGFloat] = [
+        CGFloat(top.0) / 255.0, CGFloat(top.1) / 255.0, CGFloat(top.2) / 255.0, 1.0,
+        CGFloat(bottom.0) / 255.0, CGFloat(bottom.1) / 255.0, CGFloat(bottom.2) / 255.0, 1.0,
+    ]
+    if let gradient = CGGradient(colorSpace: rgbColorSpace, colorComponents: colors, locations: [0, 1], count: 2) {
+        // Top-left -> bottom-right in top-down coordinates; CG's origin is
+        // bottom-left, so top-left is (0, outH).
+        context.drawLinearGradient(
+            gradient,
+            start: CGPoint(x: 0, y: CGFloat(outH)),
+            end: CGPoint(x: CGFloat(outW), y: 0),
+            options: []
+        )
+    }
+
+    let maxTextWidth = max(20, CGFloat(outW) * 0.84)
+    let captionColor = cgColor(specCaptionTextColor)
+    let (_, metrics) = try fitFont(
+        text: text,
+        path: fontPath,
+        index: fontIndex,
+        startSize: fontSize,
+        maxWidth: maxTextWidth,
+        minSize: 40,
+        color: captionColor
+    )
+    let x = (CGFloat(outW) - metrics.width) / 2
+    drawCenteredLine(context, metrics: metrics, x: x, centerYTopDown: CGFloat(outH) / 2, outH: outH)
+
+    guard let image = context.makeImage() else { throw RenderError.contextCreationFailed }
+    return image
+}
+
 // MARK: - frame-background / frame-mask (legacy frame-chrome; no current callers,
 // kept for output-contract parity with the retired Pillow tier)
 
@@ -519,6 +569,8 @@ func render() -> Never {
             image = try renderStepCard(request)
         case "caption":
             image = try renderCaption(request)
+        case "title-card":
+            image = try renderTitleCard(request)
         case "frame-background":
             image = try renderFrameBackground(request)
         case "frame-mask":

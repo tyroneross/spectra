@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { cardsFromScript, timedStepCardsOverlayPlan } from './annotations.js';
 import { deriveZoomTrackFromActivity } from './auto-zoom.js';
 import { frameChromeRenderPlan, framingFilter } from './framing.js';
-import { scriptDurationMs, scriptZoomWindows } from './script.js';
+import { scriptDurationMs, scriptZoomWindows, shiftScriptBy } from './script.js';
 import { cleanupSpotlightPrePass, defaultBoldSpotlightFocal, renderSpotlightPrePass } from './spotlight.js';
-import { renderCaptionPng } from './text-render.js';
+import { renderCaptionPng, renderTitleCardPng } from './text-render.js';
 import { resolveFocalRect } from './window-focus.js';
 import { buildZoomTrack } from './zoom-keyframes.js';
 import { timedZoomFilter, zoomFilter } from './zoom-render.js';
@@ -43,6 +43,11 @@ const OUTPUT_W = 1920;
 const OUTPUT_H = 1080;
 const DEFAULT_FPS = 60;
 const DEFAULT_FADE_MS = 250;
+// Intro title card: duration of the full-frame card rendered from
+// script.title, prepended to the timeline, and its fade+scale envelope.
+const INTRO_CARD_MS = 2200;
+const INTRO_FADE_MS = 300;
+const INTRO_SCALE = 1.08;
 const CHROME_CACHE_VERSION = 1;
 const CHROME_CACHE_DIR = join(tmpdir(), 'spectra-frame-chrome');
 export async function polishClip(options) {
@@ -168,20 +173,32 @@ export async function polishScript(options) {
         renderInput = spotlightTempPath;
     }
     try {
-        const durationMs = metadata.durationMs ?? scriptDurationMs(options.script);
+        // Intro title card: when script.title is set (and the native text
+        // renderer is available — otherwise the intro is skipped, unchanged
+        // behavior), a full-frame card occupies [0, INTRO_CARD_MS). The source
+        // video is front-padded with clones of its first frame and every beat is
+        // shifted later by the same amount, so zoom windows, step cards, and the
+        // final caption stay aligned with the content they were authored against.
+        const title = options.script.title?.trim();
+        const titleCardPath = title
+            ? await renderTitleCardPng({ text: title, outW: OUTPUT_W, outH: OUTPUT_H })
+            : undefined;
+        const introMs = titleCardPath ? INTRO_CARD_MS : 0;
+        const script = introMs > 0 ? shiftScriptBy(options.script, introMs) : options.script;
+        const durationMs = (metadata.durationMs ?? scriptDurationMs(options.script)) + introMs;
         const frames = frameCount(durationMs, fps);
-        const finalCaption = options.script.finalCaption?.trim();
+        const finalCaption = script.finalCaption?.trim();
         let nextInputIndex = 1;
         const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
         nextInputIndex += 1;
         const captionOverlay = finalCaption
-            ? await buildCaptionOverlay(options.script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
+            ? await buildCaptionOverlay(script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
             : undefined;
         if (captionOverlay)
             nextInputIndex += 1;
         const fallbackCaption = captionOverlay ? undefined : finalCaption;
         const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext';
-        const zoom = timedZoomFilter(scriptZoomWindows(options.script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
+        const zoom = timedZoomFilter(scriptZoomWindows(script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
         const frame = framingFilter({
             inputLabel: 'zoomed',
             outputLabel: 'framed',
@@ -195,23 +212,28 @@ export async function polishScript(options) {
         const cardInputLabel = captionOverlay?.outputLabel ?? 'framed';
         const cardPlan = await timedStepCardsOverlayPlan({
             inputLabel: cardInputLabel,
-            outputLabel: 'v',
-            cards: cardsFromScript(options.script),
+            outputLabel: introMs > 0 ? 'carded' : 'v',
+            cards: cardsFromScript(script),
             fps,
             outW: OUTPUT_W,
             outH: OUTPUT_H,
             inputIndexStart: nextInputIndex,
             style: options.style,
         });
+        const titleOverlay = titleCardPath
+            ? buildTitleCardOverlay(titleCardPath, introMs, cardPlan.nextInputIndex, fps, 'carded', 'v')
+            : undefined;
         const imagePaths = [
             ...(captionOverlay ? [captionOverlay.path] : []),
             ...cardPlan.imagePaths,
+            ...(titleOverlay ? [titleOverlay.path] : []),
         ];
         const filterComplex = [
-            `[0:v]fps=${fps},${zoom}[zoomed]`,
+            `[0:v]${introMs > 0 ? `tpad=start_mode=clone:start_duration=${seconds(introMs)},` : ''}fps=${fps},${zoom}[zoomed]`,
             frame,
             ...(captionOverlay ? [captionOverlay.filter] : []),
             cardPlan.filter,
+            ...(titleOverlay ? [titleOverlay.filter] : []),
         ].join(';');
         // Input order is load-bearing for the filter graph: 0 = source video, 1 =
         // chrome mask, then the looped overlay images. A voiceover, when present, is
@@ -219,8 +241,8 @@ export async function polishScript(options) {
         // [0:v]/mask/image indices are undisturbed.
         const voiceoverIndex = 2 + imagePaths.length; // 0=video, 1=mask, 2..=images
         const audio = options.voiceover
-            ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps)
-            : buildAudioArgs(hasAudio);
+            ? buildVoiceoverAudioArgs(voiceoverIndex, frames / fps, introMs)
+            : buildAudioArgs(hasAudio, introMs);
         await mkdir(dirname(options.outPath), { recursive: true });
         await runProcess('ffmpeg', [
             '-y',
@@ -311,6 +333,29 @@ async function renderFrameChromeAssets(inputIndexStart, outW, outH, fps) {
 }
 async function exists(path) {
     return access(path).then(() => true, () => false);
+}
+/**
+ * Builds the intro title-card overlay: the full-frame card PNG fades in and
+ * out (alpha) over INTRO_FADE_MS while a zoompan push-in settle animates
+ * scale from INTRO_SCALE to 1:1 on entry and back on exit. Overlaid on top of
+ * the fully-composited frame (after step cards) for [0, introMs).
+ */
+function buildTitleCardOverlay(path, introMs, inputIndex, fps, inputLabel, outputLabel) {
+    const endSec = seconds(introMs);
+    const fadeMs = Math.min(INTRO_FADE_MS, introMs / 2);
+    const fadeSec = seconds(fadeMs);
+    const fadeOutStartSec = seconds(introMs - fadeMs);
+    const delta = (INTRO_SCALE - 1).toFixed(3);
+    // zoompan's `time` is the output timestamp in seconds; commas inside the
+    // expression are escaped for the filter-graph parser. zoompan can't scale
+    // below 1, so both ends settle DOWN to 1:1 (a push-in look).
+    const zoomExpr = `if(lt(time\\,${fadeSec})\\,${INTRO_SCALE}-${delta}*(time/${fadeSec})\\,if(gt(time\\,${fadeOutStartSec})\\,1+${delta}*((time-${fadeOutStartSec})/${fadeSec})\\,1))`;
+    const assetLabel = 'titleCardPng';
+    const filter = [
+        `${labelRef(`${inputIndex}:v`)}zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${OUTPUT_W}x${OUTPUT_H}:fps=${fps},format=rgba,fade=t=in:st=0:d=${fadeSec}:alpha=1,fade=t=out:st=${fadeOutStartSec}:d=${fadeSec}:alpha=1${labelRef(assetLabel)}`,
+        `${labelRef(inputLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,0\\,${endSec})',format=yuv420p${labelRef(outputLabel)}`,
+    ].join(';');
+    return { path, outputLabel, filter };
 }
 async function buildClipCaptionOverlay(caption, durationMs, inputIndex, outW, outH, style) {
     return buildTimedCaptionOverlay(caption, { startMs: 0, endMs: Math.max(0, durationMs) }, inputIndex, outW, outH, 'framed', 'v', style);
@@ -429,11 +474,14 @@ async function probeHasAudio(input) {
  * payoff. `-shortest` then trims the (now-padded) audio at the video's end,
  * so video duration always wins regardless of which track was originally
  * longer. When there's no audio, behavior is unchanged from before (`-an`).
+ * `delayMs` front-pads the audio with silence (adelay) — used when the intro
+ * title card shifts the source content later, so audio stays in sync with it.
  */
-export function buildAudioArgs(hasAudio) {
-    return hasAudio
-        ? { mapArgs: ['-map', '0:a?'], codecArgs: ['-c:a', 'aac', '-af', 'apad', '-shortest'] }
-        : { mapArgs: [], codecArgs: ['-an'] };
+export function buildAudioArgs(hasAudio, delayMs = 0) {
+    if (!hasAudio)
+        return { mapArgs: [], codecArgs: ['-an'] };
+    const delay = delayMs > 0 ? `adelay=${delayMs}:all=1,` : '';
+    return { mapArgs: ['-map', '0:a?'], codecArgs: ['-c:a', 'aac', '-af', `${delay}apad`, '-shortest'] };
 }
 /**
  * Builds the audio map + codec ffmpeg args for a SEPARATE voiceover input
@@ -448,12 +496,15 @@ export function buildAudioArgs(hasAudio) {
  * short clips. `voiceoverInputIndex` is the 0-based ffmpeg `-i` index of the
  * voiceover input, which polishScript appends after the source/mask/overlay
  * inputs; `videoDurationSec` is the true output video duration (frames / fps).
+ * `delayMs` front-pads the voiceover with silence (adelay) so narration stays
+ * aligned with the demo content when the intro title card shifts it later.
  */
-export function buildVoiceoverAudioArgs(voiceoverInputIndex, videoDurationSec) {
+export function buildVoiceoverAudioArgs(voiceoverInputIndex, videoDurationSec, delayMs = 0) {
     const end = videoDurationSec.toFixed(6);
+    const delay = delayMs > 0 ? `adelay=${delayMs}:all=1,` : '';
     return {
         mapArgs: ['-map', `${voiceoverInputIndex}:a`],
-        codecArgs: ['-c:a', 'aac', '-af', `apad,atrim=end=${end}`],
+        codecArgs: ['-c:a', 'aac', '-af', `${delay}apad,atrim=end=${end}`],
     };
 }
 async function parseClicksJson(input) {

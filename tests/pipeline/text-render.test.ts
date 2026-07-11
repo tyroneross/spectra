@@ -8,6 +8,7 @@ import {
   CAPTION_BANNER_SPEC,
   renderCaptionPng,
   renderStepCardPng,
+  renderTitleCardPng,
   resolveBannerStyle,
   setTextRendererAvailabilityForTests,
   textRendererAvailability,
@@ -83,11 +84,41 @@ describe('CoreText text renderer', () => {
     expect(caption).toContain('caption-')
   })
 
+  rendererIt('renders and caches title-card PNGs with the polish gradient background', async () => {
+    const cacheDir = await makeWorkDir()
+    const first = await renderTitleCardPng({ text: 'Atomize AI', outW: 320, outH: 180, cacheDir })
+    const second = await renderTitleCardPng({ text: 'Atomize AI', outW: 320, outH: 180, cacheDir })
+
+    expect(first).toBeTruthy()
+    expect(second).toBe(first)
+    expect(first).toContain('title-card-')
+    await expect(access(first ?? '')).resolves.toBeUndefined()
+    expect((await stat(first ?? '')).size).toBeGreaterThan(100)
+
+    // Opaque gradient card matching the polish framing gradient: top-left is
+    // 0x12141a (18,20,26), bottom-right approaches 0x20242e (32,36,46).
+    const [tlR, tlG, tlB, tlA] = samplePixel(first ?? '', 0, 0)
+    expect(tlA).toBe(255)
+    expect(Math.abs(tlR - 18)).toBeLessThanOrEqual(2)
+    expect(Math.abs(tlG - 20)).toBeLessThanOrEqual(2)
+    expect(Math.abs(tlB - 26)).toBeLessThanOrEqual(2)
+    const [brR, brG, brB, brA] = samplePixel(first ?? '', 319, 179)
+    expect(brA).toBe(255)
+    expect(Math.abs(brR - 32)).toBeLessThanOrEqual(2)
+    expect(Math.abs(brG - 36)).toBeLessThanOrEqual(2)
+    expect(Math.abs(brB - 46)).toBeLessThanOrEqual(2)
+  })
+
   it('returns undefined instead of throwing when the renderer is unavailable', async () => {
     setTextRendererAvailabilityForTests({ available: false, reason: 'test override' })
 
     await expect(renderStepCardPng({ stepText: 'Search everything' })).resolves.toBeUndefined()
     await expect(renderCaptionPng({ text: 'Done' })).resolves.toBeUndefined()
+    await expect(renderTitleCardPng({ text: 'Spectra' })).resolves.toBeUndefined()
+  })
+
+  it('returns undefined for a blank title without touching the renderer', async () => {
+    await expect(renderTitleCardPng({ text: '   ' })).resolves.toBeUndefined()
   })
 
   it('matches the canonical caption banner spec (colors + geometry ratios)', () => {

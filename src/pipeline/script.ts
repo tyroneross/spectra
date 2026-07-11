@@ -117,6 +117,27 @@ export function scaleScriptToDuration(script: DemoScript, durationMs: number): D
   }
 }
 
+/**
+ * Shifts every beat later by `offsetMs`, preserving beat durations. Used by
+ * polishScript to make room for the intro title card: the card occupies
+ * [0, offsetMs) and the original storyboard plays unchanged after it.
+ */
+export function shiftScriptBy(script: DemoScript, offsetMs: number): DemoScript {
+  if (!Number.isFinite(offsetMs) || offsetMs < 0) {
+    throw new Error('offsetMs must be a non-negative finite number')
+  }
+  if (offsetMs === 0) return script
+
+  return {
+    ...script,
+    beats: script.beats.map((beat) => ({
+      ...cloneBeat(beat),
+      startMs: beat.startMs + offsetMs,
+      endMs: beat.endMs + offsetMs,
+    })),
+  }
+}
+
 export function clipScriptToDuration(script: DemoScript, durationMs: number): DemoScript {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
     throw new Error('durationMs must be a non-negative finite number')

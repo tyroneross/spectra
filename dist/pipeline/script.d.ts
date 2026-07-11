@@ -26,5 +26,11 @@ export declare function scriptDurationMs(script: DemoScript): number;
 export declare function scriptZoomWindows(script: DemoScript, totalMs?: number): TimedZoomWindow[];
 export declare function buildScriptZoomTrack(script: DemoScript, totalMs: number, fps: number, opts?: TimedZoomTrackOptions): ZoomKeyframe[];
 export declare function scaleScriptToDuration(script: DemoScript, durationMs: number): DemoScript;
+/**
+ * Shifts every beat later by `offsetMs`, preserving beat durations. Used by
+ * polishScript to make room for the intro title card: the card occupies
+ * [0, offsetMs) and the original storyboard plays unchanged after it.
+ */
+export declare function shiftScriptBy(script: DemoScript, offsetMs: number): DemoScript;
 export declare function clipScriptToDuration(script: DemoScript, durationMs: number): DemoScript;
 //# sourceMappingURL=script.d.ts.map

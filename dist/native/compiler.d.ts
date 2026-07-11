@@ -30,7 +30,16 @@ export declare function ensureBinary(): string;
 export declare function ensureCompositeBinary(): string;
 export declare function ensureScreenRecordingPreflightBinary(): string;
 export declare function ensureCursorSamplerBinary(): string;
-export declare function ensureTextRenderBinary(): string;
+/**
+ * `skipEmbedded` bypasses the app-bundle-embedded helper and forces the
+ * source-compiled binary. An installed bundle's helper can lag this source
+ * tree (e.g. a render kind added here before the bundle is rebuilt);
+ * text-render.ts retries with this flag when the embedded helper rejects a
+ * request with "unknown render kind".
+ */
+export declare function ensureTextRenderBinary(opts?: {
+    skipEmbedded?: boolean;
+}): string;
 export declare function compileTestApp(): string;
 export { BINARY_PATH, BIN_DIR, COMPOSITE_BINARY_PATH, CURSOR_SAMPLER_BINARY_PATH, DAEMON_LAUNCHER_PATH, SCREEN_RECORDING_PREFLIGHT_PATH, TEST_APP_PATH, TEXT_RENDER_BINARY_PATH, };
 //# sourceMappingURL=compiler.d.ts.map

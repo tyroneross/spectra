@@ -11,6 +11,7 @@ const DEFAULT_STEP_X = 120;
 const DEFAULT_STEP_Y = 92;
 const DEFAULT_STEP_FONT_SIZE = 40;
 const DEFAULT_CAPTION_FONT_SIZE = 48;
+const DEFAULT_TITLE_FONT_SIZE = 112;
 const DEFAULT_FONT_PATH = '/System/Library/Fonts/Helvetica.ttc';
 const DEFAULT_FONT_INDEX = 1;
 const DEFAULT_CACHE_DIR = join(tmpdir(), 'spectra-text-render');
@@ -139,6 +140,30 @@ export async function renderCaptionPng(options) {
     const request = { ...requestBase, outPath };
     return renderCachedPng(request, outPath);
 }
+/**
+ * Renders a full-frame intro/outro title card: an opaque gradient background
+ * (same endpoints as the polish framing gradient, 0x12141a -> 0x20242e) with
+ * large centered typography. Style presets don't apply — the card matches the
+ * frame background, not the caption banner.
+ */
+export async function renderTitleCardPng(options) {
+    const text = options.text.trim();
+    if (!text)
+        return undefined;
+    const requestBase = {
+        version: CACHE_VERSION,
+        kind: 'title-card',
+        outW: positiveInteger(options.outW ?? DEFAULT_OUT_W, 'outW'),
+        outH: positiveInteger(options.outH ?? DEFAULT_OUT_H, 'outH'),
+        fontSize: positiveInteger(options.fontSize ?? DEFAULT_TITLE_FONT_SIZE, 'fontSize'),
+        fontPath: DEFAULT_FONT_PATH,
+        fontIndex: DEFAULT_FONT_INDEX,
+        text,
+    };
+    const outPath = cachedPath(options.cacheDir, requestBase);
+    const request = { ...requestBase, outPath };
+    return renderCachedPng(request, outPath);
+}
 export async function renderFrameChromePng(options) {
     const requestBase = {
         version: CACHE_VERSION,
@@ -185,9 +210,19 @@ async function probeTextRenderer() {
         : { available: false, reason: result.stderr || 'native CoreText text renderer is unavailable' };
 }
 async function runCoreTextRenderer(args, stdin) {
+    const first = await runTextRenderBinary({}, args, stdin);
+    if (first.ok || !first.stderr?.includes('unknown render kind'))
+        return first;
+    // An app-bundle-embedded helper can lag this source tree's render kinds
+    // (a kind added here ships before the bundle is rebuilt). Retry with the
+    // source-compiled binary, which ensureTextRenderBinary keeps fresh via its
+    // source hash.
+    return runTextRenderBinary({ skipEmbedded: true }, args, stdin);
+}
+async function runTextRenderBinary(resolveOpts, args, stdin) {
     let binaryPath;
     try {
-        binaryPath = ensureTextRenderBinary();
+        binaryPath = ensureTextRenderBinary(resolveOpts);
     }
     catch (error) {
         return { ok: false, stderr: error instanceof Error ? error.message : String(error) };
