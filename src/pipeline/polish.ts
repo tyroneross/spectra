@@ -159,7 +159,7 @@ const DEFAULT_FPS = 60
 const DEFAULT_FADE_MS = 250
 // Intro title card: duration of the full-frame card rendered from
 // script.title, prepended to the timeline, and its fade+scale envelope.
-const INTRO_CARD_MS = 2200
+const INTRO_CARD_MS = 1800
 const INTRO_FADE_MS = 300
 const INTRO_SCALE = 1.08
 const CHROME_CACHE_VERSION = 1

@@ -399,7 +399,7 @@ describe('polishScript — voiceover track', () => {
 })
 
 describe('polishScript — intro title card', () => {
-  ffmpegIt('prepends a ~2.2s intro card when script.title is set (renderer available)', async () => {
+  ffmpegIt('prepends a ~1.8s intro card when script.title is set (renderer available)', async () => {
     const { textRendererAvailability } = await import('../../src/pipeline/text-render.js')
     const available = (await textRendererAvailability()).available
     const root = await makeWorkDir()
@@ -421,10 +421,10 @@ describe('polishScript — intro title card', () => {
     })
 
     if (available) {
-      // Timeline extended by the intro: ~0.25s source + 2.2s card.
-      expect(result.durationMs).toBeGreaterThanOrEqual(2400)
+      // Timeline extended by the intro: ~0.25s source + 1.8s card.
+      expect(result.durationMs).toBeGreaterThanOrEqual(2000)
       const videoDur = await probeStreamDurationSec(outPath, 'v:0')
-      expect(videoDur).toBeGreaterThan(2.3)
+      expect(videoDur).toBeGreaterThan(1.9)
     } else {
       // No native renderer: intro is skipped, unchanged behavior.
       expect(result.durationMs).toBeLessThan(1000)
