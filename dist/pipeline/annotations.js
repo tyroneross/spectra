@@ -6,6 +6,8 @@ const DEFAULT_FPS = 60;
 const DEFAULT_FADE_MS = 250;
 const DEFAULT_FONT_PIXEL = 7;
 const DEFAULT_FONT_SIZE = 40;
+const STEP_CARD_ENTRANCE_RISE_PX = 24;
+const STEP_CARD_ENTRANCE_DURATION_SEC = 0.3;
 export function cardsFromScript(script) {
     return script.beats
         .filter((beat) => beat.stepText?.trim())
@@ -37,7 +39,7 @@ export function timedStepCardsFilter(opts) {
         const cardGraph = buildCardGraph(timedCard, index, outW, outH, fps, fontPixel);
         filters.push(...cardGraph.filters);
         const nextLabel = `stepAnnotated${index}`;
-        filters.push(`${labelRef(currentLabel)}${labelRef(cardGraph.label)}overlay=x=${x}:y=${y}:shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`);
+        filters.push(`${labelRef(currentLabel)}${labelRef(cardGraph.label)}overlay=x=${x}:y='${slideUpY(y, timedCard.startSec)}':shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`);
         currentLabel = nextLabel;
     }
     filters.push(`${labelRef(currentLabel)}format=yuv420p${outputRef}`);
@@ -99,7 +101,7 @@ export async function timedStepCardsPngFilter(opts) {
         const assetLabel = `stepCardPng${index}`;
         filters.push(`${labelRef(`${inputIndexStart + index}:v`)}format=rgba${fadeSuffix(timedCard)}${labelRef(assetLabel)}`);
         const nextLabel = `stepAnnotated${index}`;
-        filters.push(`${labelRef(currentLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`);
+        filters.push(`${labelRef(currentLabel)}${labelRef(assetLabel)}overlay=x=0:y='${slideUpY(0, timedCard.startSec)}':shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`);
         currentLabel = nextLabel;
     }
     filters.push(`${labelRef(currentLabel)}format=yuv420p${outputRef}`);
@@ -197,6 +199,9 @@ function fadeSuffix(card) {
     if (card.fadeSec === '0')
         return '';
     return `,fade=t=in:st=${card.startSec}:d=${card.fadeSec}:alpha=1,fade=t=out:st=${card.fadeOutStartSec}:d=${card.fadeSec}:alpha=1`;
+}
+function slideUpY(baseY, startSec) {
+    return `${baseY}+${STEP_CARD_ENTRANCE_RISE_PX}*max(0\\,1-(t-${startSec})/${STEP_CARD_ENTRANCE_DURATION_SEC})`;
 }
 function seconds(ms) {
     return (ms / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '');

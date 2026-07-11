@@ -55,6 +55,8 @@ const DEFAULT_FPS = 60
 const DEFAULT_FADE_MS = 250
 const DEFAULT_FONT_PIXEL = 7
 const DEFAULT_FONT_SIZE = 40
+const STEP_CARD_ENTRANCE_RISE_PX = 24
+const STEP_CARD_ENTRANCE_DURATION_SEC = 0.3
 
 export function cardsFromScript(script: DemoScript): TimedStepCard[] {
   return script.beats
@@ -91,7 +93,7 @@ export function timedStepCardsFilter(opts: TimedStepCardsFilterOptions): string 
 
     const nextLabel = `stepAnnotated${index}`
     filters.push(
-      `${labelRef(currentLabel)}${labelRef(cardGraph.label)}overlay=x=${x}:y=${y}:shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`,
+      `${labelRef(currentLabel)}${labelRef(cardGraph.label)}overlay=x=${x}:y='${slideUpY(y, timedCard.startSec)}':shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`,
     )
     currentLabel = nextLabel
   }
@@ -161,7 +163,7 @@ export async function timedStepCardsPngFilter(opts: TimedStepCardsFilterOptions)
 
     const nextLabel = `stepAnnotated${index}`
     filters.push(
-      `${labelRef(currentLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`,
+      `${labelRef(currentLabel)}${labelRef(assetLabel)}overlay=x=0:y='${slideUpY(0, timedCard.startSec)}':shortest=1:enable='between(t\\,${timedCard.startSec}\\,${timedCard.endSec})'${labelRef(nextLabel)}`,
     )
     currentLabel = nextLabel
   }
@@ -275,6 +277,10 @@ function fitTextLayer(label: string, text: string, preferredPixel: number, maxWi
 function fadeSuffix(card: PreparedCard): string {
   if (card.fadeSec === '0') return ''
   return `,fade=t=in:st=${card.startSec}:d=${card.fadeSec}:alpha=1,fade=t=out:st=${card.fadeOutStartSec}:d=${card.fadeSec}:alpha=1`
+}
+
+function slideUpY(baseY: number, startSec: string): string {
+  return `${baseY}+${STEP_CARD_ENTRANCE_RISE_PX}*max(0\\,1-(t-${startSec})/${STEP_CARD_ENTRANCE_DURATION_SEC})`
 }
 
 function seconds(ms: number): string {
