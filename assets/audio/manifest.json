@@ -1,0 +1,210 @@
+{
+  "schema": "spectra-audio-library.v0",
+  "note": "Spectra-owned audio asset catalogue (beds, SFX cues, app-alert tones). Parallel to the visual capture library; NOT yet wired into spectra_library (which today only types screenshot|video|walkthrough). Promote into the real library once an `audio` kind + music/sfx library-ref resolution land in polish-script.",
+  "roles": {
+    "bed": "background music under videos (polish-script `music`)",
+    "sfx-cue": "per-beat sound cue (polish-script beat `sound`)",
+    "alert": "short app/UI event tone (e.g. Easy Terminal status events)"
+  },
+  "assetCount": 18,
+  "assets": [
+    {
+      "id": "bed-warm-chill",
+      "file": "beds/bed-warm-chill.m4a",
+      "role": "bed",
+      "tag": "chill",
+      "energy": "low",
+      "durationSec": 26.0,
+      "source": "Apple Loops \u00b7 Kyoto Night (synth+guitar+bass)",
+      "use": "intros, calm openers, low-energy sections",
+      "licensing": "Apple Loops (royalty-free, use in own productions)"
+    },
+    {
+      "id": "bed-driving-electro",
+      "file": "beds/bed-driving-electro.m4a",
+      "role": "bed",
+      "tag": "electro",
+      "energy": "high",
+      "durationSec": 24.0,
+      "source": "Apple Loops \u00b7 Jump Up (beat+bass)",
+      "use": "feature/energy sessions, momentum sequences",
+      "licensing": "Apple Loops (royalty-free, use in own productions)"
+    },
+    {
+      "id": "bed-hiphop-rnb",
+      "file": "beds/bed-hiphop-rnb.m4a",
+      "role": "bed",
+      "tag": "hiphop-rnb",
+      "energy": "medium",
+      "durationSec": 24.0,
+      "source": "Apple Loops \u00b7 Skyline (piano+bass+beat)",
+      "use": "hip-hop / R&B segments",
+      "licensing": "Apple Loops (royalty-free, use in own productions)"
+    },
+    {
+      "id": "bed-funk",
+      "file": "beds/bed-funk.m4a",
+      "role": "bed",
+      "tag": "funk",
+      "energy": "medium",
+      "durationSec": 24.0,
+      "source": "Apple Loops \u00b7 Rolling Disco (guitar+electric-piano+bass)",
+      "use": "funk / upbeat segments",
+      "licensing": "Apple Loops (royalty-free, use in own productions)"
+    },
+    {
+      "id": "01-precision-tick",
+      "file": "sfx/01-precision-tick.m4a",
+      "role": "sfx-cue",
+      "tag": "precision",
+      "energy": "-",
+      "durationSec": 0.1,
+      "source": "synth (ffmpeg lavfi)",
+      "use": "keystroke / confirm \u2014 Calm Precision",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "02-verification-resolve",
+      "file": "sfx/02-verification-resolve.m4a",
+      "role": "sfx-cue",
+      "tag": "verification",
+      "energy": "-",
+      "durationSec": 0.53,
+      "source": "synth",
+      "use": "tests green / verified \u2014 ground-truth",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "03-momentum-ascend",
+      "file": "sfx/03-momentum-ascend.m4a",
+      "role": "sfx-cue",
+      "tag": "momentum",
+      "energy": "-",
+      "durationSec": 0.59,
+      "source": "synth",
+      "use": "job started / dispatch \u2014 keep-going",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "04-craft-settle",
+      "file": "sfx/04-craft-settle.m4a",
+      "role": "sfx-cue",
+      "tag": "craft",
+      "energy": "-",
+      "durationSec": 1.06,
+      "source": "synth",
+      "use": "build complete \u2014 iteration lands",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "05-foundation-ground",
+      "file": "sfx/05-foundation-ground.m4a",
+      "role": "sfx-cue",
+      "tag": "foundation",
+      "energy": "-",
+      "durationSec": 1.17,
+      "source": "synth",
+      "use": "session start / daemon ready \u2014 own-the-stack",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "06-attention-signal",
+      "file": "sfx/06-attention-signal.m4a",
+      "role": "sfx-cue",
+      "tag": "attention",
+      "energy": "-",
+      "durationSec": 0.62,
+      "source": "synth",
+      "use": "blocked / needs you \u2014 signal not alarm",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "1-notify",
+      "file": "alerts/1-notify.m4a",
+      "role": "alert",
+      "tag": "notify",
+      "energy": "-",
+      "durationSec": 0.44,
+      "source": "synth",
+      "use": "generic notification",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "2-success",
+      "file": "alerts/2-success.m4a",
+      "role": "alert",
+      "tag": "success",
+      "energy": "-",
+      "durationSec": 0.7,
+      "source": "synth",
+      "use": "success / positive completion",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "3-error",
+      "file": "alerts/3-error.m4a",
+      "role": "alert",
+      "tag": "error",
+      "energy": "-",
+      "durationSec": 0.51,
+      "source": "synth",
+      "use": "error / failure (soft, non-harsh)",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "4-message",
+      "file": "alerts/4-message.m4a",
+      "role": "alert",
+      "tag": "message",
+      "energy": "-",
+      "durationSec": 0.14,
+      "source": "synth",
+      "use": "new message / small blip",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "5-complete",
+      "file": "alerts/5-complete.m4a",
+      "role": "alert",
+      "tag": "complete",
+      "energy": "-",
+      "durationSec": 0.65,
+      "source": "synth",
+      "use": "task / build complete",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "6-warning",
+      "file": "alerts/6-warning.m4a",
+      "role": "alert",
+      "tag": "warning",
+      "energy": "-",
+      "durationSec": 0.52,
+      "source": "synth",
+      "use": "attention / warning (calm pulse)",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "7-open",
+      "file": "alerts/7-open.m4a",
+      "role": "alert",
+      "tag": "open",
+      "energy": "-",
+      "durationSec": 0.33,
+      "source": "synth",
+      "use": "open / expand",
+      "licensing": "original synthesis"
+    },
+    {
+      "id": "8-dismiss",
+      "file": "alerts/8-dismiss.m4a",
+      "role": "alert",
+      "tag": "dismiss",
+      "energy": "-",
+      "durationSec": 0.3,
+      "source": "synth",
+      "use": "dismiss / close",
+      "licensing": "original synthesis"
+    }
+  ]
+}
