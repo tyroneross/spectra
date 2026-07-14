@@ -42,11 +42,15 @@ jobs:
       - name: Verify plugin manifests are in sync
         run: |
           PKG=$(node -p "require('./package.json').version")
-          CLAUDE=$(jq -r .version .claude-plugin/plugin.json)
-          CODEX=$(jq -r .version .codex-plugin/plugin.json)
-          if [ "$PKG" != "$CLAUDE" ] || [ "$PKG" != "$CODEX" ]; then
-            echo "::error::version drift: package.json=$PKG .claude-plugin=$CLAUDE .codex-plugin=$CODEX"
-            exit 1
+          CLAUDE=$(jq -r '.version // ""' .claude-plugin/plugin.json)
+          CODEX=$(jq -r '.version // ""' .codex-plugin/plugin.json)
+          # Plugin manifests use auto-SHA (version omitted → resolves to git commit SHA);
+          # only assert consistency for a version that IS set. package.json keeps semver for npm.
+          if [ -n "$CLAUDE" ] && [ "$PKG" != "$CLAUDE" ]; then
+            echo "::error::version drift: package.json=$PKG .claude-plugin=$CLAUDE"; exit 1
+          fi
+          if [ -n "$CODEX" ] && [ "$PKG" != "$CODEX" ]; then
+            echo "::error::version drift: package.json=$PKG .codex-plugin=$CODEX"; exit 1
           fi
 
       - name: Install deps
