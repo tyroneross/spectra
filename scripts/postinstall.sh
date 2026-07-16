@@ -61,3 +61,9 @@ if [[ -d "$PLUGIN_ROOT/dist" ]]; then
     fi
     echo "Mirrored daemon dist/ to $SPECTRA_HOME/dist/"
 fi
+
+# 3. Dev checkouts only: install tracked git hooks (pre-push dist rebuild).
+#    No-op on plugin-cache installs, which have no .git.
+if [[ -d "$PLUGIN_ROOT/.git" && -x "$PLUGIN_ROOT/scripts/install-git-hooks.sh" ]]; then
+    bash "$PLUGIN_ROOT/scripts/install-git-hooks.sh" || true
+fi

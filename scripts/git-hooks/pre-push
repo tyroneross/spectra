@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# spectra-managed pre-push hook (source of truth: scripts/git-hooks/pre-push;
+# installed into .git/hooks by scripts/install-git-hooks.sh / postinstall.sh).
+#
+# Spectra is used from the local checkout and, as a plugin, commits dist/.
+# This hook keeps dist/ honest at the push boundary: it rebuilds (npm run
+# build = tsc + sync-dist mirror) and, if the rebuild changed dist/, commits
+# the delta as "build: rebuild dist" and ABORTS the push so the new commit is
+# included in the next push. A pre-push hook cannot add commits to the push
+# already in flight — the refs were fixed when `git push` ran — so
+# commit-then-abort is the only correct semantics. Just run `git push` again.
+#
+# Skip switch for emergencies: SPECTRA_SKIP_DIST_HOOK=1 git push ...
+set -euo pipefail
+
+[[ "${SPECTRA_SKIP_DIST_HOOK:-0}" == "1" ]] && exit 0
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Only guard pushes that actually send commits (skip tag-only / delete pushes).
+SENDS_COMMITS=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ -z "${local_ref:-}" ]] && continue
+    [[ "$local_sha" == "0000000000000000000000000000000000000000" ]] && continue   # deletion
+    [[ "$local_ref" == refs/heads/* ]] && SENDS_COMMITS=true
+done
+[[ "$SENDS_COMMITS" == true ]] || exit 0
+
+command -v npm >/dev/null || { echo "pre-push: npm not found; skipping dist rebuild" >&2; exit 0; }
+
+echo "pre-push: rebuilding dist/ (npm run build)..." >&2
+if ! npm run build --silent >/tmp/spectra-prepush-build.log 2>&1; then
+    echo "pre-push: BUILD FAILED — push aborted. Log: /tmp/spectra-prepush-build.log" >&2
+    tail -20 /tmp/spectra-prepush-build.log >&2
+    exit 1
+fi
+
+if [[ -z "$(git status --porcelain -- dist/)" ]]; then
+    echo "pre-push: dist/ up to date." >&2
+    exit 0
+fi
+
+# dist/ was stale: commit ONLY dist/ (pathspec-scoped — never sweeps other
+# staged or working-tree changes), then abort so the user re-pushes with it.
+git add -A -- dist/
+git commit --no-verify -m "build: rebuild dist" -- dist/ >&2
+echo "" >&2
+echo "pre-push: dist/ was stale — rebuilt and committed ('build: rebuild dist')." >&2
+echo "pre-push: push ABORTED so the dist commit is included. Run: git push" >&2
+exit 1
