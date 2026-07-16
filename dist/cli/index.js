@@ -12,6 +12,9 @@
 // `spectra <operation>` and the stdio proxy both forward to the GUI-session
 // daemon over the unix socket; this CLI imports NO core.
 //
+// dist/ is a committed build artifact; the pre-push hook (scripts/git-hooks/
+// pre-push) rebuilds and commits it automatically when src/ changes.
+//
 // SPDX-License-Identifier: Apache-2.0
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { spawn } from 'node:child_process';
