@@ -132,6 +132,7 @@ embed-helpers:
 			cp -f "$$src" "$$dest/$$h"; \
 			if [ "$${CODE_SIGNING_ALLOWED:-YES}" != "NO" ] && [ -n "$${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then \
 				codesign --force --timestamp=none --options runtime \
+					-i "dev.spectra.$${h#spectra-}" \
 					--sign "$${EXPANDED_CODE_SIGN_IDENTITY}" "$$dest/$$h"; \
 			fi; \
 			echo "embed-helpers: embedded $$h -> $$dest/$$h"; \

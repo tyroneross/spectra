@@ -2258,6 +2258,15 @@
                     "typeText": "string"
                   },
                   {
+                    "name": "staleness",
+                    "optional": true,
+                    "typeText": "PermissionStaleness",
+                    "type": {
+                      "kind": "literal",
+                      "value": "grant_stale_rebuild"
+                    }
+                  },
+                  {
                     "name": "state",
                     "optional": false,
                     "typeText": "PermissionState",
@@ -4689,6 +4698,15 @@
                     "name": "settingsUrl",
                     "optional": true,
                     "typeText": "string"
+                  },
+                  {
+                    "name": "staleness",
+                    "optional": true,
+                    "typeText": "PermissionStaleness",
+                    "type": {
+                      "kind": "literal",
+                      "value": "grant_stale_rebuild"
+                    }
                   },
                   {
                     "name": "state",
@@ -7474,6 +7492,15 @@
                     "typeText": "string"
                   },
                   {
+                    "name": "staleness",
+                    "optional": true,
+                    "typeText": "PermissionStaleness",
+                    "type": {
+                      "kind": "literal",
+                      "value": "grant_stale_rebuild"
+                    }
+                  },
+                  {
                     "name": "state",
                     "optional": false,
                     "typeText": "PermissionState",
@@ -8374,5 +8401,5 @@
       ]
     }
   },
-  "hash": "0306c5df56d8a09d0355de628547e5faea83247a451c20da9386b522f09a3af0"
+  "hash": "119ca6665c180ddb449d0f235c282d631bcb5e37e7cf5ce996f6fadaa1f2ed4d"
 }

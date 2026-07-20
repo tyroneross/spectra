@@ -69,6 +69,14 @@ export interface Action {
 }
 export type PermissionKind = 'accessibility' | 'screen-recording' | 'automation' | 'developer-tools';
 export type PermissionState = 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unsupported' | 'unknown';
+/**
+ * Why a permission is in its current state, when the daemon can tell more than
+ * the bare state. `grant_stale_rebuild` means the helper was code-signed with a
+ * different identity/cdhash since the permission was last granted, so an
+ * existing System Settings grant no longer matches the running binary — the fix
+ * is to remove the stale entry and re-grant, not to grant for the first time.
+ */
+export type PermissionStaleness = 'grant_stale_rebuild';
 export interface PermissionStatus {
     permission: PermissionKind;
     state: PermissionState;
@@ -76,6 +84,8 @@ export interface PermissionStatus {
     canPrompt: boolean;
     settingsUrl?: string;
     message?: string;
+    /** Machine-readable diagnosis accompanying a `denied` state; see PermissionStaleness. */
+    staleness?: PermissionStaleness;
     lastCheckedAt: TimestampMs;
 }
 export interface GetPermissionsParams {

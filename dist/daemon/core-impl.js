@@ -25,7 +25,8 @@ import { handleSession } from '../mcp/tools/session.js';
 import { handleSnapshot } from '../mcp/tools/snapshot.js';
 import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
-import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary } from '../native/compiler.js';
+import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary, SCREEN_RECORDING_PREFLIGHT_PATH, DAEMON_LAUNCHER_PATH, } from '../native/compiler.js';
+import { assessGrantStaleness, recordGrant } from '../native/signing.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
@@ -1175,9 +1176,51 @@ async function getPermissionStatuses(filter) {
     const now = Date.now();
     const states = await Promise.all(permissions.map(async (permission) => {
         const state = await probePermission(permission);
-        return permissionStatus(permission, state, now);
+        const staleness = diagnoseStaleness(permission, state);
+        return permissionStatus(permission, state, now, staleness);
     }));
     return states;
+}
+/**
+ * The helper binary whose code-signing identity governs a permission's grant.
+ * Screen Recording is preflighted by the preflight helper; the daemon's own
+ * Accessibility trust follows the launcher that execs it. Permissions with no
+ * spectra-owned helper (automation, developer-tools) return null and are never
+ * staleness-tracked. Uses the exported install path (never triggers a compile).
+ */
+function permissionHelperBinary(permission) {
+    switch (permission) {
+        case 'screen-recording':
+            return SCREEN_RECORDING_PREFLIGHT_PATH;
+        case 'accessibility':
+            return DAEMON_LAUNCHER_PATH;
+        default:
+            return null;
+    }
+}
+/**
+ * On a granted probe, pin "last known granted" to the helper's current cdhash.
+ * On a denied probe, report `grant_stale_rebuild` when the helper's cdhash has
+ * changed since that grant — i.e. denied *because Spectra was rebuilt*, not
+ * because it was never granted. Best-effort; never throws into a probe.
+ */
+function diagnoseStaleness(permission, state) {
+    const helper = permissionHelperBinary(permission);
+    if (!helper)
+        return undefined;
+    try {
+        if (state === 'granted') {
+            recordGrant(permission, helper);
+            return undefined;
+        }
+        if (state === 'denied') {
+            return assessGrantStaleness(permission, helper).stale ? 'grant_stale_rebuild' : undefined;
+        }
+    }
+    catch {
+        // Diagnostic only — a failed cdhash read must not change the probe result.
+    }
+    return undefined;
 }
 async function probePermission(permission) {
     if (process.platform !== 'darwin')
@@ -1211,7 +1254,7 @@ async function probePermission(permission) {
     // Keep these unknown rather than fabricating a value from brittle UI state.
     return 'unknown';
 }
-function permissionStatus(permission, state, lastCheckedAt) {
+function permissionStatus(permission, state, lastCheckedAt, staleness) {
     const requiredFor = {
         accessibility: ['macOS UI snapshots', 'macOS UI actions'],
         'screen-recording': ['screenshots', 'video capture'],
@@ -1224,6 +1267,10 @@ function permissionStatus(permission, state, lastCheckedAt) {
         requiredFor: requiredFor[permission],
         canPrompt: process.platform === 'darwin',
         settingsUrl: process.platform === 'darwin' ? settingsUrl(permission) : undefined,
+        message: staleness === 'grant_stale_rebuild'
+            ? 'Spectra was rebuilt since this permission was granted. Remove the old Spectra entry in System Settings › Privacy & Security and re-grant.'
+            : undefined,
+        staleness,
         lastCheckedAt,
     };
 }

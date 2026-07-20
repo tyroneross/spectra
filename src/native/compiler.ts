@@ -16,6 +16,11 @@ import {
 import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
+import {
+  identifierFor,
+  recordSigningManifest,
+  resolveSigningIdentity,
+} from './signing.js'
 
 const BIN_DIR = join(homedir(), '.spectra', 'bin')
 const BINARY_PATH = join(BIN_DIR, 'spectra-native')
@@ -30,11 +35,12 @@ const TEXT_RENDER_BINARY_PATH = join(BIN_DIR, 'spectra-text-render')
 const TEXT_RENDER_HASH_PATH = join(BIN_DIR, '.text-render-source-hash')
 const DAEMON_LAUNCHER_PATH = join(BIN_DIR, 'spectra-daemon-launcher')
 const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app')
-// GUARDRAIL: default to AD-HOC signing ('-') — no keychain access, no prompt.
-// The user's real Apple Development identity is used ONLY when they explicitly
-// set SPECTRA_CODESIGN_IDENTITY (release/notarize). Agents never auto-sign with
-// the user's Apple identity. SPECTRA_CODESIGN=0 skips signing entirely.
-const DEFAULT_CODESIGN_IDENTITY = '-'
+// SIGNING: identity resolution + stable identifier live in ./signing.ts.
+// Default is grant-durable stable signing (Developer ID identity + a stable
+// `-i dev.spectra.<slug>` identifier) when a Developer ID identity is present,
+// so TCC grants survive rebuilds; otherwise ad-hoc with the SAME stable
+// identifier. SPECTRA_STABLE_SIGNING=0 forces ad-hoc; SPECTRA_CODESIGN=0 skips
+// signing; SPECTRA_CODESIGN_IDENTITY=<id> pins an explicit identity.
 const COMPILE_LOCK_STALE_MS = 60_000
 const COMPILE_LOCK_WAIT_MS = 30_000
 
@@ -104,16 +110,9 @@ function computeSourceHash(files: string[]): string {
   return hash.digest('hex')
 }
 
-function codesignIdentity(): string | null {
-  if (process.env.SPECTRA_CODESIGN === '0') return null
-  const identity = process.env.SPECTRA_CODESIGN_IDENTITY ?? DEFAULT_CODESIGN_IDENTITY
-  if (identity === 'skip') return null
-  return identity
-}
-
 function hasExpectedSignature(binaryPath: string): boolean {
-  const identity = codesignIdentity()
-  if (!identity) return true
+  const { identity, mode } = resolveSigningIdentity()
+  if (mode === 'skip') return true
   if (!existsSync(binaryPath)) return false
 
   try {
@@ -122,9 +121,15 @@ function hasExpectedSignature(binaryPath: string): boolean {
     })
     if (result.status !== 0) return false
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
-    if (identity === DEFAULT_CODESIGN_IDENTITY) {
+    // A binary carrying the OLD swiftc-linker identifier (or a stale identity)
+    // is "stale" so the next build re-signs it with the stable identity — this
+    // is what pulls existing installs onto the grant-durable identifier.
+    const expectedIdentifier = identifierFor(binaryPath)
+    if (!output.includes(`Identifier=${expectedIdentifier}`)) return false
+    if (mode === 'adhoc') {
       return output.includes('Signature=adhoc')
     }
+    // devid / explicit: a real signing authority + a Team ID.
     return output.includes(`Authority=${identity}`)
       && /TeamIdentifier=(?!not set)/.test(output)
   } catch {
@@ -133,14 +138,18 @@ function hasExpectedSignature(binaryPath: string): boolean {
 }
 
 function signNativeBinary(binaryPath: string): void {
-  const identity = codesignIdentity()
-  if (!identity) return
+  const { identity, mode } = resolveSigningIdentity()
+  if (mode === 'skip' || !identity) return
 
   try {
     execFileSync('codesign', [
       '--force',
       '--timestamp=none',
       '--options', 'runtime',
+      // STABLE IDENTIFIER — without this, codesign keeps swiftc's linker
+      // identifier (`spectra-<name>-<contenthash>`) and TCC grants break on
+      // every rebuild. See src/native/signing.ts for the full rationale.
+      '-i', identifierFor(binaryPath),
       '--sign', identity,
       binaryPath,
     ], { stdio: 'pipe' })
@@ -148,6 +157,10 @@ function signNativeBinary(binaryPath: string): void {
     const msg = err instanceof Error ? (err as any).stderr?.toString() ?? err.message : String(err)
     throw new Error(`codesign failed for ${binaryPath}:\n${msg}`)
   }
+
+  // Record what we actually signed (identifier + cdhash + Team ID) so the
+  // daemon's staleness detector can compare a grant's cdhash to the live one.
+  recordSigningManifest(binaryPath)
 }
 
 // ─── Bundle-first helper resolution (native-Swift migration M1, additive) ──

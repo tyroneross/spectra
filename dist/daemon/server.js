@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { API_VERSION, eventsRoute, primarySocketPath, } from '../contract/wire.js';
 import { operationParamSchemas } from '../contract/schemas.js';
 import { createCoreApi } from './core-impl.js';
+import { readRegrantMarker } from '../native/signing.js';
 import { DaemonApiError, toDaemonApiError } from './errors.js';
 import { allCapabilities, assertCapabilities, assertLoopbackTcpRequest, assertOperationAllowed, expandHomePath, getOrCreateBearerToken, isCoreApiOperation, prepareUnixSocketPath, verifyBearerCaller, verifyUnixCaller, } from './security.js';
 const MAX_JSON_BYTES = 1024 * 1024;
@@ -66,6 +67,22 @@ export async function startDaemonServer(options = {}) {
         const address = tcpServer.address();
         tcpPort = typeof address === 'object' && address ? address.port : options.tcp.port;
         servers.push(tcpServer);
+    }
+    // Surface a pending re-grant on next start: the install flow drops this
+    // marker when a helper's signing identity changed, so an existing TCC grant
+    // no longer matches the running binary. One prominent stderr line (→
+    // ~/.spectra/logs/daemon.err.log) is the "daemon surfaces it on next start"
+    // half of the install-flow guard. Advisory only — never blocks startup.
+    try {
+        const regrant = readRegrantMarker();
+        if (regrant) {
+            process.stderr.write(`⚠️  Spectra permissions: a helper was re-signed since your last grant `
+                + `(${regrant.helper ?? 'helper'}). Remove old Spectra entries in `
+                + `System Settings › Privacy & Security and re-grant Screen Recording / Accessibility.\n`);
+        }
+    }
+    catch {
+        // Never let a diagnostic read wedge daemon startup.
     }
     return {
         api,

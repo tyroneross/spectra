@@ -30,6 +30,13 @@ describe('getPermissions — screen-recording probe', () => {
       ensureScreenRecordingPreflightBinary: () => '/fake/bin/spectra-screen-recording-preflight',
       ensureBinary: () => '/fake/bin/spectra-native',
       ensureCompositeBinary: () => '/fake/bin/spectra-composite-capture',
+      ensureCursorSamplerBinary: () => '/fake/bin/spectra-cursor-sampler',
+      SCREEN_RECORDING_PREFLIGHT_PATH: '/fake/bin/spectra-screen-recording-preflight',
+      DAEMON_LAUNCHER_PATH: '/fake/bin/spectra-daemon-launcher',
+    }))
+    vi.doMock('../../src/native/signing.js', () => ({
+      recordGrant: () => {},
+      assessGrantStaleness: () => ({ stale: false }),
     }))
     const { createDaemonCore } = await import('../../src/daemon/core.js')
     return createDaemonCore({})
@@ -55,5 +62,76 @@ describe('getPermissions — screen-recording probe', () => {
     const { permissions } = await core.getPermissions({})
     expect(permissions.find((p) => p.permission === 'automation')!.state).toBe('unknown')
     expect(permissions.find((p) => p.permission === 'developer-tools')!.state).toBe('unknown')
+  })
+})
+
+// Staleness diagnosis: a DENIED screen-recording probe whose helper cdhash
+// changed since the grant is reported as `grant_stale_rebuild` (with an
+// actionable message), not a bare `denied`. The signing module is mocked so the
+// path is deterministic and needs no real TCC access or codesign.
+describe('getPermissions — grant_stale_rebuild diagnosis', () => {
+  beforeEach(() => { vi.resetModules() })
+  afterEach(() => { vi.restoreAllMocks(); vi.resetModules() })
+
+  async function coreWith(opts: { preflightSucceeds: boolean; stale: boolean }) {
+    vi.doMock('node:child_process', () => ({
+      execFile: (file: string, args: unknown, o: unknown, cb: unknown) => {
+        const callback = (typeof o === 'function' ? o : cb) as (err: Error | null, out?: { stdout: string; stderr: string }) => void
+        if (file.includes('osascript')) return callback(null, { stdout: 'true\n', stderr: '' })
+        if (file.includes('preflight')) {
+          return opts.preflightSucceeds ? callback(null, { stdout: '', stderr: '' }) : callback(new Error('denied'))
+        }
+        return callback(null, { stdout: '', stderr: '' })
+      },
+      spawn: () => { throw new Error('spawn not expected') },
+      spawnSync: () => ({ status: 0, stdout: '', stderr: '' }),
+    }))
+    vi.doMock('../../src/native/compiler.js', () => ({
+      ensureScreenRecordingPreflightBinary: () => '/fake/bin/spectra-screen-recording-preflight',
+      ensureBinary: () => '/fake/bin/spectra-native',
+      ensureCompositeBinary: () => '/fake/bin/spectra-composite-capture',
+      ensureCursorSamplerBinary: () => '/fake/bin/spectra-cursor-sampler',
+      SCREEN_RECORDING_PREFLIGHT_PATH: '/fake/bin/spectra-screen-recording-preflight',
+      DAEMON_LAUNCHER_PATH: '/fake/bin/spectra-daemon-launcher',
+    }))
+    const recordGrant = vi.fn()
+    vi.doMock('../../src/native/signing.js', () => ({
+      recordGrant,
+      assessGrantStaleness: () => (opts.stale
+        ? { stale: true, grantedCdhash: 'aaa', currentCdhash: 'bbb' }
+        : { stale: false }),
+    }))
+    const { createDaemonCore } = await import('../../src/daemon/core.js')
+    return { core: createDaemonCore({}), recordGrant }
+  }
+
+  const onMac = process.platform === 'darwin'
+  const macIt = onMac ? it : it.skip
+
+  macIt('denied + rebuilt-since-grant → staleness grant_stale_rebuild with a message', async () => {
+    const { core } = await coreWith({ preflightSucceeds: false, stale: true })
+    const { permissions } = await core.getPermissions({})
+    const sr = permissions.find((p) => p.permission === 'screen-recording')!
+    expect(sr.state).toBe('denied')
+    expect(sr.staleness).toBe('grant_stale_rebuild')
+    expect(sr.message).toMatch(/rebuilt/i)
+  })
+
+  macIt('denied but no prior grant → plain denied, no staleness', async () => {
+    const { core } = await coreWith({ preflightSucceeds: false, stale: false })
+    const { permissions } = await core.getPermissions({})
+    const sr = permissions.find((p) => p.permission === 'screen-recording')!
+    expect(sr.state).toBe('denied')
+    expect(sr.staleness).toBeUndefined()
+    expect(sr.message).toBeUndefined()
+  })
+
+  macIt('granted → records the grant and reports no staleness', async () => {
+    const { core, recordGrant } = await coreWith({ preflightSucceeds: true, stale: false })
+    const { permissions } = await core.getPermissions({})
+    const sr = permissions.find((p) => p.permission === 'screen-recording')!
+    expect(sr.state).toBe('granted')
+    expect(sr.staleness).toBeUndefined()
+    expect(recordGrant).toHaveBeenCalledWith('screen-recording', '/fake/bin/spectra-screen-recording-preflight')
   })
 })
