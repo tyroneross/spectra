@@ -36,7 +36,9 @@ if [[ "${SPECTRA_CODESIGN:-1}" == "0" ]]; then
     exit 0
 fi
 
-SPECTRA_HOME="$HOME/.spectra"
+# SPECTRA_HOME override keeps this script's paths in lockstep with
+# src/native/signing.ts (production → ~/.spectra; tests → a temp dir).
+SPECTRA_HOME="${SPECTRA_HOME:-$HOME/.spectra}"
 GRANTS_FILE="$SPECTRA_HOME/permission-grants.json"
 REGRANT_MARKER="$SPECTRA_HOME/bin/.regrant-needed.json"
 
@@ -61,6 +63,13 @@ resolve_identity() {
 }
 
 IDENTITY="$(resolve_identity)"
+# AUTO_DEVID=1 when we auto-detected a Developer ID identity (no explicit
+# override) — a sign failure with it degrades gracefully to ad-hoc rather than
+# hard-failing the build (honors "never auto-touch/hard-fail on the keychain").
+AUTO_DEVID=0
+if [[ -z "${SPECTRA_CODESIGN_IDENTITY:-}" && "$IDENTITY" == "Developer ID Application:"* ]]; then
+    AUTO_DEVID=1
+fi
 if [[ "$IDENTITY" == "skip" ]]; then
     exit 0
 fi
@@ -89,13 +98,29 @@ if [[ -e "$TARGET" ]]; then
     PREV_TEAM="$(printf '%s\n' "$PREV_DESC" | sed -n 's/^TeamIdentifier=//p' | head -n1)"
 fi
 
-args=(--force --timestamp=none --options runtime -i "$IDENTIFIER" --sign "$IDENTITY")
+entitlement_args=()
 if [[ -n "${SPECTRA_CODESIGN_ENTITLEMENTS:-}" ]]; then
-    args+=(--entitlements "$SPECTRA_CODESIGN_ENTITLEMENTS")
+    entitlement_args=(--entitlements "$SPECTRA_CODESIGN_ENTITLEMENTS")
 fi
-args+=("$TARGET")
 
-codesign "${args[@]}"
+sign_with() {
+    # ${arr[@]+"${arr[@]}"} — expand only when set, so an empty array is safe
+    # under `set -u` on macOS's bash 3.2.
+    codesign --force --timestamp=none --options runtime \
+        -i "$IDENTIFIER" ${entitlement_args[@]+"${entitlement_args[@]}"} --sign "$1" "$TARGET"
+}
+
+if ! sign_with "$IDENTITY"; then
+    if [[ "$AUTO_DEVID" == "1" ]]; then
+        # Developer ID signing failed (unauthorized ACL / denied prompt / restricted
+        # keychain). Fall back to ad-hoc with the SAME stable identifier so the build
+        # never hard-fails; TCC grants are then cdhash-pinned until an identity is wired.
+        echo "codesign: Developer ID signing failed for $BASENAME; falling back to ad-hoc (stable identifier kept)." >&2
+        sign_with "-"
+    else
+        exit 1
+    fi
+fi
 codesign --verify --strict "$TARGET"
 
 NEW_DESC="$(codesign -dvv "$TARGET" 2>&1 || true)"

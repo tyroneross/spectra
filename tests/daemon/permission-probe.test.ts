@@ -37,6 +37,7 @@ describe('getPermissions — screen-recording probe', () => {
     vi.doMock('../../src/native/signing.js', () => ({
       recordGrant: () => {},
       assessGrantStaleness: () => ({ stale: false }),
+      clearRegrantMarker: () => {},
     }))
     const { createDaemonCore } = await import('../../src/daemon/core.js')
     return createDaemonCore({})
@@ -95,14 +96,16 @@ describe('getPermissions — grant_stale_rebuild diagnosis', () => {
       DAEMON_LAUNCHER_PATH: '/fake/bin/spectra-daemon-launcher',
     }))
     const recordGrant = vi.fn()
+    const clearRegrantMarker = vi.fn()
     vi.doMock('../../src/native/signing.js', () => ({
       recordGrant,
+      clearRegrantMarker,
       assessGrantStaleness: () => (opts.stale
         ? { stale: true, grantedCdhash: 'aaa', currentCdhash: 'bbb' }
         : { stale: false }),
     }))
     const { createDaemonCore } = await import('../../src/daemon/core.js')
-    return { core: createDaemonCore({}), recordGrant }
+    return { core: createDaemonCore({}), recordGrant, clearRegrantMarker }
   }
 
   const onMac = process.platform === 'darwin'
@@ -126,12 +129,13 @@ describe('getPermissions — grant_stale_rebuild diagnosis', () => {
     expect(sr.message).toBeUndefined()
   })
 
-  macIt('granted → records the grant and reports no staleness', async () => {
-    const { core, recordGrant } = await coreWith({ preflightSucceeds: true, stale: false })
+  macIt('granted → records the grant, clears the re-grant marker, no staleness', async () => {
+    const { core, recordGrant, clearRegrantMarker } = await coreWith({ preflightSucceeds: true, stale: false })
     const { permissions } = await core.getPermissions({})
     const sr = permissions.find((p) => p.permission === 'screen-recording')!
     expect(sr.state).toBe('granted')
     expect(sr.staleness).toBeUndefined()
     expect(recordGrant).toHaveBeenCalledWith('screen-recording', '/fake/bin/spectra-screen-recording-preflight')
+    expect(clearRegrantMarker).toHaveBeenCalled()
   })
 })

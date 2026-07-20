@@ -3,9 +3,11 @@ import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import { accessSync, closeSync, constants as fsConstants, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { identifierFor, recordSigningManifest, resolveSigningIdentity, } from './signing.js';
-const BIN_DIR = join(homedir(), '.spectra', 'bin');
+import { basename, join, resolve } from 'node:path';
+import { identifierFor, markDevidUnavailable, recordSigningManifest, resolveSigningIdentity, SIGNING_BIN_DIR, } from './signing.js';
+// Shared with signing.ts so the compiler, the signer, and the staleness
+// detector all resolve the same ~/.spectra/bin (and honor SPECTRA_HOME in tests).
+const BIN_DIR = SIGNING_BIN_DIR;
 const BINARY_PATH = join(BIN_DIR, 'spectra-native');
 const HASH_PATH = join(BIN_DIR, '.source-hash');
 const COMPOSITE_BINARY_PATH = join(BIN_DIR, 'spectra-composite-capture');
@@ -104,7 +106,13 @@ function hasExpectedSignature(binaryPath) {
         if (!output.includes(`Identifier=${expectedIdentifier}`))
             return false;
         if (mode === 'adhoc') {
-            return output.includes('Signature=adhoc');
+            // Accept ad-hoc OR a grant-durable (Team ID) signature: when identity
+            // detection degraded to ad-hoc in THIS process (e.g. keychain lookup
+            // timeout), an already Developer-ID-signed binary must NOT be declared
+            // stale and downgraded — that would reintroduce the cdhash-pinned grant
+            // breakage this module exists to fix.
+            return output.includes('Signature=adhoc')
+                || /TeamIdentifier=(?!not set)/.test(output);
         }
         // devid / explicit: a real signing authority + a Team ID.
         return output.includes(`Authority=${identity}`)
@@ -114,26 +122,49 @@ function hasExpectedSignature(binaryPath) {
         return false;
     }
 }
+function runCodesign(binaryPath, identity) {
+    execFileSync('codesign', [
+        '--force',
+        '--timestamp=none',
+        '--options', 'runtime',
+        // STABLE IDENTIFIER — without this, codesign keeps swiftc's linker
+        // identifier (`spectra-<name>-<contenthash>`) and TCC grants break on
+        // every rebuild. See src/native/signing.ts for the full rationale.
+        '-i', identifierFor(binaryPath),
+        '--sign', identity,
+        binaryPath,
+    ], { stdio: 'pipe' });
+}
 function signNativeBinary(binaryPath) {
     const { identity, mode } = resolveSigningIdentity();
     if (mode === 'skip' || !identity)
         return;
     try {
-        execFileSync('codesign', [
-            '--force',
-            '--timestamp=none',
-            '--options', 'runtime',
-            // STABLE IDENTIFIER — without this, codesign keeps swiftc's linker
-            // identifier (`spectra-<name>-<contenthash>`) and TCC grants break on
-            // every rebuild. See src/native/signing.ts for the full rationale.
-            '-i', identifierFor(binaryPath),
-            '--sign', identity,
-            binaryPath,
-        ], { stdio: 'pipe' });
+        runCodesign(binaryPath, identity);
     }
     catch (err) {
-        const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);
-        throw new Error(`codesign failed for ${binaryPath}:\n${msg}`);
+        if (mode === 'devid') {
+            // Graceful degradation (never auto-touch/hard-fail on the keychain): a
+            // host whose key ACL isn't pre-authorized — or a denied prompt — must not
+            // break the build. Fall back to ad-hoc with the SAME stable identifier
+            // (identical to pre-Developer-ID behavior) and latch it so the rest of
+            // this process resolves ad-hoc too (no recompile ping-pong).
+            process.stderr.write(`spectra: Developer ID signing unavailable for ${basename(binaryPath)}; `
+                + `signed ad-hoc with stable identifier instead. TCC grants will be `
+                + `cdhash-pinned (do not survive rebuilds) until a signing identity is wired.\n`);
+            markDevidUnavailable();
+            try {
+                runCodesign(binaryPath, '-');
+            }
+            catch (fallbackErr) {
+                const msg = fallbackErr instanceof Error ? fallbackErr.stderr?.toString() ?? fallbackErr.message : String(fallbackErr);
+                throw new Error(`codesign failed for ${binaryPath}:\n${msg}`);
+            }
+        }
+        else {
+            const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);
+            throw new Error(`codesign failed for ${binaryPath}:\n${msg}`);
+        }
     }
     // Record what we actually signed (identifier + cdhash + Team ID) so the
     // daemon's staleness detector can compare a grant's cdhash to the live one.

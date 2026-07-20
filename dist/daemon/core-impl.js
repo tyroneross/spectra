@@ -26,7 +26,7 @@ import { handleSnapshot } from '../mcp/tools/snapshot.js';
 import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
 import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary, SCREEN_RECORDING_PREFLIGHT_PATH, DAEMON_LAUNCHER_PATH, } from '../native/compiler.js';
-import { assessGrantStaleness, recordGrant } from '../native/signing.js';
+import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native/signing.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
@@ -1211,6 +1211,9 @@ function diagnoseStaleness(permission, state) {
     try {
         if (state === 'granted') {
             recordGrant(permission, helper);
+            // The grant is live again → retire any "re-grant needed" marker so the
+            // daemon-startup warning stops firing (otherwise it warns forever).
+            clearRegrantMarker();
             return undefined;
         }
         if (state === 'denied') {

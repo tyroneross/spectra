@@ -18,8 +18,11 @@
 //   2. STABLE TEAM IDENTITY — when a real "Developer ID Application" identity is
 //      present in the keychain, sign with it. TCC then keys the grant on
 //      (identifier, Team ID leaf), which is STABLE across rebuilds regardless of
-//      cdhash — so the grant survives. This is proven non-prompting for an
-//      already-authorized key ACL; it never modifies the keychain.
+//      cdhash — so the grant survives. Signing never MODIFIES the keychain, and
+//      it is non-prompting when the key ACL already authorizes codesign (as on
+//      this repo's host). On a machine whose ACL is not pre-authorized, signing
+//      could prompt or fail — so the caller degrades gracefully to ad-hoc with
+//      the same stable identifier (see markDevidUnavailable / compiler.ts).
 //   3. STALENESS RECORD — record each helper's cdhash at sign time and the
 //      cdhash a permission was last granted against, so the daemon can tell
 //      "denied because rebuilt since grant" from a plain "denied".
@@ -31,7 +34,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // (c) 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
 // `SPECTRA_HOME` overrides the state dir. Production never sets it (→ ~/.spectra);
@@ -60,6 +63,15 @@ export function identifierFor(binaryPathOrName) {
     return `dev.spectra.${slugFor(binaryPathOrName)}`;
 }
 let cachedDeveloperId;
+// Set once Developer ID signing has failed in this process (denied prompt,
+// unauthorized ACL, restricted keychain). Keeps identity resolution — and thus
+// hasExpectedSignature — consistent with the ad-hoc binary we fell back to
+// signing, so a devid-incapable host does not ping-pong recompile→re-sign.
+let devidUnavailable = false;
+/** Record that Developer ID signing is not usable in this process → resolve ad-hoc. */
+export function markDevidUnavailable() {
+    devidUnavailable = true;
+}
 /**
  * First "Developer ID Application: …" identity in the login keychain, or null.
  * READ-ONLY: `security find-identity` enumerates identities; it never unlocks,
@@ -87,9 +99,10 @@ export function detectDeveloperIdIdentity() {
     }
     return cachedDeveloperId;
 }
-/** Test seam — reset the cached Developer ID lookup. */
+/** Test seam — reset the cached Developer ID lookup + fallback latch. */
 export function resetSigningIdentityCache() {
     cachedDeveloperId = undefined;
+    devidUnavailable = false;
 }
 /**
  * Resolve which identity to sign with, honoring the guardrail env vars:
@@ -110,7 +123,7 @@ export function resolveSigningIdentity() {
             return { identity: ADHOC_IDENTITY, mode: 'adhoc' };
         return { identity: explicit, mode: 'explicit' };
     }
-    if (process.env.SPECTRA_STABLE_SIGNING !== '0') {
+    if (process.env.SPECTRA_STABLE_SIGNING !== '0' && !devidUnavailable) {
         const devId = detectDeveloperIdIdentity();
         if (devId)
             return { identity: devId, mode: 'devid' };
@@ -231,7 +244,7 @@ export function readRegrantMarker() {
 export function clearRegrantMarker() {
     try {
         if (existsSync(REGRANT_MARKER_PATH))
-            writeFileSync(REGRANT_MARKER_PATH, '');
+            rmSync(REGRANT_MARKER_PATH, { force: true });
     }
     catch {
         // Non-fatal.

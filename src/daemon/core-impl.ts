@@ -109,7 +109,7 @@ import {
   SCREEN_RECORDING_PREFLIGHT_PATH,
   DAEMON_LAUNCHER_PATH,
 } from '../native/compiler.js'
-import { assessGrantStaleness, recordGrant } from '../native/signing.js'
+import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native/signing.js'
 import {
   COMPOSITE_WORKER_DEFAULTS,
   parseLuminance,
@@ -1494,6 +1494,9 @@ function diagnoseStaleness(
   try {
     if (state === 'granted') {
       recordGrant(permission, helper)
+      // The grant is live again → retire any "re-grant needed" marker so the
+      // daemon-startup warning stops firing (otherwise it warns forever).
+      clearRegrantMarker()
       return undefined
     }
     if (state === 'denied') {

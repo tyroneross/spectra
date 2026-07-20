@@ -22,6 +22,8 @@ import {
   slugFor,
   identifierFor,
   resolveSigningIdentity,
+  markDevidUnavailable,
+  resetSigningIdentityCache,
 } from '../../src/native/signing.js'
 
 const ALL_HELPERS = [
@@ -59,6 +61,15 @@ describe('signing — identity resolution precedence', () => {
   })
   afterEach(() => {
     process.env = { ...saved }
+    resetSigningIdentityCache()
+  })
+
+  it('markDevidUnavailable latches resolution to ad-hoc (prevents recompile ping-pong)', () => {
+    // After a devid sign failure the process must resolve ad-hoc consistently,
+    // so hasExpectedSignature agrees with the ad-hoc binary it fell back to.
+    markDevidUnavailable()
+    expect(resolveSigningIdentity()).toEqual({ identity: '-', mode: 'adhoc' })
+    resetSigningIdentityCache()
   })
 
   it('SPECTRA_CODESIGN=0 skips signing', () => {
@@ -159,5 +170,13 @@ macDescribe('signing — cdhash staleness detector (temp HOME, real codesign)', 
   it('with no recorded grant, nothing is stale', () => {
     compileAndSign('v1')
     expect(mod.assessGrantStaleness('screen-recording', binPath)).toEqual({ stale: false })
+  })
+
+  it('clearRegrantMarker removes the re-grant marker file', () => {
+    writeFileSync(mod.REGRANT_MARKER_PATH, '{"reason":"x","helper":"h","previousIdentifier":null,"newIdentifier":null,"createdAt":"t"}')
+    expect(mod.readRegrantMarker()).not.toBeNull()
+    mod.clearRegrantMarker()
+    expect(existsSync(mod.REGRANT_MARKER_PATH)).toBe(false)
+    expect(mod.readRegrantMarker()).toBeNull()
   })
 })

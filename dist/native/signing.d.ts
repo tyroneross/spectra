@@ -20,13 +20,15 @@ export interface ResolvedSigningIdentity {
     identity: string | null;
     mode: SigningMode;
 }
+/** Record that Developer ID signing is not usable in this process → resolve ad-hoc. */
+export declare function markDevidUnavailable(): void;
 /**
  * First "Developer ID Application: …" identity in the login keychain, or null.
  * READ-ONLY: `security find-identity` enumerates identities; it never unlocks,
  * modifies, or prompts. Cached for the process.
  */
 export declare function detectDeveloperIdIdentity(): string | null;
-/** Test seam — reset the cached Developer ID lookup. */
+/** Test seam — reset the cached Developer ID lookup + fallback latch. */
 export declare function resetSigningIdentityCache(): void;
 /**
  * Resolve which identity to sign with, honoring the guardrail env vars:
