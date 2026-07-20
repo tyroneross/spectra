@@ -29,6 +29,7 @@ vi.mock('node:fs/promises', () => ({
 
 vi.mock('../../src/media/ffmpeg.js', () => ({
   requireFfmpeg: vi.fn(() => 'ffmpeg'),
+  crashSafeMp4Args: vi.fn(() => []),
 }))
 
 import { rm } from 'node:fs/promises'

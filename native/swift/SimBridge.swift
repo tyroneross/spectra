@@ -89,6 +89,7 @@ private var activeRecordings: [String: Process] = [:]
 
 func simStartRecording(udid: String) -> Result<String, SimBridgeError> {
     let tmpPath = NSTemporaryDirectory() + "spectra-sim-\(UUID().uuidString).mp4"
+    let recordingId = UUID().uuidString
 
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
@@ -102,10 +103,20 @@ func simStartRecording(udid: String) -> Result<String, SimBridgeError> {
         return .failure(SimBridgeError(message: "simctl recordVideo failed: \(error)"))
     }
 
-    let recordingId = UUID().uuidString
     recordingsLock.lock()
     activeRecordings[recordingId] = process
     recordingsLock.unlock()
+    DispatchQueue.main.async {
+        RecordingNotice.shared.recordingStarted("simulator:\(recordingId)")
+    }
+    process.terminationHandler = { _ in
+        recordingsLock.lock()
+        activeRecordings.removeValue(forKey: recordingId)
+        recordingsLock.unlock()
+        DispatchQueue.main.async {
+            RecordingNotice.shared.recordingStopped("simulator:\(recordingId)")
+        }
+    }
     return .success(recordingId)
 }
 
@@ -123,6 +134,9 @@ func simStopRecording(recordingId: String) -> Result<String, SimBridgeError> {
     recordingsLock.lock()
     activeRecordings.removeValue(forKey: recordingId)
     recordingsLock.unlock()
+    DispatchQueue.main.async {
+        RecordingNotice.shared.recordingStopped("simulator:\(recordingId)")
+    }
 
     guard let args = process.arguments, let path = args.last else {
         return .failure(SimBridgeError(message: "Could not determine recording output path"))

@@ -28,6 +28,7 @@ const TEST_APP_PATH = join(BIN_DIR, 'spectra-test-app');
 // signing; SPECTRA_CODESIGN_IDENTITY=<id> pins an explicit identity.
 const COMPILE_LOCK_STALE_MS = 60_000;
 const COMPILE_LOCK_WAIT_MS = 30_000;
+const SWIFT_MACOS_TARGET = `${process.arch === 'x64' ? 'x86_64' : process.arch}-apple-macos14.0`;
 // Find project root by looking for native/swift/ directory
 function findSwiftSource() {
     // Walk up from this file's location to find the project root
@@ -44,6 +45,12 @@ function findCompositeSwiftSource() {
         throw new Error(`Composite Swift source not found at ${swiftDir}`);
     }
     return swiftDir;
+}
+function getCompositeSwiftFiles() {
+    return [
+        ...getSwiftFiles(findCompositeSwiftSource()),
+        join(findSwiftSource(), 'RecordingNotice.swift'),
+    ].sort();
 }
 function findScreenRecordingPreflightSource() {
     const swiftDir = join(findSwiftSource(), 'screen-recording-preflight');
@@ -257,8 +264,7 @@ export function isCompositeStale() {
         return true;
     if (!hasExpectedSignature(SCREEN_RECORDING_PREFLIGHT_PATH))
         return true;
-    const swiftDir = findCompositeSwiftSource();
-    const files = getSwiftFiles(swiftDir);
+    const files = getCompositeSwiftFiles();
     const currentHash = computeSourceHash(files);
     const storedHash = readFileSync(COMPOSITE_HASH_PATH, 'utf-8').trim();
     if (currentHash !== storedHash)
@@ -332,9 +338,12 @@ export function compile() {
         '-framework', 'CoreMedia',
         '-framework', 'CoreVideo',
     ];
-    const cmd = ['swiftc', ...files, ...frameworks, '-o', BINARY_PATH].join(' ');
+    const cmd = ['swiftc', '-target', SWIFT_MACOS_TARGET, ...files, ...frameworks, '-o', BINARY_PATH].join(' ');
     try {
-        execSync(cmd, { stdio: 'pipe' });
+        execSync(cmd, {
+            stdio: 'pipe',
+            env: { ...process.env, MACOSX_DEPLOYMENT_TARGET: '14.0' },
+        });
     }
     catch (err) {
         const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);
@@ -346,8 +355,7 @@ export function compile() {
     writeFileSync(HASH_PATH, hash);
 }
 export function compileComposite() {
-    const swiftDir = findCompositeSwiftSource();
-    const files = getSwiftFiles(swiftDir);
+    const files = getCompositeSwiftFiles();
     mkdirSync(BIN_DIR, { recursive: true });
     try {
         execSync('which swiftc', { stdio: 'pipe' });
@@ -365,9 +373,15 @@ export function compileComposite() {
         '-framework', 'CoreGraphics',
         '-framework', 'AppKit',
     ];
-    const cmd = ['swiftc', '-parse-as-library', ...files, ...frameworks, '-o', COMPOSITE_BINARY_PATH].join(' ');
+    const cmd = [
+        'swiftc', '-target', SWIFT_MACOS_TARGET, '-parse-as-library',
+        ...files, ...frameworks, '-o', COMPOSITE_BINARY_PATH,
+    ].join(' ');
     try {
-        execSync(cmd, { stdio: 'pipe' });
+        execSync(cmd, {
+            stdio: 'pipe',
+            env: { ...process.env, MACOSX_DEPLOYMENT_TARGET: '14.0' },
+        });
     }
     catch (err) {
         const msg = err instanceof Error ? err.stderr?.toString() ?? err.message : String(err);

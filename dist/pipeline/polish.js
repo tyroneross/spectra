@@ -4,6 +4,7 @@ import { access, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { crashSafeMp4Args } from '../media/ffmpeg.js';
 import { cardsFromScript, soundCuesFromScript, timedStepCardsOverlayPlan } from './annotations.js';
 import { deriveZoomTrackFromActivity } from './auto-zoom.js';
 import { frameChromeRenderPlan, framingFilter } from './framing.js';
@@ -131,7 +132,7 @@ export async function polishClip(options) {
             '-c:v', 'libx264',
             '-pix_fmt', 'yuv420p',
             '-crf', '18',
-            '-movflags', '+faststart',
+            ...crashSafeMp4Args(),
             options.outPath,
         ]);
         return {
@@ -276,7 +277,7 @@ export async function polishScript(options) {
             '-c:v', 'libx264',
             '-pix_fmt', 'yuv420p',
             '-crf', '18',
-            '-movflags', '+faststart',
+            ...crashSafeMp4Args(),
             options.outPath,
         ]);
         return {

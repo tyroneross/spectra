@@ -58,6 +58,21 @@ struct CompositeResult: Encodable {
     let validation: ValidationResult?
 }
 
+struct CompositeRecoveryManifest: Codable {
+    let schema: String
+    var status: String
+    let output: String
+    let left: String
+    let right: String
+    let fps: Int
+    let durationSeconds: Double
+    let paneHeight: Int
+    let pixFmt: String
+    let maxWidth: Int
+    let crf: Int
+    var updatedAt: Date
+}
+
 struct Options {
     var listWindows = false
     var appA: String?
@@ -90,7 +105,7 @@ struct SpectraCompositeCapture {
     static func main() async {
         do {
             let app = NSApplication.shared
-            app.setActivationPolicy(.prohibited)
+            app.setActivationPolicy(.accessory)
 
             let options = try parseOptions(CommandLine.arguments)
 
@@ -133,12 +148,34 @@ struct SpectraCompositeCapture {
             let leftWindow = try selectWindow(content.windows, app: appA, title: options.titleA)
             let rightWindow = try selectWindow(content.windows, app: appB, title: options.titleB)
 
-            let tempDir = FileManager.default.temporaryDirectory
-                .appendingPathComponent("spectra-composite-\(UUID().uuidString)", isDirectory: true)
+            // Keep in-progress pane recordings beside the requested output.
+            // If the worker is killed, these fragmented MP4s and the manifest
+            // remain discoverable and can be stitched into the final composite.
+            let tempDir = outputURL.deletingLastPathComponent().appendingPathComponent(
+                "\(outputURL.lastPathComponent).spectra-recovery-\(UUID().uuidString)",
+                isDirectory: true
+            )
             try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
             let leftURL = tempDir.appendingPathComponent("left.mp4")
             let rightURL = tempDir.appendingPathComponent("right.mp4")
+            let leftSize = outputSize(for: leftWindow, displays: content.displays)
+            let rightSize = outputSize(for: rightWindow, displays: content.displays)
+            var recoveryManifest = CompositeRecoveryManifest(
+                schema: "spectra.composite-recovery.v1",
+                status: "recording",
+                output: outputURL.path,
+                left: leftURL.path,
+                right: rightURL.path,
+                fps: options.fps,
+                durationSeconds: options.duration,
+                paneHeight: max(2, min(leftSize.height, rightSize.height) - (min(leftSize.height, rightSize.height) % 2)),
+                pixFmt: options.pixFmt,
+                maxWidth: options.maxWidth,
+                crf: options.crf,
+                updatedAt: Date()
+            )
+            try writeCompositeRecoveryManifest(recoveryManifest, directory: tempDir)
 
             let leftRecorder = WindowRecorder(
                 window: leftWindow,
@@ -165,12 +202,19 @@ struct SpectraCompositeCapture {
             let cursorTracker: CursorTracker? = options.cursor ? CursorTracker() : nil
             cursorTracker?.start()
 
+            let noticeToken = "composite:\(outputURL.path)"
+            RecordingNotice.shared.recordingStarted(noticeToken)
+            defer { RecordingNotice.shared.recordingStopped(noticeToken) }
+
             async let leftStats = leftRecorder.record(duration: options.duration, hardStop: hardStop)
             async let rightStats = rightRecorder.record(duration: options.duration, hardStop: hardStop)
             let (left, right) = try await (leftStats, rightStats)
             hardStop.cancel()
 
             cursorTracker?.stop()
+            recoveryManifest.status = "captured"
+            recoveryManifest.updatedAt = Date()
+            try writeCompositeRecoveryManifest(recoveryManifest, directory: tempDir)
 
             // P2 — build the composite geometry and render a smoothed cursor layer.
             // Both panes scale to a common height preserving aspect (same as the stitch),
@@ -202,6 +246,9 @@ struct SpectraCompositeCapture {
 
             let labelA = options.labelA ?? labelFor(window: leftWindow, fallbackApp: appA)
             let labelB = options.labelB ?? labelFor(window: rightWindow, fallbackApp: appB)
+            recoveryManifest.status = "encoding"
+            recoveryManifest.updatedAt = Date()
+            try writeCompositeRecoveryManifest(recoveryManifest, directory: tempDir)
             let stitch = try stitchVideos(
                 left: leftURL,
                 right: rightURL,
@@ -228,7 +275,11 @@ struct SpectraCompositeCapture {
                 ? try validateVideo(outputURL, targetFps: options.fps)
                 : nil
 
-            if !options.keepParts {
+            if options.keepParts {
+                recoveryManifest.status = "complete"
+                recoveryManifest.updatedAt = Date()
+                try writeCompositeRecoveryManifest(recoveryManifest, directory: tempDir)
+            } else {
                 try? FileManager.default.removeItem(at: tempDir)
             }
 
@@ -277,7 +328,7 @@ Options:
   --validate                  Run CFR validator after encode. Default.
   --validate-file <path.mp4>  Validate an existing MP4 and exit.
   --no-validate               Skip CFR validator.
-  --keep-parts                Keep intermediate per-window MP4s under /tmp.
+  --keep-parts                Keep the adjacent .spectra-recovery directory after success.
 """)
 }
 
@@ -395,6 +446,17 @@ func printJSON<T: Encodable>(_ value: T) throws {
         throw CLIError(description: "Failed to encode JSON")
     }
     print(string)
+}
+
+func writeCompositeRecoveryManifest(
+    _ manifest: CompositeRecoveryManifest,
+    directory: URL
+) throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    let data = try encoder.encode(manifest)
+    try data.write(to: directory.appendingPathComponent("manifest.json"), options: .atomic)
 }
 
 func windowRecord(_ window: SCWindow) -> WindowRecord {
@@ -653,14 +715,15 @@ final class WindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let timeScale = CMTimeScale(max(600, fps * 1000))
         let ticksPerFrame = CMTimeValue(timeScale / CMTimeScale(fps))
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+        configureCrashSafeMovieWriter(writer)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: size.width,
             AVVideoHeightKey: size.height,
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: max(8_000_000, size.width * size.height * fps / 8),
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
-            ]
+            AVVideoCompressionPropertiesKey: crashSafeVideoCompressionProperties(
+                framesPerSecond: fps,
+                averageBitRate: max(8_000_000, size.width * size.height * fps / 8)
+            )
         ])
         input.expectsMediaDataInRealTime = true
         input.mediaTimeScale = timeScale
@@ -1298,9 +1361,14 @@ func stitchVideos(
         "-c:v", "libx264",
         "-preset", "medium",
         "-crf", "\(crf)",
+        "-g", "\(max(1, fps))",
+        "-keyint_min", "\(max(1, fps))",
+        "-sc_threshold", "0",
         "-pix_fmt", pixFmt,
         "-video_track_timescale", "\(max(600, fps * 1000))",
-        "-movflags", "+faststart",
+        "-movflags", "+frag_keyframe+empty_moov+default_base_moof",
+        "-frag_duration", "1000000",
+        "-flush_packets", "1",
         output.path
     ]
 

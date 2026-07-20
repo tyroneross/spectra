@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { requireFfmpeg } from '../media/ffmpeg.js'
+import { crashSafeMp4Args, requireFfmpeg } from '../media/ffmpeg.js'
 import { buildSpotlightFilter, type CanvasSize, type FocalRect } from '../media/spotlight.js'
 
 export type { CanvasSize, FocalRect }
@@ -102,6 +102,7 @@ export async function renderSpotlightPrePass(opts: SpotlightPrePassOptions): Pro
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
         '-crf', '18',
+        ...crashSafeMp4Args(),
         outPath,
       ], { stdio: 'pipe' })
       const stderrChunks: Buffer[] = []

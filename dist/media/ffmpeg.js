@@ -1,6 +1,21 @@
 // src/media/ffmpeg.ts
 import { execSync, spawn } from 'node:child_process';
 let cachedFfmpegPath = undefined;
+export const CRASH_SAFE_MP4_MOVFLAGS = '+frag_keyframe+empty_moov+default_base_moof';
+/**
+ * MP4 muxer arguments that keep completed one-second fragments playable when
+ * ffmpeg exits without writing a conventional final moov atom.
+ */
+export function crashSafeMp4Args(options = {}) {
+    return [
+        ...(options.forceKeyFrames === false
+            ? []
+            : ['-force_key_frames', 'expr:gte(t,n_forced*1)']),
+        '-movflags', CRASH_SAFE_MP4_MOVFLAGS,
+        '-frag_duration', '1000000',
+        '-flush_packets', '1',
+    ];
+}
 export function detectFfmpeg() {
     if (cachedFfmpegPath !== undefined)
         return cachedFfmpegPath;
@@ -30,6 +45,7 @@ export async function transcode(input, output, options) {
             '-c:v', 'libx264',
             '-pix_fmt', 'yuv420p',
             '-crf', String(crf),
+            ...crashSafeMp4Args(),
             '-y', // overwrite
             output,
         ], { stdio: 'pipe' });

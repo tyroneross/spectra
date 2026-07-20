@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { requireFfmpeg } from '../media/ffmpeg.js';
+import { crashSafeMp4Args, requireFfmpeg } from '../media/ffmpeg.js';
 import { buildSpotlightFilter } from '../media/spotlight.js';
 /**
  * Dark-crush spotlight tuning calibrated against the reference clip
@@ -82,6 +82,7 @@ export async function renderSpotlightPrePass(opts) {
                 '-c:v', 'libx264',
                 '-pix_fmt', 'yuv420p',
                 '-crf', '18',
+                ...crashSafeMp4Args(),
                 outPath,
             ], { stdio: 'pipe' });
             const stderrChunks = [];
