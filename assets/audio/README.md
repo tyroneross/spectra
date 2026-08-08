@@ -4,6 +4,12 @@ A Spectra-owned catalogue of audio for video production and app sound design.
 See `manifest.json` for the tagged index (id, role, genre, energy, duration,
 source, licensing, suggested use).
 
+**Using these in a render? Load `Skill("spectra:audio-cues")` first.** It maps each
+demo-script beat to a cue, sets the bed/cue prep levels, and carries the licensing
+rule. Handing these files to `polish-script` raw does not work — the pipeline
+applies no gain, beds peak at 0 dBFS, and cues peak at −20 to −29 dBFS, so the cue
+layer is inaudible under the bed.
+
 ## Roles
 
 - **bed** — background music under videos. Pass to `polish-script` via `music`.

@@ -65,6 +65,9 @@ Music BPM + direction by audience (80–100 BPM sparse/ambient for dev tools, up
 deliberate, 130–150 conversational, 150–170 up-tempo, 170–200 commercial ceiling).
 Add 0.5–1s of silence around the video's key metric. Voice tone matches the audience's
 self-image, not the founder's preference. Full tables: `references/sound.md`.
+To pick the actual bed/cue FILES and their render levels, load
+`Skill("spectra:audio-cues")` — it maps each demo-script beat to a cue in
+`assets/audio/` and sets the prep levels `polish-script` does not apply for you.
 
 ## Pacing / cut rate
 Cuts-per-minute by channel (30–60 TikTok/Shorts down to 6–12 YouTube tutorial). The
@@ -100,6 +103,7 @@ philosophy/color to the `style` (`cool`/`warm`/`bold`) preset used by
 - `references/color.md` — 60-30-10, color→emotion map, dark/light, funnel-moment color.
 - `references/typography.md` — word-density, font-size floors, dwell time, safe zones, kinetic text.
 - `references/sound.md` — music BPM/mixing, VO pace, silence, voice tone.
+- `Skill("spectra:audio-cues")` — beat→cue map, bed/cue prep levels, licensing rule.
 - `references/pacing.md` — cut rate by channel, 3-second rule, pattern interrupts, one-idea-per-beat.
 - `references/philosophies-antipatterns.md` — minimalist/high-design/lo-fi selector + anti-pattern fixes.
 - `references/spectra-design-map.md` — design rules → Spectra polish/render parameters (the integration glue).

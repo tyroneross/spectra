@@ -13,6 +13,10 @@ Full prose + research citations: `SOURCE-GUIDE.md` Part IV.
 | Product Hunt launch | Punchy, fast, builds | 115–130 |
 
 ## Mixing
+> Rendering through `polish-script`? These are targets, not settings — the pipeline
+> applies **no gain** to `music`/`sfx`. `Skill("spectra:audio-cues")` has the prep
+> commands that actually hit these levels, plus the beat→cue map.
+
 - Music at **-15 to -20 dBFS** under VO — felt, not heard. Dip another 3–6dB during
   heavy on-screen text or UI focus moments.
 - **VO at -6 to -3 dBFS.**

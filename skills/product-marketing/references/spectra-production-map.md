@@ -29,6 +29,9 @@ Render with `spectra_demo action=polish-clip` (clicks/cursor track) or `action=p
   accurate zoom.
 - `voiceover: <audiofile>` muxes narration (synced to video length). Good audio is
   non-negotiable — bad audio = instant abandonment for every audience.
+- `music: <bed>` + per-beat `sound: <cue>` layer a music bed and sound cues under the
+  demo. Both take prepped files — the pipeline applies no gain. Load
+  `Skill("spectra:audio-cues")` for the beat→cue map, prep levels, and licensing rule.
 
 ## Channel specs (set at render / export)
 

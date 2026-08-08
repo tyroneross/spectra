@@ -7,13 +7,13 @@ user-invocable: true
 
 # Agent Demo Video Production
 
-Transforms raw screen recordings into polished, shareable demo clips. Applies a spotlight focus effect (sharp focal region, blurred and dimmed background), adds optional lower-third captions, and merges multiple segments into one mp4. Audio is always stripped — screen recordings of dev sessions may contain sensitive audio.
+Transforms raw screen recordings into polished, shareable demo clips. Applies a spotlight focus effect (sharp focal region, blurred and dimmed background), adds optional lower-third captions, and merges multiple segments into one mp4. Strip the capture's audio before rendering — the pipeline preserves a source track when one exists, and screen recordings of dev sessions may contain sensitive audio. To add an intentional score (music bed + per-beat sound cues), load `Skill("spectra:audio-cues")`.
 
 ## Privacy and Integrity Rules
 
 Before producing a demo from any recording:
 
-- **Strip audio always.** The tool does this automatically (-an). Never re-add audio from a recording session.
+- **Strip audio always.** The pipeline does NOT do this for you: `polish-clip` and `polish-script` both preserve a source audio track when the input has one (`polish-script` mixes it under any music bed / sound cues), and only emit `-an` when the input has no audio stream at all. Pre-strip the capture — `ffmpeg -i raw.mp4 -c:v copy -an -y raw-silent.mp4` — unless the session audio is deliberately part of the deliverable and cleared. Never re-add audio from a recording session.
 - **Frame-scan for secrets.** Review captured frames with `spectra_capture mode=auto` or a frame-by-frame read before sharing. Look for API keys, tokens, passwords, hostnames, and internal URLs in terminal output or browser developer tools.
 - **Real footage only.** The on-camera work must be a real run, never a replayed or scripted sequence presented as live. Staging is fine for setup; what runs on camera is real.
 - **Keep artifacts local.** Outputs go into `.spectra/` or a user-specified path. Never move demo artifacts into `artifacts/` (the library) or any public-facing directory without an explicit review step.
