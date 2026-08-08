@@ -1,12 +1,13 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildAudioArgs, buildMixedAudioArgs, buildVoiceoverAudioArgs, finalCaptionWindow, polishClip, polishScript } from '../../src/pipeline/polish.js'
-import { ffmpegAvailable, makeTestVideo, probeVideo, runProcess } from './ffmpeg-helpers.js'
+import { buildAudioArgs, buildMixedAudioArgs, buildVoiceoverAudioArgs, finalCaptionPlan, finalCaptionWindow, polishClip, polishScript } from '../../src/pipeline/polish.js'
+import { ffmpegAvailable, makeTestVideo, probeVideo, runProcess, tesseractAvailable } from './ffmpeg-helpers.js'
 
 let workDir: string | null = null
 const ffmpegIt = ffmpegAvailable ? it : it.skip
+const ocrIt = ffmpegAvailable && tesseractAvailable ? it : it.skip
 
 async function makeWorkDir(): Promise<string> {
   workDir = await mkdtemp(join(tmpdir(), 'spectra-polish-'))
@@ -529,4 +530,118 @@ describe('finalCaptionWindow (short-input robustness)', () => {
     const capOnly = { title: 'T', finalCaption: 'Only', beats: [] } as unknown as Parameters<typeof finalCaptionWindow>[0]
     expect(finalCaptionWindow(capOnly, 'Only', 8000)).toEqual({ startMs: 0, endMs: 8000 })
   })
+})
+
+describe('finalCaptionPlan (tail window vs step cards)', () => {
+  const script = (beats: Array<{ id: string; stepText?: string; startMs: number; endMs: number }>) =>
+    ({ beats } as unknown as Parameters<typeof finalCaptionPlan>[0])
+
+  it('gives the caption the clip tail and trims the card that reaches into it', () => {
+    const s = script([
+      { id: 'a', stepText: 'STEP ONE', startMs: 0, endMs: 2000 },
+      { id: 'b', stepText: 'FINAL BEAT', startMs: 2000, endMs: 10_000 },
+    ])
+    const plan = finalCaptionPlan(s, 'THE VERY END', 10_000)
+
+    expect(plan.window).toEqual({ startMs: 7500, endMs: 10_000 })
+    // The colliding card ends exactly where the caption starts — no shared frame.
+    expect(plan.cards.map((c) => [c.startMs, c.endMs])).toEqual([[0, 2000], [2000, 7500]])
+  })
+
+  it('never squeezes the trailing card below its minimum — the tail yields instead', () => {
+    const s = script([
+      { id: 'a', stepText: 'STEP ONE', startMs: 0, endMs: 4000 },
+      { id: 'b', stepText: 'FINAL BEAT', startMs: 4000, endMs: 6000 },
+    ])
+    const plan = finalCaptionPlan(s, 'THE VERY END', 6000)
+
+    // Ideal tail start is 3500, but the last card keeps its 800ms floor.
+    expect(plan.window).toEqual({ startMs: 4800, endMs: 6000 })
+    expect(plan.cards.at(-1)).toMatchObject({ startMs: 4000, endMs: 4800 })
+  })
+
+  it('absorbs a trailing card whose text IS the caption instead of drawing it twice', () => {
+    const s = script([
+      { id: 'a', stepText: 'STEP ONE', startMs: 0, endMs: 42_000 },
+      { id: 'payoff', stepText: 'THE VERY END', startMs: 42_000, endMs: 50_000 },
+    ])
+    const plan = finalCaptionPlan(s, 'THE VERY END', 50_000)
+
+    expect(plan.window).toEqual({ startMs: 42_000, endMs: 50_000 })
+    expect(plan.cards.map((c) => c.stepText)).toEqual(['STEP ONE'])
+    expect(plan.cards[0]?.endMs).toBe(42_000)
+  })
+
+  it('skips the caption when the cards leave no room for a readable tail', () => {
+    const s = script([{ id: 'a', stepText: 'ONLY BEAT', startMs: 0, endMs: 1000 }])
+    const plan = finalCaptionPlan(s, 'THE VERY END', 1000)
+
+    // Floor pushes the tail to 800ms, leaving 200ms — a flash, not a payoff.
+    expect(plan.window).toBeNull()
+    expect(plan.cards).toEqual([{ stepLabel: undefined, stepText: 'ONLY BEAT', startMs: 0, endMs: 1000 }])
+  })
+
+  it('leaves every card whole when the clip already runs past the last beat', () => {
+    const s = script([{ id: 'a', stepText: 'STEP ONE', startMs: 0, endMs: 3000 }])
+    const plan = finalCaptionPlan(s, 'THE VERY END', 8000)
+
+    expect(plan.window).toEqual({ startMs: 5500, endMs: 8000 })
+    expect(plan.cards).toEqual([{ stepLabel: undefined, stepText: 'STEP ONE', startMs: 0, endMs: 3000 }])
+  })
+})
+
+describe('polishScript — final caption tail (rendered frames)', () => {
+  const bannerText = async (video: string, atSec: number, root: string): Promise<string> => {
+    const png = join(root, `frame-${atSec}.png`)
+    await runProcess('ffmpeg', [
+      '-v', 'error',
+      '-ss', String(atSec),
+      '-i', video,
+      '-frames:v', '1',
+      // Bottom banner strip only (12% of 1080), inverted + upscaled for OCR.
+      '-vf', 'crop=1920:130:0:950,negate,scale=iw*2:ih*2',
+      '-y', png,
+    ])
+    const base = join(root, `ocr-${atSec}`)
+    await runProcess('tesseract', [png, base, '--psm', '7'])
+    return (await readFile(`${base}.txt`, 'utf-8')).trim().toUpperCase()
+  }
+
+  ocrIt('renders the caption in a clean tail with no beat-caption overlap', async () => {
+    const { textRendererAvailability } = await import('../../src/pipeline/text-render.js')
+    if (!(await textRendererAvailability()).available) return
+    const root = await makeWorkDir()
+    const input = join(root, 'input.mp4')
+    const outPath = join(root, 'scripted-tail.mp4')
+    await runProcess('ffmpeg', [
+      '-v', 'error',
+      '-f', 'lavfi',
+      '-i', 'testsrc2=size=640x360:rate=30:duration=6',
+      '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-y', input,
+    ])
+
+    await polishScript({
+      input,
+      script: {
+        finalCaption: 'THE VERY END',
+        beats: [
+          { id: 'a', stepLabel: '1', stepText: 'STEP ONE', startMs: 0, endMs: 2000 },
+          { id: 'b', stepLabel: '2', stepText: 'STEP TWO', startMs: 2000, endMs: 4000 },
+          { id: 'c', stepLabel: '3', stepText: 'FINAL BEAT', startMs: 4000, endMs: 6000 },
+        ],
+      },
+      outPath,
+      fps: 30,
+    })
+
+    // Last beat's own window: its card, and only its card.
+    const duringLastBeat = await bannerText(outPath, 4.4, root)
+    expect(duringLastBeat).toContain('FINAL BEAT')
+    expect(duringLastBeat).not.toContain('VERY END')
+
+    // Tail window: the caption, with the beat card already faded out.
+    const duringTail = await bannerText(outPath, 5.6, root)
+    expect(duringTail).toContain('THE VERY END')
+    expect(duringTail).not.toContain('FINAL BEAT')
+  }, 120_000)
 })

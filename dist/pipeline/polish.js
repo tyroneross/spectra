@@ -48,6 +48,16 @@ const DEFAULT_FADE_MS = 250;
 const INTRO_CARD_MS = 1800;
 const INTRO_FADE_MS = 300;
 const INTRO_SCALE = 1.08;
+// Final caption tail: step cards and the final caption both draw the SAME
+// bottom-anchored banner (text-render.swift drawBanner), so any time overlap
+// between them stacks two texts in one strip. The caption therefore owns a
+// dedicated tail window at the end of the clip and every step card yields to
+// it -- see finalCaptionPlan.
+const FINAL_CAPTION_TAIL_MS = 2500;
+/** A step card never shrinks below this when the tail is carved out of it. */
+const MIN_STEP_CARD_MS = 800;
+/** Below this the tail is a flash, not a payoff -- skip the caption instead. */
+const MIN_FINAL_CAPTION_MS = 400;
 const CHROME_CACHE_VERSION = 1;
 const CHROME_CACHE_DIR = join(tmpdir(), 'spectra-frame-chrome');
 export async function polishClip(options) {
@@ -191,12 +201,19 @@ export async function polishScript(options) {
         let nextInputIndex = 1;
         const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
         nextInputIndex += 1;
-        const captionOverlay = finalCaption
-            ? await buildCaptionOverlay(script, finalCaption, durationMs, nextInputIndex, OUTPUT_W, OUTPUT_H, options.style)
+        // The caption's tail window and the step-card list come from ONE plan so
+        // they cannot drift apart: whichever path draws the caption, the cards it
+        // trimmed are the cards that get rendered.
+        const captionPlan = finalCaption ? finalCaptionPlan(script, finalCaption, durationMs) : undefined;
+        const captionWindow = captionPlan?.window ?? undefined;
+        const captionOverlay = finalCaption && captionWindow
+            ? await buildTimedCaptionOverlay(finalCaption, captionWindow, nextInputIndex, OUTPUT_W, OUTPUT_H, 'framed', 'captioned', options.style)
             : undefined;
         if (captionOverlay)
             nextInputIndex += 1;
-        const fallbackCaption = captionOverlay ? undefined : finalCaption;
+        // Fallback drawtext caption (no native text renderer): still time-gated to
+        // the tail, otherwise it would band the whole clip and overlap every card.
+        const fallbackCaption = captionOverlay || !captionWindow ? undefined : finalCaption;
         const captionMode = fallbackCaption && !(await ffmpegHasFilter('drawtext')) ? 'bitmap' : 'drawtext';
         const zoom = timedZoomFilter(scriptZoomWindows(script, durationMs), durationMs, metadata.width, metadata.height, OUTPUT_W, OUTPUT_H, fps);
         const frame = framingFilter({
@@ -204,6 +221,7 @@ export async function polishScript(options) {
             outputLabel: 'framed',
             caption: fallbackCaption,
             captionMode,
+            captionWindow: fallbackCaption ? captionWindow : undefined,
             fps,
             outW: OUTPUT_W,
             outH: OUTPUT_H,
@@ -213,7 +231,7 @@ export async function polishScript(options) {
         const cardPlan = await timedStepCardsOverlayPlan({
             inputLabel: cardInputLabel,
             outputLabel: introMs > 0 ? 'carded' : 'v',
-            cards: cardsFromScript(script),
+            cards: captionPlan?.cards ?? cardsFromScript(script),
             fps,
             outW: OUTPUT_W,
             outH: OUTPUT_H,
@@ -377,15 +395,6 @@ function buildTitleCardOverlay(path, introMs, inputIndex, fps, inputLabel, outpu
 async function buildClipCaptionOverlay(caption, durationMs, inputIndex, outW, outH, style) {
     return buildTimedCaptionOverlay(caption, { startMs: 0, endMs: Math.max(0, durationMs) }, inputIndex, outW, outH, 'framed', 'v', style);
 }
-async function buildCaptionOverlay(script, finalCaption, durationMs, inputIndex, outW, outH, style) {
-    const window = finalCaptionWindow(script, finalCaption, durationMs);
-    // No valid placement (e.g. the matched beat is truncated out of a short input):
-    // skip the final caption rather than defaulting it to the whole clip, which would
-    // overlap the per-beat step cards.
-    if (!window)
-        return undefined;
-    return buildTimedCaptionOverlay(finalCaption, window, inputIndex, outW, outH, 'framed', 'captioned', style);
-}
 async function buildTimedCaptionOverlay(text, window, inputIndex, outW, outH, inputLabel, outputLabel, style) {
     const path = await renderCaptionPng({
         text,
@@ -411,27 +420,65 @@ async function buildTimedCaptionOverlay(text, window, inputIndex, outW, outH, in
         filter: `${labelRef(`${inputIndex}:v`)}format=rgba${fade}${labelRef(assetLabel)};${labelRef(inputLabel)}${labelRef(assetLabel)}overlay=x=0:y=0:shortest=1:enable='between(t\\,${startSec}\\,${endSec})'${labelRef(outputLabel)}`,
     };
 }
+/**
+ * Places the final caption in a tail window at the END of the clip and hands
+ * back the step cards that survive it, so the two can never draw the same
+ * banner strip at the same time.
+ *
+ * The caption asks for the last `tailMs` of the clip. Any step card reaching
+ * into that window is trimmed back to the tail start, and the tail start is
+ * pushed later when a trim would leave a card shorter than MIN_STEP_CARD_MS —
+ * cards lose their tail, never their existence. A trailing card whose text IS
+ * the final caption is the caption authored as a beat: it is dropped and the
+ * caption absorbs its window rather than re-fading identical text.
+ *
+ * Callers MUST render `cards` from the returned plan (not `cardsFromScript`
+ * directly) — the trims are what make the window clean.
+ */
+export function finalCaptionPlan(script, finalCaption, durationMs, tailMs = FINAL_CAPTION_TAIL_MS) {
+    const caption = finalCaption.trim();
+    const cards = cardsFromScript(script);
+    const clipEnd = Number.isFinite(durationMs) ? Math.max(0, durationMs) : 0;
+    if (clipEnd <= 0)
+        return { window: null, cards };
+    // The beat that authored the payoff starts after the clip ends (input shorter
+    // than the script): the payoff was truncated away, so the caption stays off
+    // rather than landing on unrelated mid-flow content.
+    const payoffBeat = [...script.beats].reverse().find((beat) => beat.stepText?.trim() === caption);
+    if (payoffBeat && Number.isFinite(payoffBeat.startMs) && payoffBeat.startMs >= clipEnd) {
+        return { window: null, cards };
+    }
+    const visible = cards.filter((card) => card.startMs < clipEnd && card.endMs > card.startMs);
+    // No cards to collide with (caption-only script, or all cards truncated away):
+    // the caption has the whole clip to itself.
+    if (visible.length === 0)
+        return { window: { startMs: 0, endMs: clipEnd }, cards };
+    const idealStart = clipEnd - Math.min(tailMs, clipEnd / 2);
+    const lastCard = visible.reduce((a, b) => (b.endMs > a.endMs ? b : a));
+    if (lastCard.stepText.trim() === caption && lastCard.endMs > idealStart) {
+        const startMs = Math.max(0, Math.min(idealStart, lastCard.startMs));
+        return {
+            window: { startMs, endMs: clipEnd },
+            cards: trimCardsBefore(cards.filter((card) => card !== lastCard), startMs),
+        };
+    }
+    const startMs = visible
+        .filter((card) => card.endMs > idealStart)
+        .reduce((floor, card) => Math.max(floor, card.startMs + Math.min(MIN_STEP_CARD_MS, card.endMs - card.startMs)), idealStart);
+    // The cards run right up to the clip end: what's left is a flash, not a
+    // payoff. Skip the caption rather than clipping a card for nothing.
+    if (clipEnd - startMs < MIN_FINAL_CAPTION_MS)
+        return { window: null, cards };
+    return { window: { startMs, endMs: clipEnd }, cards: trimCardsBefore(cards, startMs) };
+}
+/** Window-only view of {@link finalCaptionPlan}, kept for callers that don't render cards. */
 export function finalCaptionWindow(script, finalCaption, durationMs) {
-    const validBeats = script.beats
-        .filter((beat) => Number.isFinite(beat.startMs)
-        && Number.isFinite(beat.endMs)
-        && beat.endMs > beat.startMs);
-    const matchingBeat = [...validBeats].reverse().find((beat) => beat.stepText?.trim() === finalCaption);
-    const beat = matchingBeat ?? validBeats.at(-1);
-    // No beats at all: caption-only script — show it for the whole clip.
-    if (!beat)
-        return { startMs: 0, endMs: durationMs };
-    // The placing beat starts after the clip ends (input shorter than the script):
-    // the payoff was truncated away, so the final caption should not appear.
-    if (beat.startMs >= durationMs)
-        return null;
-    const window = {
-        startMs: Math.max(0, Math.min(durationMs, beat.startMs)),
-        endMs: Math.max(0, Math.min(durationMs, beat.endMs)),
-    };
-    // Window collapsed to zero length after clamping: don't fall back to full-clip
-    // (that overlaps the step cards) — skip instead.
-    return window.endMs > window.startMs ? window : null;
+    return finalCaptionPlan(script, finalCaption, durationMs).window;
+}
+function trimCardsBefore(cards, cutoffMs) {
+    return cards
+        .map((card) => (card.endMs > cutoffMs ? { ...card, endMs: cutoffMs } : card))
+        .filter((card) => card.endMs > card.startMs);
 }
 function imageInputArgs(paths, fps) {
     return paths.flatMap((path) => [

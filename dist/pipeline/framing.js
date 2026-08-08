@@ -47,9 +47,10 @@ export function framingFilter(opts = {}) {
     const caption = opts.caption?.trim();
     const fontSize = positiveInteger(opts.fontSize ?? 46, 'fontSize');
     const bannerH = Math.round(outH * CAPTION_BANNER_SPEC.bannerHeightRatio);
+    const captionEnable = timelineEnable(opts.captionWindow);
     const finalFilter = caption && (opts.captionMode ?? 'drawtext') === 'drawtext'
-        ? `[framed]${captionBannerPrefix(opts.captionPill ?? true, bannerH)}drawtext=fontfile=${escapeFilterValue(opts.fontFile ?? DEFAULT_FONT)}:text='${escapeDrawtext(caption)}':fontcolor=${hexColor(CAPTION_BANNER_SPEC.captionTextColor)}:fontsize=${fontSize}:x=(w-text_w)/2:y=h-${(bannerH / 2).toFixed(2)}-(text_h/2),format=yuv420p${outRef}`
-        : bitmapCaptionGraph('framed', caption, outW, outH, fps, fontSize, opts.captionPill ?? true, outRef);
+        ? `[framed]${captionBannerPrefix(opts.captionPill ?? true, bannerH, captionEnable)}drawtext=fontfile=${escapeFilterValue(opts.fontFile ?? DEFAULT_FONT)}:text='${escapeDrawtext(caption)}':fontcolor=${hexColor(CAPTION_BANNER_SPEC.captionTextColor)}:fontsize=${fontSize}:x=(w-text_w)/2:y=h-${(bannerH / 2).toFixed(2)}-(text_h/2)${captionEnable},format=yuv420p${outRef}`
+        : bitmapCaptionGraph('framed', caption, outW, outH, fps, fontSize, opts.captionPill ?? true, outRef, captionEnable);
     const scaledFilter = `${inRef}scale=${contentW}:${contentH}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=${contentW}:${contentH}:(ow-iw)/2:(oh-ih)/2:color=0x00000000[scaled]`;
     // The rounded-rect mask is purely a function of static geometry (no
     // dependency on the source frame), so it can be rendered ONCE and reused
@@ -106,7 +107,7 @@ export function frameChromeRenderPlan(opts = {}) {
     const filterComplex = `color=c=white:s=${contentW}x${contentH}:r=1,format=gray,geq=lum='${maskExpr}'[maskOut]`;
     return { layout, filterComplex, maskLabel: '[maskOut]' };
 }
-function bitmapCaptionGraph(inputLabel, caption, outW, outH, fps, fontSize, pill, outRef) {
+function bitmapCaptionGraph(inputLabel, caption, outW, outH, fps, fontSize, pill, outRef, timelineEnableExpr = '') {
     const inputRef = labelRef(inputLabel);
     if (!caption)
         return `${inputRef}format=yuv420p${outRef}`;
@@ -130,11 +131,11 @@ function bitmapCaptionGraph(inputLabel, caption, outW, outH, fps, fontSize, pill
     if (pill) {
         const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground);
         filters.unshift(`color=c=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:s=${outW}x${bannerH}:r=${fps},format=rgba[captionPill]`);
-        filters.push(`${inputRef}[captionPill]overlay=x=0:y=${bannerY}:shortest=1[captionBase]`);
-        filters.push('[captionBase][captionText]overlay=x=' + textX + ':y=' + textY + `:shortest=1,format=yuv420p${outRef}`);
+        filters.push(`${inputRef}[captionPill]overlay=x=0:y=${bannerY}:shortest=1${timelineEnableExpr}[captionBase]`);
+        filters.push('[captionBase][captionText]overlay=x=' + textX + ':y=' + textY + `:shortest=1${timelineEnableExpr},format=yuv420p${outRef}`);
     }
     else {
-        filters.push(`${inputRef}[captionText]overlay=x=${textX}:y=${textY}:shortest=1,format=yuv420p${outRef}`);
+        filters.push(`${inputRef}[captionText]overlay=x=${textX}:y=${textY}:shortest=1${timelineEnableExpr},format=yuv420p${outRef}`);
     }
     return filters.join(';');
 }
@@ -213,11 +214,29 @@ function roundedRectMaskExpression(width, height, radius) {
     const bottomRight = `${gt('X', right)}*${gt('Y', bottom)}*${lte(`pow(X-${right}\\,2)+pow(Y-${bottom}\\,2)`, radiusSquared)}`;
     return `255*min(1\\,${centerX}+${centerY}+${topLeft}+${topRight}+${bottomLeft}+${bottomRight})`;
 }
-function captionBannerPrefix(enabled, bannerH) {
+function captionBannerPrefix(enabled, bannerH, timelineEnableExpr = '') {
     if (!enabled)
         return '';
     const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground);
-    return `drawbox=x=0:y=h-${bannerH}:w=iw:h=${bannerH}:color=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:t=fill,`;
+    return `drawbox=x=0:y=h-${bannerH}:w=iw:h=${bannerH}:color=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:t=fill${timelineEnableExpr},`;
+}
+/**
+ * ffmpeg timeline-editing suffix (`:enable='between(t,a,b)'`) for a ms window,
+ * or '' for "always on". Commas are backslash-escaped because the expression
+ * is spliced into a single -filter_complex string, where a bare comma would
+ * end the filter.
+ */
+function timelineEnable(window) {
+    if (!window)
+        return '';
+    const start = Math.max(0, window.startMs) / 1000;
+    const end = Math.max(0, window.endMs) / 1000;
+    if (!(end > start))
+        return '';
+    return `:enable='between(t\\,${trimZeros(start)}\\,${trimZeros(end)})'`;
+}
+function trimZeros(value) {
+    return value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
 }
 export function hexColor(rgb) {
     const channel = (value) => value.toString(16).padStart(2, '0');

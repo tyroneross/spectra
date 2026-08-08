@@ -1,4 +1,5 @@
 import type { FocalRect } from '../media/spotlight.js';
+import { type TimedStepCard } from './annotations.js';
 import { type DemoScript } from './script.js';
 import { type CaptionBannerStyle, type CaptionBannerStyleName } from './text-render.js';
 import { type CursorPoint, type ZoomClick } from './zoom-keyframes.js';
@@ -97,6 +98,32 @@ export interface PolishClipResult {
 }
 export declare function polishClip(options: PolishClipOptions): Promise<PolishClipResult>;
 export declare function polishScript(options: PolishScriptOptions): Promise<PolishClipResult>;
+export interface FinalCaptionPlan {
+    /** The tail window the caption owns, or null when the clip has no room for one. */
+    window: {
+        startMs: number;
+        endMs: number;
+    } | null;
+    /** Step cards after yielding the tail: collided cards are trimmed, a redundant payoff card is absorbed. */
+    cards: TimedStepCard[];
+}
+/**
+ * Places the final caption in a tail window at the END of the clip and hands
+ * back the step cards that survive it, so the two can never draw the same
+ * banner strip at the same time.
+ *
+ * The caption asks for the last `tailMs` of the clip. Any step card reaching
+ * into that window is trimmed back to the tail start, and the tail start is
+ * pushed later when a trim would leave a card shorter than MIN_STEP_CARD_MS —
+ * cards lose their tail, never their existence. A trailing card whose text IS
+ * the final caption is the caption authored as a beat: it is dropped and the
+ * caption absorbs its window rather than re-fading identical text.
+ *
+ * Callers MUST render `cards` from the returned plan (not `cardsFromScript`
+ * directly) — the trims are what make the window clean.
+ */
+export declare function finalCaptionPlan(script: DemoScript, finalCaption: string, durationMs: number, tailMs?: number): FinalCaptionPlan;
+/** Window-only view of {@link finalCaptionPlan}, kept for callers that don't render cards. */
 export declare function finalCaptionWindow(script: DemoScript, finalCaption: string, durationMs: number): {
     startMs: number;
     endMs: number;

@@ -50,6 +50,30 @@ describe('framingFilter', () => {
     expect(filter).toContain('drawtext=')
   })
 
+  it('time-gates the caption banner to captionWindow, leaving it always-on when omitted', () => {
+    const base = { inputLabel: '0:v', outputLabel: 'v', outW: 320, outH: 180, caption: 'Demo' }
+    const windowed = framingFilter({ ...base, captionWindow: { startMs: 4800, endMs: 6000 } })
+
+    // Both the banner fill and the text carry the window, so neither shows early.
+    expect(windowed.match(/enable='between\(t\\,4\.8\\,6\)'/g)).toHaveLength(2)
+    expect(framingFilter(base)).not.toContain('enable=')
+  })
+
+  it('time-gates the bitmap caption fallback too', () => {
+    const filter = framingFilter({
+      inputLabel: '0:v',
+      outputLabel: 'v',
+      outW: 320,
+      outH: 180,
+      caption: 'Demo',
+      captionMode: 'bitmap',
+      captionWindow: { startMs: 1000, endMs: 2500 },
+    })
+
+    expect(filter).not.toContain('drawtext=')
+    expect(filter.match(/enable='between\(t\\,1\\,2\.5\)'/g)).toHaveLength(2)
+  })
+
   ffmpegIt('renders a framed clip at the requested dimensions', async () => {
     const root = await makeWorkDir()
     const outPath = join(root, 'framed.mp4')

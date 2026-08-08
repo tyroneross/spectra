@@ -14,6 +14,13 @@ export interface FramingFilterOptions {
   captionPill?: boolean
   captionMode?: 'drawtext' | 'bitmap'
   /**
+   * Time window (ms) the caption banner is visible for. Omitted (the default)
+   * keeps the historical whole-clip banner; scripted renders pass the final
+   * caption's tail window so the banner cannot coincide with a step card,
+   * which draws the same bottom strip.
+   */
+  captionWindow?: { startMs: number; endMs: number }
+  /**
    * ffmpeg input index for a precomputed rounded-rect mask, rendered once
    * via `frameChromeRenderPlan` and supplied as a looped raw-video input.
    * When set, the per-frame `geq` mask evaluation is skipped entirely in
@@ -117,9 +124,10 @@ export function framingFilter(opts: FramingFilterOptions = {}): string {
   const caption = opts.caption?.trim()
   const fontSize = positiveInteger(opts.fontSize ?? 46, 'fontSize')
   const bannerH = Math.round(outH * CAPTION_BANNER_SPEC.bannerHeightRatio)
+  const captionEnable = timelineEnable(opts.captionWindow)
   const finalFilter = caption && (opts.captionMode ?? 'drawtext') === 'drawtext'
-    ? `[framed]${captionBannerPrefix(opts.captionPill ?? true, bannerH)}drawtext=fontfile=${escapeFilterValue(opts.fontFile ?? DEFAULT_FONT)}:text='${escapeDrawtext(caption)}':fontcolor=${hexColor(CAPTION_BANNER_SPEC.captionTextColor)}:fontsize=${fontSize}:x=(w-text_w)/2:y=h-${(bannerH / 2).toFixed(2)}-(text_h/2),format=yuv420p${outRef}`
-    : bitmapCaptionGraph('framed', caption, outW, outH, fps, fontSize, opts.captionPill ?? true, outRef)
+    ? `[framed]${captionBannerPrefix(opts.captionPill ?? true, bannerH, captionEnable)}drawtext=fontfile=${escapeFilterValue(opts.fontFile ?? DEFAULT_FONT)}:text='${escapeDrawtext(caption)}':fontcolor=${hexColor(CAPTION_BANNER_SPEC.captionTextColor)}:fontsize=${fontSize}:x=(w-text_w)/2:y=h-${(bannerH / 2).toFixed(2)}-(text_h/2)${captionEnable},format=yuv420p${outRef}`
+    : bitmapCaptionGraph('framed', caption, outW, outH, fps, fontSize, opts.captionPill ?? true, outRef, captionEnable)
   const scaledFilter = `${inRef}scale=${contentW}:${contentH}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad=${contentW}:${contentH}:(ow-iw)/2:(oh-ih)/2:color=0x00000000[scaled]`
 
   // The rounded-rect mask is purely a function of static geometry (no
@@ -203,6 +211,7 @@ function bitmapCaptionGraph(
   fontSize: number,
   pill: boolean,
   outRef: string,
+  timelineEnableExpr = '',
 ): string {
   const inputRef = labelRef(inputLabel)
   if (!caption) return `${inputRef}format=yuv420p${outRef}`
@@ -231,10 +240,10 @@ function bitmapCaptionGraph(
   if (pill) {
     const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground)
     filters.unshift(`color=c=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:s=${outW}x${bannerH}:r=${fps},format=rgba[captionPill]`)
-    filters.push(`${inputRef}[captionPill]overlay=x=0:y=${bannerY}:shortest=1[captionBase]`)
-    filters.push('[captionBase][captionText]overlay=x=' + textX + ':y=' + textY + `:shortest=1,format=yuv420p${outRef}`)
+    filters.push(`${inputRef}[captionPill]overlay=x=0:y=${bannerY}:shortest=1${timelineEnableExpr}[captionBase]`)
+    filters.push('[captionBase][captionText]overlay=x=' + textX + ':y=' + textY + `:shortest=1${timelineEnableExpr},format=yuv420p${outRef}`)
   } else {
-    filters.push(`${inputRef}[captionText]overlay=x=${textX}:y=${textY}:shortest=1,format=yuv420p${outRef}`)
+    filters.push(`${inputRef}[captionText]overlay=x=${textX}:y=${textY}:shortest=1${timelineEnableExpr},format=yuv420p${outRef}`)
   }
 
   return filters.join(';')
@@ -337,10 +346,28 @@ function roundedRectMaskExpression(width: number, height: number, radius: number
   return `255*min(1\\,${centerX}+${centerY}+${topLeft}+${topRight}+${bottomLeft}+${bottomRight})`
 }
 
-function captionBannerPrefix(enabled: boolean, bannerH: number): string {
+function captionBannerPrefix(enabled: boolean, bannerH: number, timelineEnableExpr = ''): string {
   if (!enabled) return ''
   const bannerColor = hexColor(CAPTION_BANNER_SPEC.bannerBackground)
-  return `drawbox=x=0:y=h-${bannerH}:w=iw:h=${bannerH}:color=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:t=fill,`
+  return `drawbox=x=0:y=h-${bannerH}:w=iw:h=${bannerH}:color=${bannerColor}@${CAPTION_BANNER_SPEC.bannerBackgroundAlpha}:t=fill${timelineEnableExpr},`
+}
+
+/**
+ * ffmpeg timeline-editing suffix (`:enable='between(t,a,b)'`) for a ms window,
+ * or '' for "always on". Commas are backslash-escaped because the expression
+ * is spliced into a single -filter_complex string, where a bare comma would
+ * end the filter.
+ */
+function timelineEnable(window: { startMs: number; endMs: number } | undefined): string {
+  if (!window) return ''
+  const start = Math.max(0, window.startMs) / 1000
+  const end = Math.max(0, window.endMs) / 1000
+  if (!(end > start)) return ''
+  return `:enable='between(t\\,${trimZeros(start)}\\,${trimZeros(end)})'`
+}
+
+function trimZeros(value: number): string {
+  return value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
 }
 
 export function hexColor(rgb: { r: number; g: number; b: number }): string {

@@ -12,6 +12,16 @@ export interface FramingFilterOptions {
     captionPill?: boolean;
     captionMode?: 'drawtext' | 'bitmap';
     /**
+     * Time window (ms) the caption banner is visible for. Omitted (the default)
+     * keeps the historical whole-clip banner; scripted renders pass the final
+     * caption's tail window so the banner cannot coincide with a step card,
+     * which draws the same bottom strip.
+     */
+    captionWindow?: {
+        startMs: number;
+        endMs: number;
+    };
+    /**
      * ffmpeg input index for a precomputed rounded-rect mask, rendered once
      * via `frameChromeRenderPlan` and supplied as a looped raw-video input.
      * When set, the per-frame `geq` mask evaluation is skipped entirely in

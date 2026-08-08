@@ -1,6 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process'
 
 export const ffmpegAvailable = commandExists('ffmpeg') && commandExists('ffprobe')
+/** OCR of extracted frames — the only way to assert what a render actually shows. */
+export const tesseractAvailable = commandExists('tesseract')
 
 export interface ProbeResult {
   width: number
