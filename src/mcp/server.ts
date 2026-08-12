@@ -507,10 +507,113 @@ function buildStdioClient(): DaemonClient {
   })
 }
 
+// ─── Lifecycle contract v1 (L2-L4) ──────────────────────────────────────────
+// See dev/docs/standards/mcp-lifecycle/SPEC.md (frozen). A conforming stdio
+// server must terminate under FOUR conditions, not just stdin EOF: a host
+// that holds the pipe open (pooled/resumed conversations) otherwise leaks
+// this process indefinitely. All layers are unconditional — no host
+// detection, no branching on parent name/env/handshake fields.
+//
+// L1 (stdin EOF) needs no code here: Node's default event-loop-drain
+// behavior exits the process once the StdioServerTransport's stdin listener
+// is the last thing holding the loop open and stdin ends. Verified empirically
+// against this file's own built output before L2-L4 existed (see conformance
+// harness run in the task record) — that run PASSED L1 and FAILED L2/L3/L4.
+
+// DEVIATION FROM SPEC.md TEXT (flag for re-freeze): the frozen contract
+// document says the unset default is 900000ms. Per an in-band coordinator
+// correction during this build (mcp-lifecycle-v1-20260812, not independently
+// reproduced by this agent), a live host was observed to permanently
+// deregister an MCP server's tools for the rest of the session after that
+// server exited idle, rather than respawning it on the next call as
+// SPEC.md's rationale assumes. Under that host, a 900000ms default would
+// silently break every session idle >15 minutes — worse than the leak this
+// contract exists to close. So idle-exit here is opt-in: unset or invalid
+// MCP_IDLE_TIMEOUT_MS disables L4 (matches the explicit "0 disables" case);
+// an operator running this server under a host that leaks on a held-open
+// pipe sets MCP_IDLE_TIMEOUT_MS explicitly in that host's MCP config. The
+// server still performs no host detection — the policy lives in config, not
+// code — and the conformance harness (which always sets the env var
+// explicitly, 0 or 3000) is unaffected either way.
+const MCP_IDLE_TIMEOUT_MS = (() => {
+  const raw = process.env.MCP_IDLE_TIMEOUT_MS
+  if (raw === undefined || raw === '') return 0 // disabled unless opted in
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : 0
+})()
+
+let lifecycleExiting = false
+
+/** Flush pending stdout, then exit 0. Idempotent — safe to call from any
+ * of the three trigger paths (signal, watchdog, idle timer) without racing
+ * a double-exit. Always exit 0 (never a signal-derived code) so process
+ * supervisors with restart-on-failure semantics do not respawn. */
+function lifecycleExit(): void {
+  if (lifecycleExiting) return
+  lifecycleExiting = true
+  const stdout = process.stdout
+  if (typeof stdout.writableLength === 'number' && stdout.writableLength > 0) {
+    stdout.once('drain', () => process.exit(0))
+    // Fallback in case 'drain' never fires (e.g. reader gone) — still must
+    // exit within the L2 2s budget.
+    setTimeout(() => process.exit(0), 500).unref()
+  } else {
+    process.exit(0)
+  }
+}
+
+/** L2 — SIGTERM/SIGINT/SIGHUP: stop accepting new work, flush, exit 0. */
+function installTerminationHandlers(): void {
+  for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+    process.on(sig, () => lifecycleExit())
+  }
+}
+
+/** L3 — parent-death watchdog: poll process.ppid every 5s; once it becomes 1
+ * (reparented to init/launchd, meaning the spawning host died with no signal
+ * and no EOF delivered), flush and exit 0. .unref()'d so the poll timer never
+ * holds the event loop open on its own. */
+function installParentWatchdog(): void {
+  const timer = setInterval(() => {
+    if (process.ppid === 1) lifecycleExit()
+  }, 5_000)
+  timer.unref()
+}
+
+/** L4 — idle timeout: track the last inbound JSON-RPC frame (via the
+ * transport's parsed onmessage, not raw stdin bytes, so a chunked/partial
+ * frame doesn't reset the clock early); if none arrives for
+ * MCP_IDLE_TIMEOUT_MS, flush and exit 0. MCP_IDLE_TIMEOUT_MS=0 disables this
+ * layer entirely. Must be wired AFTER server.connect(transport) — the SDK's
+ * Protocol.connect() is what assigns transport.onmessage, so wrapping it any
+ * earlier would be overwritten. */
+function installIdleTimeout(transport: StdioServerTransport): void {
+  if (MCP_IDLE_TIMEOUT_MS === 0) return
+  let lastFrameAt = Date.now()
+  const pollMs = Math.min(MCP_IDLE_TIMEOUT_MS, 5_000)
+  const timer = setInterval(() => {
+    if (Date.now() - lastFrameAt >= MCP_IDLE_TIMEOUT_MS) lifecycleExit()
+  }, pollMs)
+  timer.unref()
+  // StdioServerTransport's own onmessage type (single-arg) is narrower than
+  // the generic Transport interface's; stdio.js's processReadBuffer only
+  // ever calls it with (message) — matching the narrower declared type here
+  // avoids widening past what this transport actually invokes.
+  const priorOnMessage = transport.onmessage
+  transport.onmessage = (message) => {
+    lastFrameAt = Date.now()
+    priorOnMessage?.(message)
+  }
+}
+
 /** Default stdio entry — the path Claude Code spawns (coreless daemon proxy). */
 export async function startStdio(): Promise<void> {
   const server = createSpectraServer(buildStdioClient())
-  await server.connect(new StdioServerTransport())
+  const transport = new StdioServerTransport()
+  installTerminationHandlers()
+  installParentWatchdog()
+  await server.connect(transport)
+  installIdleTimeout(transport)
 }
 
 // Run stdio if this file is the entry point (preserves the
