@@ -1550,7 +1550,7 @@
       "result": {
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.3.2",
+        "daemonVersion": "0.4.0",
         "pid": "<PID>",
         "uptimeSec": "<TIMESTAMP>",
         "startedAt": "<TIMESTAMP>",
@@ -1572,7 +1572,7 @@
       "result": {
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.3.2",
+        "daemonVersion": "0.4.0",
         "pid": "<PID>",
         "uptimeSec": "<TIMESTAMP>",
         "startedAt": "<TIMESTAMP>",
@@ -2682,11 +2682,11 @@
         "path": "<PATH>.mp4",
         "format": "mp4",
         "durationMs": "<TIMESTAMP>",
-        "sizeBytes": 4096,
+        "sizeBytes": 111048,
         "codec": "h264",
         "fps": 60,
-        "width": 800,
-        "height": 600,
+        "width": 320,
+        "height": 240,
         "droppedFrames": 0,
         "alreadyStopped": false
       }
