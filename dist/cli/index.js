@@ -91,7 +91,12 @@ function execDaemon() {
     });
 }
 async function forwardOperation(operation, paramsJson) {
-    let params;
+    // Omitting the JSON argument means "no arguments", which the contract spells
+    // as {} — not as a missing value. `spectra health` (the example this file's
+    // own --help prints) failed with "Invalid params for health: Required" until
+    // this defaulted, while listSessions/listWindows/getPermissions happened to
+    // work bare. Same shape for every operation now.
+    let params = {};
     if (paramsJson && paramsJson.trim().length > 0) {
         try {
             params = JSON.parse(paramsJson);
