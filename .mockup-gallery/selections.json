@@ -1,0 +1,30 @@
+{
+  "selections": [
+    {
+      "file": "00-scratch-spectra-campaign-window.html",
+      "name": "Spectra Campaign Studio — scratch structure",
+      "rating": "unrated",
+      "note": "Review the two-surface information architecture, six-stage flow, one-primary-action rule, and main/context split before treating it as a wireframe target.",
+      "components": [
+        { "name": "WindowToolbar", "rating": "unrated", "note": null },
+        { "name": "StageRail", "rating": "unrated", "note": null },
+        { "name": "CreativeBrief", "rating": "unrated", "note": null },
+        { "name": "ReadinessPanel", "rating": "unrated", "note": null }
+      ]
+    },
+    {
+      "file": "01-spectra-campaign-window-aurora-glass.html",
+      "name": "Spectra Campaign Studio — Aurora Glass",
+      "rating": "unrated",
+      "note": "Review visual hierarchy, restrained Aurora treatment, stage naming, strategy form, format recommendation, and contextual primary action before treating it as a visual target.",
+      "components": [
+        { "name": "WindowToolbar", "rating": "unrated", "note": null },
+        { "name": "CampaignStageRail", "rating": "unrated", "note": null },
+        { "name": "CreativeBrief", "rating": "unrated", "note": null },
+        { "name": "PlacementSelector", "rating": "unrated", "note": null },
+        { "name": "ReadinessPanel", "rating": "unrated", "note": null },
+        { "name": "PrimaryAction", "rating": "unrated", "note": null }
+      ]
+    }
+  ]
+}
