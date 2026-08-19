@@ -1,6 +1,6 @@
 ---
 name: content-capture
-description: Use when the user asks to capture screenshots, record a demo or video, create marketing assets, or document a feature visually from a running application.
+description: Captures raw screenshots or screen recordings from a running application. Use when the user asks to grab a screenshot, record raw footage, or pull quick visual assets from a live app. Not for editing an existing recording into a polished video, use `demo`; not for a narrated step-by-step walkthrough of a flow, use `host-walkthrough`.
 version: 0.1.0
 user-invocable: false
 ---

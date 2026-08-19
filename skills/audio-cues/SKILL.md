@@ -7,7 +7,8 @@ description: >
   use", or whenever a `polish-script` render is being assembled with `music`,
   `sfx`, or per-beat `sound`. Maps each demo-script beat to a specific cue file
   from `assets/audio/`, sets the bed/cue prep levels the pipeline does NOT apply
-  for you, and enforces the no-copyrighted-audio rule.
+  for you, and enforces the no-copyrighted-audio rule. Not for general visual
+  pacing, color, or typography design, use `video-design` instead.
 user-invocable: true
 ---
 

@@ -1,13 +1,11 @@
 ---
 name: video-design
 description: >
-  Use when a video's craft needs tuning — "this video looks/feels off", "how should
-  this video be paced", "what color/typography/font size for video", "music or
-  voiceover pace", "cut rate", "why isn't my video engaging", "make it feel premium"
-  or "make it feel authentic", "kinetic text", "safe zones", or when Spectra is
-  polishing/rendering a clip and needs concrete design settings (color, type, sound,
-  pacing). Turns the emotional/visual/sound/pacing science into font-size floors,
-  cut-rate targets, color rules, and Spectra polish parameters.
+  Tunes a video's visual and pacing craft — color, typography, cut rate, kinetic
+  text, safe zones — into concrete Spectra polish parameters. Use when a video
+  looks/feels off, the user asks how it should be paced, what color/font size to
+  use, why it isn't engaging, or how to make it feel premium or authentic. Not for
+  choosing or leveling specific music/sound-effect cues, use `audio-cues` instead.
 user-invocable: true
 ---
 

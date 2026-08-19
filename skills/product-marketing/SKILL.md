@@ -1,15 +1,12 @@
 ---
 name: product-marketing
 description: >
-  Use when planning or producing product marketing content/video for any software
-  product — "plan a marketing video", "app store preview", "product hunt launch",
-  "explainer vs demo", "LinkedIn/YouTube video for <product>", "launch video",
-  "what video should I make for <app>", "ongoing content plan", "changelog/release
-  video", "readme demo GIF", "repurpose this into shorts", or when Spectra is about to capture/produce
-  marketing assets and should tailor them to the product's audience, channel, and
-  funnel stage. Turns product × audience × goal into a concrete plan (video type,
-  length, channel, story-spine script, specs, polish style) and routes production to
-  Spectra's capture/record/polish tools.
+  Plans product marketing video strategy for any software product, turning product
+  × audience × goal into a concrete plan (video type, length, channel, story-spine
+  script, polish style) before production. Use when the user asks to plan a
+  marketing video, app store preview, product hunt launch, launch video,
+  changelog/release video, readme demo GIF, or "what video should I make for
+  <app>". Not for directly producing an already-scoped video, use `demo`.
 user-invocable: true
 ---
 
@@ -99,6 +96,7 @@ cursor highlights/zoom guide the eye. Design for silent autoplay, deliver for so
 - `references/product-playbooks.md` — AI agent, plugin, iOS, macOS, Apple Watch, web app.
 - `references/production-measurement.md` — solo "film once publish many", lean stack, metrics, checklists.
 - `references/spectra-production-map.md` — plan → Spectra tools/actions/specs/preset (the integration glue).
+- `references/examples/README.md` — source-linked product-marketing examples with story, craft, and reuse analysis.
 
 For the visual/sound/pacing DESIGN layer — color, typography specs, cut rate, music,
 philosophy — load `Skill("spectra:video-design")`.

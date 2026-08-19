@@ -1,6 +1,6 @@
 ---
 name: host-walkthrough
-description: Use when the user asks to walk me through a UI, demo this flow, show me how a feature works, capture a walkthrough, or navigate a web/macOS app with Spectra.
+description: Drives a running web or macOS app step-by-step to demonstrate a flow, producing a narrated walkthrough capture. Use when the user asks to walk through a UI live, show how a feature works, or navigate an app with Spectra while capturing it. Not for a single screenshot or one-shot recording, use `content-capture`; not for editing an already-captured recording into a shareable video, use `demo`.
 version: 0.1.0
 user-invocable: false
 ---

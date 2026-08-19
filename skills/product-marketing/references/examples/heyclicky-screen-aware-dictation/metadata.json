@@ -1,0 +1,87 @@
+{
+  "title": "HeyClicky screen-aware dictation launch",
+  "creator": {
+    "name": "Farza",
+    "handle": "FarzaTV"
+  },
+  "source": {
+    "platform": "X",
+    "postUrl": "https://x.com/farzatv/status/2077130366230639022",
+    "postId": "2077130366230639022",
+    "mediaId": "2077129836481613824",
+    "publishedDate": "2026-07-14",
+    "capturedDate": "2026-07-15"
+  },
+  "media": {
+    "source": {
+      "durationSeconds": 120.107,
+      "width": 3840,
+      "height": 2160,
+      "frameRate": "30000/1001",
+      "videoCodec": "H.264 High",
+      "audioCodec": "AAC-LC",
+      "audioSampleRateHz": 48000,
+      "audioChannels": 2,
+      "sizeBytes": 164530264,
+      "sha256": "f014d42b60c3dc5ff0cff7afd21754d0b33125fafa452989710e8cd975953f3f"
+    },
+    "repositoryCopy": {
+      "file": "video.mp4",
+      "durationSeconds": 120.106,
+      "width": 1920,
+      "height": 1080,
+      "frameRate": "30000/1001",
+      "videoCodec": "H.264 High",
+      "audioCodec": "AAC-LC",
+      "audioSampleRateHz": 48000,
+      "audioChannels": 2,
+      "sizeBytes": 26955997,
+      "sha256": "df34197f75e28f3dbf9a03af49acb37058d7b52c3c233c5c5ca8a994c11d228c"
+    },
+    "poster": {
+      "file": "poster.jpg",
+      "sha256": "e3cd3dedfae14ddac8ca08d85840d46f0d725484e7e19730934c2424d62e1798"
+    },
+    "storyboard": {
+      "file": "storyboard.jpg",
+      "sampleIntervalSeconds": 5,
+      "readingOrder": "left-to-right, top-to-bottom",
+      "sha256": "7f775f11c9e0eebd014d9c94c9b03aeff731dd0a72d5e9f8aa0c69a4e5501671"
+    }
+  },
+  "measuredAnalysis": {
+    "screenShare": {
+      "founderTalkingHeadSeconds": 64.698,
+      "founderTalkingHeadPercent": 53.9,
+      "productUiSeconds": 50.951,
+      "productUiPercent": 42.4,
+      "physicalShortcutSeconds": 2.636,
+      "physicalShortcutPercent": 2.2,
+      "endCardSeconds": 1.822,
+      "endCardPercent": 1.5
+    },
+    "pacing": {
+      "transcriptWords": 453,
+      "approximateWordsPerMinute": 230,
+      "detectedVisualTransitions": 37,
+      "transitionsPerMinute": 18.5,
+      "medianVisualHoldSeconds": 2.2
+    },
+    "audio": {
+      "integratedLufs": -15.3,
+      "loudnessRangeLu": 4.7,
+      "truePeakDbfs": -0.5,
+      "detectedSilenceSeconds": 0.347,
+      "estimatedTempoBpm": "128-133 (low confidence; speech-contaminated)",
+      "soundClassifier": "Apple Sound Analysis version1",
+      "classifierSummary": [
+        "speech",
+        "music",
+        "plucked string instrument / mandolin",
+        "mallet percussion / chime",
+        "percussion"
+      ]
+    }
+  },
+  "rights": "Source creator retains all rights. Repository copy is preserved as an attributed internal product-marketing reference."
+}
