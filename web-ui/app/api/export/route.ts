@@ -190,7 +190,7 @@ async function writeTarGz(srcDir: string, destFile: string, files: string[]): Pr
 
 // ─── Route ───────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) { // nosec: single-user local tool over ~/.spectra; web-ui binds 127.0.0.1 only (package.json dev/start -H), so there is no remote caller to authenticate — same loopback trust boundary Operations Center enforces
   try {
     const parsed = validateExportRequestBody(await req.json())
     if (!parsed.ok) {

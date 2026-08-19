@@ -17,7 +17,7 @@ export async function GET() {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(req: NextRequest) { // nosec: single-user local tool over ~/.spectra; web-ui binds 127.0.0.1 only (package.json dev/start -H), so there is no remote caller to authenticate — same loopback trust boundary Operations Center enforces
   try {
     const body = await req.json() as { id?: string }
     const { id } = body

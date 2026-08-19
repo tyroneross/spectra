@@ -19,7 +19,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
+export async function PUT( // nosec: single-user local tool over ~/.spectra; web-ui binds 127.0.0.1 only (package.json dev/start -H), so there is no remote caller to authenticate — same loopback trust boundary Operations Center enforces
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
