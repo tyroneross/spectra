@@ -3,7 +3,7 @@
 // Entry point: take a repo path, detect kind, launch.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { detectRepoKind } from './detect.js';
 import { launchWebDevServer } from './web.js';
 import { launchMacosApp } from './macos.js';

@@ -3,7 +3,7 @@
 // Inspect a repo directory and decide how to launch it.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { LauncherError } from './types.js';

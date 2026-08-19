@@ -8,7 +8,7 @@
 //  - what to lock as defaults in PromptBuilder.swift if shipping the winner
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'

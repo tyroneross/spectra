@@ -4,7 +4,7 @@
 // "Local: http://localhost:NNNN" line to discover the actual bound port.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import { LauncherError, type DetectionResult, type LaunchHandle } from './types.js'

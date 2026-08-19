@@ -4,7 +4,7 @@
 // or target the user picked. Sorted by lastUsed (newest first).
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import Foundation
 

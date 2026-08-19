@@ -24,7 +24,7 @@
 // call `.disabled(condition)` as usual — no extra wiring needed.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import SwiftUI
 

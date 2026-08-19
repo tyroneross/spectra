@@ -14,7 +14,7 @@
 # Safe to re-run.
 #
 # SPDX-License-Identifier: Apache-2.0
-# (c) 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+# (c) 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 set -eu
 

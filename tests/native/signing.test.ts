@@ -10,7 +10,7 @@
 // while a live TCC grant flow is in progress.
 //
 // SPDX-License-Identifier: Apache-2.0
-// (c) 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// (c) 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'

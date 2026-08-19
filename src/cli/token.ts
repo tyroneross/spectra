@@ -6,7 +6,7 @@
 // can connect to 127.0.0.1; the bearer token gates write operations.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { mkdirSync, readFileSync, statSync, writeFileSync, existsSync, chmodSync } from 'node:fs'

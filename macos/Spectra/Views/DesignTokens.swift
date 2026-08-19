@@ -21,7 +21,7 @@
 // `.font(.system(size: 11))` or `Color.gray.opacity(0.08)`.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import SwiftUI
 

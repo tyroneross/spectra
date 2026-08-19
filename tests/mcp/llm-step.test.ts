@@ -5,7 +5,7 @@
 // short-circuit-on-error behavior.
 //
 // SPDX-License-Identifier: Apache-2.0
-// © 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { describe, it, expect, vi } from 'vitest'
 import { handleLlmStep } from '../../src/mcp/tools/llm-step.js'

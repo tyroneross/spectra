@@ -32,7 +32,7 @@
 // identifier. An explicit `SPECTRA_CODESIGN_IDENTITY` always wins.
 //
 // SPDX-License-Identifier: Apache-2.0
-// (c) 2026 Tyrone Ross, Jr <tyrone.ross.work@gmail.com>
+// (c) 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
