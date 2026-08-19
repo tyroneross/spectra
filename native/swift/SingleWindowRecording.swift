@@ -410,16 +410,17 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
 
         let timeScale = CMTimeScale(max(600, fps * 1000))
         let ticksPerFrame = CMTimeValue(timeScale / CMTimeScale(fps))
+        let videoCodec = try singleWindowCodec(codec)
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
-        let videoCodec = singleWindowCodec(codec)
+        configureCrashSafeMovieWriter(writer)
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: videoCodec,
             AVVideoWidthKey: size.width,
             AVVideoHeightKey: size.height,
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: singleWindowBitrateBits(bitrate, width: size.width, height: size.height, fps: fps),
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
-            ]
+            AVVideoCompressionPropertiesKey: crashSafeVideoCompressionProperties(
+                framesPerSecond: fps,
+                averageBitRate: singleWindowBitrateBits(bitrate, width: size.width, height: size.height, fps: fps)
+            )
         ])
         input.expectsMediaDataInRealTime = true
         input.mediaTimeScale = timeScale
@@ -502,6 +503,10 @@ final class SingleWindowRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @u
             throw writer.error ?? SingleWindowRecordingError(description: "AVAssetWriter failed to start")
         }
         writer.startSession(atSourceTime: .zero)
+
+        let noticeToken = "single-window:\(outputURL.path)"
+        RecordingNotice.shared.recordingStarted(noticeToken)
+        defer { RecordingNotice.shared.recordingStopped(noticeToken) }
 
         try await singleWindowStart(stream, timeoutSeconds: min(5, max(0.1, hardStop.remainingSeconds)))
         if let preStartSeed {
@@ -950,8 +955,13 @@ func singleWindowEven(_ value: Int) -> Int {
     value % 2 == 0 ? value : value + 1
 }
 
-func singleWindowCodec(_ value: String) -> AVVideoCodecType {
-    value.lowercased() == "hevc" ? .hevc : .h264
+func singleWindowCodec(_ value: String) throws -> AVVideoCodecType {
+    guard value.lowercased() == "h264" else {
+        throw SingleWindowRecordingError(
+            description: "Crash-safe recording requires codec h264; HEVC cannot guarantee one-second keyframes."
+        )
+    }
+    return .h264
 }
 
 func singleWindowBitrateBits(_ value: String, width: Int, height: Int, fps: Int) -> Int {
@@ -1172,4 +1182,3 @@ final class SingleWindowFinishWriterState: @unchecked Sendable {
         continuation.resume(returning: value)
     }
 }
-

@@ -4,7 +4,7 @@ import { spawnSync, spawn } from 'node:child_process'
 import { writeFile, rm, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { requireFfmpeg, detectFfmpeg } from './ffmpeg.js'
+import { crashSafeMp4Args, requireFfmpeg, detectFfmpeg } from './ffmpeg.js'
 
 // ─── Internal helpers ─────────────────────────────────────────
 
@@ -264,7 +264,7 @@ export async function autoRampDemo(
         '-r', String(fps), '-vsync', 'cfr',
         '-c:v', 'libx264', '-preset', 'medium', '-crf', String(crf),
         '-pix_fmt', 'yuv420p', '-video_track_timescale', String(Math.max(600, fps * 1000)),
-        '-movflags', '+faststart', '-y', segOut,
+        ...crashSafeMp4Args(), '-y', segOut,
       ])
       segPaths.push(segOut)
     }
@@ -410,6 +410,7 @@ export async function renderSegment(opts: RenderSegmentOpts): Promise<void> {
     '-map', lastLabel,
     '-an',
     ...shortestArgs,
+    ...crashSafeMp4Args(),
     '-y',
     opts.out,
   ]
@@ -435,6 +436,7 @@ export async function mergeSegments(segPaths: string[], out: string): Promise<vo
       '-safe', '0',
       '-i', listFile,
       '-c', 'copy',
+      ...crashSafeMp4Args({ forceKeyFrames: false }),
       '-y',
       out,
     ]

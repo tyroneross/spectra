@@ -8,6 +8,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildCompositeWorkerArgs,
+  buildCompositeRecoveryArgs,
+  compositeRecoveryDirectoryPrefix,
   parseLuminance,
   COMPOSITE_WORKER_DEFAULTS,
 } from '../../src/daemon/composite-worker.js'
@@ -41,6 +43,36 @@ describe('buildCompositeWorkerArgs — required fields', () => {
   })
   it('throws when outPath is missing', () => {
     expect(() => buildCompositeWorkerArgs({ ...base, outPath: '' })).toThrow(/outPath/)
+  })
+})
+
+describe('composite recovery path', () => {
+  it('keeps crash-recovery artifacts beside the requested output', () => {
+    expect(compositeRecoveryDirectoryPrefix('/tmp/captures/demo.mp4'))
+      .toBe('/tmp/captures/demo.mp4.spectra-recovery-')
+  })
+
+  it('rebuilds a fragmented side-by-side MP4 at the requested output path', () => {
+    const args = buildCompositeRecoveryArgs({
+      schema: 'spectra.composite-recovery.v1',
+      status: 'recording',
+      output: '/tmp/captures/demo.mp4',
+      left: '/tmp/captures/recovery/left.mp4',
+      right: '/tmp/captures/recovery/right.mp4',
+      fps: 30,
+      durationSeconds: 10,
+      paneHeight: 720,
+      pixFmt: 'yuv420p',
+      maxWidth: 1600,
+      crf: 20,
+      updatedAt: '2026-07-20T00:00:00Z',
+    })
+
+    expect(args).toContain('/tmp/captures/recovery/left.mp4')
+    expect(args).toContain('/tmp/captures/recovery/right.mp4')
+    expect(args).toContain('[v]')
+    expect(args).toContain('+frag_keyframe+empty_moov+default_base_moof')
+    expect(args.at(-1)).toBe('/tmp/captures/demo.mp4')
   })
 })
 

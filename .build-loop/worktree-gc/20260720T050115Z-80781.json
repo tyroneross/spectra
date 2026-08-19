@@ -1,0 +1,14 @@
+{
+  "candidates": [],
+  "bundled_and_removed": [],
+  "removed_orphan": [],
+  "skipped_active": [],
+  "skipped_too_young": [],
+  "skipped_not_run": [],
+  "skipped_unattributed": [],
+  "skipped_unmerged": [],
+  "errors": [],
+  "dry_run": true,
+  "act": false,
+  "owner_released": false
+}
