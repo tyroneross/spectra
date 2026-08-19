@@ -1,8 +1,9 @@
 {
   "name": "spectra",
-  "description": "Capture screenshots, videos, and polished demo clips — spotlight focus, lower-third captions, and a tagged library — across web, macOS, and iOS",
+  "description": "Capture screenshots, videos, and polished demo clips \u2014 spotlight focus, lower-third captions, and a tagged library \u2014 across web, macOS, and iOS",
   "author": {
-    "name": "Tyrone Ross"
+    "name": "Tyrone Ross",
+    "url": "https://github.com/tyroneross"
   },
   "license": "Apache-2.0",
   "keywords": [
@@ -37,5 +38,7 @@
         "spectra_llm_step"
       ]
     }
-  }
+  },
+  "repository": "https://github.com/tyroneross/spectra",
+  "homepage": "https://github.com/tyroneross/spectra"
 }
