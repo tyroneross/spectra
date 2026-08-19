@@ -710,3 +710,26 @@ export {
   TEST_APP_PATH,
   TEXT_RENDER_BINARY_PATH,
 }
+
+/**
+ * Ported from the marketing-content-loop branch, which reworked helper
+ * resolution around bundle-owned helpers so macOS attributes TCC permission
+ * grants to Spectra.app rather than to a bare compiled binary.
+ *
+ * Only this selector came across. That branch's wider rewrite replaced
+ * `resolveEmbeddedHelper` + the `skipEmbedded` fallback, which main since built
+ * its signing-manifest work on top of (7 call sites), so main's resolution
+ * design stands and the enforcement half is tracked separately.
+ */
+export const HELPER_MODE_ENV = 'SPECTRA_HELPER_MODE'
+
+export type HelperMode = 'bundle' | 'development'
+
+export function resolveHelperMode(): HelperMode | undefined {
+  const raw = process.env[HELPER_MODE_ENV]?.trim()
+  if (!raw) return undefined
+  if (raw === 'bundle' || raw === 'development') return raw
+  throw new Error(
+    `${HELPER_MODE_ENV} must be "bundle" or "development"; received ${JSON.stringify(raw)}`,
+  )
+}

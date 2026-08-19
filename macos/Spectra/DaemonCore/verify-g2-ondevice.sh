@@ -14,8 +14,8 @@
 # confirm/adjust once S1 (ConnectOps.swift target-resolution) and S2
 # (NativeDriver app-lookup) exist.
 #
-# Step 1 (the TCC-attribution spike, PC-2 in the plan) is the one step that
-# MUST run under the PRODUCTION launchd context, not a dev shell — TCC
+# Step 1 (the TCC-attribution spike, PC-2 in the plan) must run under a
+# launchd-managed context, not a dev shell — TCC
 # attribution keys on parent process chain / responsible process / code
 # signature, and a Terminal-launched dev-shell process does not carry the
 # same attribution as a launchd-spawned one. This script therefore installs
@@ -29,10 +29,9 @@
 #     ~/.spectra-g2-ondevice/ — it NEVER touches the real
 #     dev.spectra.daemon[-ts] LaunchAgents or the real ~/.spectra/bin
 #     binaries (LaunchAgentManager.swift's own production paths).
-#   - `--production` mode installs at the REAL dev.spectra.daemon path/label
-#     (the strongest TCC-attribution evidence, since grants are per-code-
-#     signature/per-path per ADR-05) — gated behind an interactive
-#     confirmation prompt, since it can interact with a real running daemon.
+#   - `--production` is intentionally refused. Installed-app attribution is
+#     now verified through the current signed Spectra.app and its native UI;
+#     this legacy harness must never recreate real labels with bare helpers.
 #   - Codesigning uses scripts/codesign-native.sh's existing ad-hoc default
 #     (SPECTRA_CODESIGN_IDENTITY is NEVER set by this script) — never
 #     prompts, never touches the login keychain.
@@ -47,7 +46,7 @@
 # green — plan §TCC spike).
 #
 # Usage:
-#   macos/Spectra/DaemonCore/verify-g2-ondevice.sh [--production] [--keep-running] [--skip-build]
+#   macos/Spectra/DaemonCore/verify-g2-ondevice.sh [--keep-running] [--skip-build]
 #
 # SPDX-License-Identifier: Apache-2.0
 # © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
@@ -60,12 +59,14 @@ EVIDENCE_DIR="$REPO_ROOT/.build-loop/flip-evidence"
 EVIDENCE_FILE="$EVIDENCE_DIR/gate-g2-ondevice.txt"
 TCC_SPIKE_EVIDENCE_FILE="$EVIDENCE_DIR/gate-g2-tcc-spike.txt"
 
-PRODUCTION_MODE=0
 KEEP_RUNNING=0
 SKIP_BUILD=0
 for arg in "$@"; do
   case "$arg" in
-    --production) PRODUCTION_MODE=1 ;;
+    --production)
+      echo "--production is no longer supported by this legacy harness; verify the signed installed Spectra.app through the native UI instead." >&2
+      exit 64
+      ;;
     --keep-running) KEEP_RUNNING=1 ;;
     --skip-build) SKIP_BUILD=1 ;;
     *) echo "unknown flag: $arg" >&2; exit 64 ;;
@@ -85,26 +86,11 @@ done
 
 mkdir -p "$EVIDENCE_DIR"
 
-if [[ "$PRODUCTION_MODE" == "1" ]]; then
-  LABEL="dev.spectra.daemon"
-  TS_LABEL="dev.spectra.daemon-ts"
-  TEST_HOME="$HOME"
-  BIN_DIR="$HOME/.spectra/bin"
-  echo "*** --production requested: this will bootstrap the REAL dev.spectra.daemon LaunchAgent(s) at the real"
-  echo "*** ~/.spectra paths — the strongest TCC-attribution evidence (grants are per-code-signature/per-path),"
-  echo "*** but it interacts with a real installed daemon if one is already running."
-  read -r -p "Type 'yes' to continue in --production mode: " CONFIRM
-  if [[ "$CONFIRM" != "yes" ]]; then
-    echo "aborted (production mode requires explicit confirmation)." >&2
-    exit 1
-  fi
-else
-  LABEL="dev.spectra.daemon-g2-tccspike"
-  TS_LABEL="dev.spectra.daemon-g2-tccspike-ts"
-  TEST_HOME="$HOME/.spectra-g2-ondevice"
-  BIN_DIR="$TEST_HOME/bin"
-  mkdir -p "$TEST_HOME"
-fi
+LABEL="dev.spectra.daemon-g2-tccspike"
+TS_LABEL="dev.spectra.daemon-g2-tccspike-ts"
+TEST_HOME="$HOME/.spectra-g2-ondevice"
+BIN_DIR="$TEST_HOME/bin"
+mkdir -p "$TEST_HOME"
 
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 mkdir -p "$LAUNCH_AGENTS_DIR" "$BIN_DIR" "$TEST_HOME/logs"
@@ -116,7 +102,7 @@ ROUTING_CONFIG_PATH="$TEST_HOME/routing-config.json"
 DAEMON_CORE_BIN="$BIN_DIR/spectra-daemon-core"
 TEST_APP_BIN="$BIN_DIR/spectra-test-app"
 
-echo "· mode: $([[ "$PRODUCTION_MODE" == "1" ]] && echo PRODUCTION || echo test-scoped)"
+echo "· mode: test-scoped development helpers (not installed-app attribution evidence)"
 echo "· front-door label: $LABEL (plist: $PLIST_PATH)"
 echo "· socket: $SOCKET_PATH"
 
@@ -142,7 +128,7 @@ fi
 # BridgeClient resolves the helper at $HOME/.spectra/bin/spectra-native
 # (BridgeClient.swift resolveBinaryPath) — the launchd plist sets
 # HOME=$TEST_HOME, so without this the AX functional probe fails with
-# "Native AX helper not found". Reuse the production-built helper when
+# "Native AX helper not found". Reuse an existing development helper when
 # present (same binary the TS daemon shells), else build it via the TS
 # compiler path. Signed the same way as the daemon (child-process TCC
 # attribution flows to the daemon, but consistent signing is cleaner).
@@ -150,11 +136,11 @@ HELPER_DEST="$TEST_HOME/.spectra/bin/spectra-native"
 if [[ ! -x "$HELPER_DEST" ]]; then
   mkdir -p "$(dirname "$HELPER_DEST")"
   if [[ -x "$HOME/.spectra/bin/spectra-native" ]]; then
-    echo "· provisioning AX helper from production install…"
+    echo "· provisioning AX helper from the existing development build…"
     cp "$HOME/.spectra/bin/spectra-native" "$HELPER_DEST"
   else
-    echo "· building AX helper (production copy absent)…"
-    (cd "$REPO_ROOT" && npx tsx -e "import {ensureBinary} from './src/native/compiler.js'; await ensureBinary()" && cp "$HOME/.spectra/bin/spectra-native" "$HELPER_DEST")
+    echo "· building AX helper (development copy absent)…"
+    (cd "$REPO_ROOT" && SPECTRA_HELPER_MODE=development npx tsx -e "import {ensureBinary} from './src/native/compiler.js'; await ensureBinary()" && cp "$HOME/.spectra/bin/spectra-native" "$HELPER_DEST")
   fi
   bash "$REPO_ROOT/scripts/codesign-native.sh" "$HELPER_DEST" || true
 fi
@@ -173,9 +159,8 @@ cat > "$ROUTING_CONFIG_PATH" <<'JSON'
 }
 JSON
 
-# ── Plists (mirrors macos/Spectra/Daemon/LaunchAgentManager.swift's own
-# production plist shape verbatim, so this test topology is as close to the
-# real one as a non-production label/path allows) ──────────────────────────
+# ── Test-scoped plists. They intentionally declare development helper mode;
+# installed-app production attribution is exercised only through Spectra.app.
 cat > "$PLIST_PATH" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -205,6 +190,10 @@ cat > "$PLIST_PATH" <<PLIST
         <string>$TEST_HOME</string>
         <key>SPECTRA_HOME</key>
         <string>$TEST_HOME</string>
+        <key>SPECTRA_HELPER_MODE</key>
+        <string>development</string>
+        <key>SPECTRA_NATIVE_HELPER_PATH</key>
+        <string>$HELPER_DEST</string>
     </dict>
     <key>StandardOutPath</key>
     <string>$TEST_HOME/logs/daemon.out.log</string>
@@ -243,6 +232,10 @@ cat > "$TS_PLIST_PATH" <<PLIST
         <string>$TEST_HOME</string>
         <key>SPECTRA_HOME</key>
         <string>$TEST_HOME</string>
+        <key>SPECTRA_HELPER_MODE</key>
+        <string>development</string>
+        <key>SPECTRA_NATIVE_HELPER_PATH</key>
+        <string>$HELPER_DEST</string>
     </dict>
     <key>StandardOutPath</key>
     <string>$TEST_HOME/logs/daemon-ts.out.log</string>
@@ -256,6 +249,7 @@ PLIST
 
 UID_NUM="$(id -u)"
 
+# shellcheck disable=SC2329  # invoked indirectly by the EXIT trap below
 cleanup() {
   echo "· tearing down…"
   # TestApp is per-run scaffolding — always killed, even under --keep-running.
@@ -286,7 +280,7 @@ if [[ ! -S "$SOCKET_PATH" ]]; then
   {
     echo "=== T-25 step 1 (TCC spike) — RED ==="
     echo "reason: front door failed to bind its socket under launchd (see $TEST_HOME/logs/daemon.err.log)"
-    echo "context: PRODUCTION LAUNCH CONTEXT (launchctl bootstrap gui/$UID_NUM/$LABEL), NOT a dev shell"
+    echo "context: TEST-SCOPED LAUNCHD CONTEXT (launchctl bootstrap gui/$UID_NUM/$LABEL), NOT a dev shell or installed-app proof"
     date -u +"timestamp: %Y-%m-%dT%H:%M:%SZ"
   } >> "$TCC_SPIKE_EVIDENCE_FILE"
   exit 1
@@ -301,7 +295,7 @@ fi
 DAEMON_PID="$(launchctl print "gui/$UID_NUM/$LABEL" 2>/dev/null | awk '/pid = /{print $3; exit}')"
 PARENT_PID="$(ps -o ppid= -p "${DAEMON_PID:-0}" 2>/dev/null | tr -d ' ')"
 {
-  echo "=== T-25 step 1 — production launch context corroboration ==="
+  echo "=== T-25 step 1 — test-scoped launchd context corroboration ==="
   echo "label: $LABEL"
   echo "daemon pid: ${DAEMON_PID:-unknown}"
   echo "daemon parent pid: ${PARENT_PID:-unknown} (expected: launchd's pid, NEVER a Terminal/bash pid)"

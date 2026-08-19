@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 #
 # M3.G1 rollback drill (T-09) — boots out BOTH flip LaunchAgents and restores
-# the ORIGINAL single-TS-daemon LaunchAgent on the PRIMARY socket. One
+# the single-TS-daemon topology on the PRIMARY socket. One
 # command, no rebuild — must complete in under 2 minutes (this script prints
 # its own elapsed time so the drill has evidence).
 #
 # This is the ADR-01 rollback path: if anything about the Swift front door
-# is wrong, this returns the machine to pre-flip behavior byte-for-byte
-# (same plist shape scripts/install-daemon.sh has always written).
+# is wrong, this restores pre-flip routing while retaining the current bundle
+# association and explicit helper-attribution environment.
 #
 # Usage:
 #   bash scripts/rollback-g1.sh
+#   SPECTRA_HELPER_MODE=development bash scripts/rollback-g1.sh  # local bare helpers
 #
 # Re-flip afterwards with: bash scripts/flip-g1.sh
 #
@@ -21,13 +22,18 @@ set -euo pipefail
 
 SECONDS=0
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/spectra-helper-paths.sh
+source "$REPO_ROOT/scripts/spectra-helper-paths.sh"
+
 FRONT_LABEL="dev.spectra.daemon"
 BACKEND_LABEL="dev.spectra.daemon-ts"
 FRONT_PLIST="$HOME/Library/LaunchAgents/$FRONT_LABEL.plist"
 BACKEND_PLIST="$HOME/Library/LaunchAgents/$BACKEND_LABEL.plist"
 
 DAEMON_SCRIPT="$HOME/.spectra/dist/cli/index.js"
-DAEMON_LAUNCHER="$HOME/.spectra/bin/spectra-daemon-launcher"
+DAEMON_LAUNCHER=""
+NODE_PATH=""
 LOG_DIR="$HOME/.spectra/logs"
 PRIMARY_SOCKET="$HOME/.spectra/daemon.sock"
 
@@ -45,6 +51,20 @@ resolve_node() {
     command -v node 2>/dev/null || { echo "ERROR: node not found in PATH or standard locations" >&2; exit 1; }
 }
 
+configure_rollback_inputs() {
+    spectra_resolve_helper_paths
+    DAEMON_LAUNCHER="$SPECTRA_RESOLVED_DAEMON_LAUNCHER"
+    NODE_PATH="$(resolve_node)"
+    if [[ "$SPECTRA_RESOLVED_HELPER_MODE" == "bundle" ]]; then
+        spectra_require_bundle_rollback_inventory
+    fi
+    if [[ ! -f "$DAEMON_SCRIPT" ]]; then
+        echo "rollback-g1: ABORT — TS daemon entry not found at $DAEMON_SCRIPT" >&2
+        echo "             Cannot restore a working daemon; fix the install before retrying." >&2
+        return 1
+    fi
+}
+
 # ─── Step 1: tear down BOTH flip agents ──────────────────────────────────
 teardown_flip_agents() {
     local uid
@@ -59,33 +79,20 @@ teardown_flip_agents() {
     fi
 }
 
-# ─── Step 2: restore the ORIGINAL single-TS plist on the primary socket ──
-# Byte-shape matches scripts/install-daemon.sh's pre-flip template exactly
-# (no SPECTRA_DAEMON_LISTEN_SOCKET override — this process owns the PRIMARY
-# socket again, the pre-flip default).
+# ─── Step 2: restore the single-TS plist on the primary socket ───────────
+# No SPECTRA_DAEMON_LISTEN_SOCKET override: this process owns the primary
+# socket again. Bundle association and helper attribution remain explicit.
 restore_single_ts_plist() {
-    if [[ ! -f "$DAEMON_SCRIPT" ]]; then
-        echo "rollback-g1: ABORT — TS daemon entry not found at $DAEMON_SCRIPT" >&2
-        echo "             Cannot restore a working daemon; fix the install before retrying." >&2
-        exit 1
-    fi
-
     mkdir -p "$(dirname "$FRONT_PLIST")" "$LOG_DIR"
 
-    local node_path program_args
-    node_path="$(resolve_node)"
+    local program_args log_dir_xml
+    log_dir_xml="$(spectra_xml_escape "$LOG_DIR")"
     if [[ -x "$DAEMON_LAUNCHER" ]]; then
-        program_args="\
-        <string>$DAEMON_LAUNCHER</string>
-        <string>--node</string>
-        <string>$node_path</string>
-        <string>--script</string>
-        <string>$DAEMON_SCRIPT</string>"
+        program_args="$(spectra_program_arguments_xml "        " \
+            "$DAEMON_LAUNCHER" "--node" "$NODE_PATH" "--script" "$DAEMON_SCRIPT")"
     else
-        program_args="\
-        <string>$node_path</string>
-        <string>$DAEMON_SCRIPT</string>
-        <string>daemon</string>"
+        program_args="$(spectra_program_arguments_xml "        " \
+            "$NODE_PATH" "$DAEMON_SCRIPT" "daemon")"
     fi
 
     cat > "$FRONT_PLIST" <<EOF
@@ -95,6 +102,7 @@ restore_single_ts_plist() {
 <dict>
     <key>Label</key>
     <string>$FRONT_LABEL</string>
+$(spectra_associated_bundle_identifiers_xml "    ")
     <key>ProgramArguments</key>
     <array>
 $program_args
@@ -107,11 +115,12 @@ $program_args
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+$(spectra_helper_environment_xml "        ")
     </dict>
     <key>StandardOutPath</key>
-    <string>$LOG_DIR/daemon.out.log</string>
+    <string>$log_dir_xml/daemon.out.log</string>
     <key>StandardErrorPath</key>
-    <string>$LOG_DIR/daemon.err.log</string>
+    <string>$log_dir_xml/daemon.err.log</string>
     <key>ProcessType</key>
     <string>Background</string>
 </dict>
@@ -145,6 +154,7 @@ verify_client_op() {
 }
 
 echo "=== rollback-g1: restoring TS-primary (T-09 drill) ==="
+configure_rollback_inputs
 teardown_flip_agents
 restore_single_ts_plist
 verify_client_op

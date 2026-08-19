@@ -1,8 +1,7 @@
 import { execFile, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { stat, mkdir } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { stat, mkdir, rename } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import { ComputerUse } from '../computer-use/computer-use.js';
@@ -10,6 +9,7 @@ import { NativeAxBridgePort } from '../computer-use/native-port.js';
 import { AxPermissionError } from '../computer-use/port.js';
 import { NativeVisionFallback } from '../computer-use/vision-fallback.js';
 import { detectFfmpeg } from '../media/ffmpeg.js';
+import { finalizeRecording } from '../media/finalize-recording.js';
 import { probeVideo } from '../media/pipeline.js';
 import { createContext } from '../mcp/context.js';
 import { handleAnalyze } from '../mcp/tools/analyze.js';
@@ -25,7 +25,7 @@ import { handleSession } from '../mcp/tools/session.js';
 import { handleSnapshot } from '../mcp/tools/snapshot.js';
 import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
-import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary, SCREEN_RECORDING_PREFLIGHT_PATH, DAEMON_LAUNCHER_PATH, } from '../native/compiler.js';
+import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary, resolveHelperMode, SCREEN_RECORDING_PREFLIGHT_PATH, DAEMON_LAUNCHER_PATH, } from '../native/compiler.js';
 import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native/signing.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
@@ -70,8 +70,8 @@ export class CoreApiImplementation {
         this.windowListProvider = options.windowListProvider ?? listMacWindows;
         this.eventSink = options.eventSink;
     }
-    spawnCursorSampler(args) {
-        const child = spawn(cursorSamplerBinaryPath(), args, { stdio: 'ignore' });
+    spawnCursorSampler(binaryPath, args) {
+        const child = spawn(binaryPath, args, { stdio: 'ignore' });
         child.on('error', () => { });
         return child;
     }
@@ -253,19 +253,32 @@ export class CoreApiImplementation {
         let cursorSampler;
         let cursorSamplerSkippedWarning;
         if (params.captureCursor === true) {
+            let cursorSamplerBinary;
             try {
-                this.ensureCursorSamplerBinary();
+                cursorSamplerBinary = this.ensureCursorSamplerBinary();
             }
-            catch {
+            catch (error) {
+                let developmentMode = false;
+                try {
+                    developmentMode = resolveHelperMode() === 'development';
+                }
+                catch {
+                    // An invalid mode is a production configuration failure, not a
+                    // development fallback signal.
+                }
+                if (!developmentMode) {
+                    await handle.abort().catch(() => { });
+                    await this.keepAwake.recordingStopped(recordingId).catch(() => { });
+                    throw new DaemonApiError('recording_failed', `startRecording cursor sampler unavailable: ${error instanceof Error ? error.message : String(error)}`, { status: 500, retryable: false, cause: error });
+                }
                 // Binary missing/stale and (re)build failed — skip the spawn entirely
-                // rather than shell out to a binary we know is broken. The recording
-                // itself still succeeds; the gap is surfaced as an artifact warning
-                // at stop time instead of failing silently.
+                // in explicit development mode. The recording itself still succeeds;
+                // the gap is surfaced as an artifact warning at stop time.
                 cursorSamplerSkippedWarning = CURSOR_SAMPLER_SILENT_FAILURE_WARNING;
             }
-            if (!cursorSamplerSkippedWarning) {
+            if (cursorSamplerBinary) {
                 try {
-                    cursorSampler = this.startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds);
+                    cursorSampler = this.startCursorSampler(cursorSamplerBinary, recordingId, sessionDir, fps, maxDurationSeconds);
                 }
                 catch (error) {
                     await handle.abort().catch(() => { });
@@ -359,7 +372,47 @@ export class CoreApiImplementation {
         }
         await this.keepAwake.recordingStopped(active.recordingId).catch(() => { });
         const stoppedAt = Date.now();
-        const path = stopped.path || active.outPath;
+        // Finalize the raw recording into a validated, universally-playable mp4.
+        // The native ScreenCaptureKit recorder can emit H.264 4:4:4 (undecodable by
+        // QuickTime/Preview) or, in the observed failure mode, a truncated stub with
+        // no moov atom. finalizeRecording transcodes/remuxes to yuv420p + faststart
+        // and REFUSES to return unless the output is a real, playable video — so a
+        // stub or 4:4:4 file fails loudly here instead of being registered.
+        const finalPath = active.outPath;
+        const rawSource = stopped.path || active.outPath;
+        // Preserve the raw: if the recorder wrote straight to the canonical
+        // <recordingId>.mp4, move it aside so finalize can write the validated file
+        // in its place while the raw stays available for rescue.
+        let rawInput = rawSource;
+        let finalized;
+        try {
+            if (rawSource === finalPath) {
+                const preserved = join(dirname(finalPath), `${active.recordingId}.raw.mp4`);
+                await rename(finalPath, preserved);
+                rawInput = preserved;
+            }
+            finalized = await finalizeRecording({ rawPath: rawInput, outPath: finalPath });
+        }
+        catch (error) {
+            const failed = await this.ctx.sessions.setRecordingStatus(params.sessionId, {
+                state: 'failed',
+                recordingId: active.recordingId,
+                preset: active.preset,
+                startedAt: active.startedAt,
+                stoppedAt: Date.now(),
+                rawPath: rawInput,
+                error: error instanceof Error ? error.message : String(error),
+            }).catch(() => undefined);
+            if (failed)
+                this.emitRecordingStatus(params.sessionId, failed);
+            throw new DaemonApiError('recording_failed', `Recording finalize/validation failed: ${error instanceof Error ? error.message : String(error)}`, {
+                status: 500,
+                retryable: false,
+                cause: error,
+                hint: `Raw recording preserved at ${rawInput}. Rescue with: scripts/rescue-recording.sh "${rawInput}"`,
+            });
+        }
+        const path = finalized.path;
         const file = await stat(path).catch(() => undefined);
         const probed = await probeVideo(path).catch(() => undefined);
         const blackFrameGuard = probeRecordingBlackFrames(path);
@@ -371,8 +424,8 @@ export class CoreApiImplementation {
         else if (blackFrameGuard.skipped) {
             warnings.push('Black-frame guard skipped; ffmpeg was unavailable or no luminance samples were produced.');
         }
-        const durationMs = stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt);
-        const sizeBytes = stopped.sizeBytes ?? file?.size;
+        const durationMs = finalized.probe.durationMs ?? stopped.durationMs ?? probed?.durationMs ?? Math.max(0, stoppedAt - active.startedAt);
+        const sizeBytes = finalized.sizeBytes ?? file?.size;
         const cursorTelemetryPath = await this.cursorTelemetryPathIfPresent(active.cursorSampler);
         if (active.cursorSamplerSkippedWarning) {
             warnings.push(active.cursorSamplerSkippedWarning);
@@ -386,14 +439,14 @@ export class CoreApiImplementation {
             preset: active.preset,
             startedAt: active.startedAt,
             stoppedAt,
-            rawPath: active.outPath,
+            rawPath: rawInput,
             path,
             durationMs,
             sizeBytes,
-            codec: stopped.codec ?? probed?.codec ?? active.codec,
+            codec: finalized.probe.codec ?? stopped.codec ?? probed?.codec ?? active.codec,
             fps: stopped.fps ?? probed?.fps ?? active.fps,
-            width: stopped.width ?? probed?.width,
-            height: stopped.height ?? probed?.height,
+            width: finalized.probe.width ?? stopped.width ?? probed?.width,
+            height: finalized.probe.height ?? stopped.height ?? probed?.height,
             bitrate: active.bitrate,
             droppedFrames: stopped.droppedFrames,
             source: `${active.target.appName}${active.target.title ? `: ${active.target.title}` : ''}`,
@@ -415,7 +468,7 @@ export class CoreApiImplementation {
         const artifact = await this.ctx.sessions.addArtifact(params.sessionId, {
             type: 'video',
             path,
-            format: stopped.format ?? 'mp4',
+            format: 'mp4',
             label: 'Window recording',
             sizeBytes,
             metadata,
@@ -425,13 +478,13 @@ export class CoreApiImplementation {
             recordingId: active.recordingId,
             preset: active.preset,
             path,
-            format: stopped.format ?? 'mp4',
+            format: 'mp4',
             durationMs,
             sizeBytes,
-            codec: stopped.codec ?? probed?.codec ?? active.codec,
+            codec: finalized.probe.codec ?? stopped.codec ?? probed?.codec ?? active.codec,
             fps: stopped.fps ?? probed?.fps ?? active.fps,
-            width: stopped.width ?? probed?.width,
-            height: stopped.height ?? probed?.height,
+            width: finalized.probe.width ?? stopped.width ?? probed?.width,
+            height: finalized.probe.height ?? stopped.height ?? probed?.height,
             droppedFrames: stopped.droppedFrames,
             alreadyStopped: false,
         };
@@ -793,7 +846,7 @@ export class CoreApiImplementation {
         }));
         await this.keepAwake.close();
     }
-    startCursorSampler(recordingId, sessionDir, fps, maxDurationSeconds) {
+    startCursorSampler(binaryPath, recordingId, sessionDir, fps, maxDurationSeconds) {
         const outPath = join(sessionDir, `${recordingId}.cursor.json`);
         const args = [
             '--duration', String(maxDurationSeconds),
@@ -801,7 +854,7 @@ export class CoreApiImplementation {
             '--out', outPath,
         ];
         return {
-            child: this.spawnCursorSampler(args),
+            child: this.spawnCursorSampler(binaryPath, args),
             outPath,
         };
     }
@@ -1129,9 +1182,6 @@ async function startNativeSingleWindowRecording(input) {
         throw error;
     }
 }
-function cursorSamplerBinaryPath() {
-    return join(homedir(), '.spectra', 'bin', 'spectra-cursor-sampler');
-}
 async function waitForChildExit(child, timeoutMs) {
     if (child.exitCode !== null || child.signalCode !== null)
         return;
@@ -1242,7 +1292,7 @@ async function probePermission(permission) {
     }
     if (permission === 'screen-recording') {
         try {
-            await execFileAsync(ensureScreenRecordingPreflightBinary(), [], {
+            await execFileAsync(ensureScreenRecordingPreflightBinary(), ['--no-request'], {
                 timeout: 2_000,
                 maxBuffer: 1024 * 1024,
             });

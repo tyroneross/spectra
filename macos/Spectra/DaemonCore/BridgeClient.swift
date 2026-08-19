@@ -1,10 +1,10 @@
 // macos/Spectra/DaemonCore/BridgeClient.swift
 //
 // M3.G2 (S2) — stdio line-JSON RPC client to the EXISTING spectra-native AX
-// helper binary (native/swift/main.swift, compiled to
-// ~/.spectra/bin/spectra-native by src/native/compiler.ts — NOT this file's
-// job to build it; a missing binary is a startup-time failure, not a compile
-// step here). The contract spec is `src/native/bridge.ts`'s `NativeBridge`:
+// helper binary (native/swift/main.swift). Production resolves the signed
+// bundle copy; explicit development mode resolves the compiler output under
+// ~/.spectra/bin. Building either binary is not this file's job. The contract
+// spec is `src/native/bridge.ts`'s `NativeBridge`:
 // same request shape ({id, method, params?} newline-delimited JSON on
 // stdin), same response shape ({id, result} | {id, error:{code,message}} on
 // stdout), same timeouts (5s per-request, 30s heartbeat interval, 2s
@@ -72,17 +72,14 @@ final class BridgeClient: @unchecked Sendable {
         return isReady && process != nil && (process?.isRunning ?? false)
     }
 
-    /// Resolves the compiled helper's path. `SPECTRA_NATIVE_HELPER_PATH`
-    /// (test/override hook, mirrors the SPECTRA_HOME-style override pattern
-    /// already used elsewhere in DaemonCore) takes precedence; production
-    /// default is compiler.ts's `BINARY_PATH` (`~/.spectra/bin/spectra-native`).
-    private func resolveBinaryPath() -> String {
-        let env = ProcessInfo.processInfo.environment
-        if let override = env["SPECTRA_NATIVE_HELPER_PATH"], !override.isEmpty {
-            return override
-        }
-        let home = env["HOME"] ?? NSHomeDirectory()
-        return (home as NSString).appendingPathComponent(".spectra/bin/spectra-native")
+    /// Resolves the compiled helper through the daemon-core's shared strict
+    /// bundle/development contract. The specific override remains
+    /// authoritative for isolated tests and fails visibly when invalid.
+    private func resolveBinaryPath() throws -> String {
+        try BundleHelperPaths.resolveExecutable(
+            helperName: "spectra-native",
+            overrideEnvironmentKey: "SPECTRA_NATIVE_HELPER_PATH"
+        )
     }
 
     /// Mirrors bridge.ts's `start()`: spawn if not already running, set
@@ -98,12 +95,11 @@ final class BridgeClient: @unchecked Sendable {
     }
 
     private func spawnProcess() throws {
-        let path = resolveBinaryPath()
-        guard FileManager.default.isExecutableFile(atPath: path) else {
-            throw BridgeError(
-                message: "Native AX helper not found or not executable at \(path). "
-                + "Build it via the TS compiler (src/native/compiler.ts ensureBinary) first."
-            )
+        let path: String
+        do {
+            path = try resolveBinaryPath()
+        } catch {
+            throw BridgeError(message: "Native AX helper resolution failed: \(error)")
         }
 
         let proc = Process()

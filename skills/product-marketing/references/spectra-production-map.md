@@ -37,7 +37,7 @@ Render with `spectra_demo action=polish-clip` (clicks/cursor track) or `action=p
 
 | Channel | Aspect | Duration | Hard specs |
 |---|---|---|---|
-| **App Store** (iOS/Watch/Mac) | iPhone 886×1920 (P) / 1920×886 (L); Mac 1920×1080 (L only); Watch portrait | **15–30s (enforced)** | H.264 High Profile L4.0, **constant 30fps** (re-encode VFR screen recordings), AAC stereo 44.1/48kHz ~256kbps (present even if silent), yuv420p, .mp4/.mov faststart. **No device frames, no pricing, no competitor refs, real functionality only.** |
+| **App Store** (iOS/iPadOS/Mac) | Use Apple's current accepted resolution for the target; Mac 1920×1080 landscape only | **15–30s** | Apple: H.264 progressive up to High Profile L4.0 or ProRes 422 HQ, max 30fps; H.264 `.mov`/`.m4v`/`.mp4`; stereo AAC contract when audio is present. Spectra house export: H.264/yuv420p, constant 30fps, fast-start MP4. Show app-only footage; muted-autoplay copy; no specific prices. |
 | **Product Hunt** | 1:1 (safe) or 16:9 | 45–75s (≤30s = best completion) | burned-in captions, muted-autoplay, optimize thumbnail frame, real UI |
 | **LinkedIn** | 9:16 or 1:1 (beats 16:9 in feed) | 30–90s | burned-in high-contrast captions, value in first 2–3s, no logo intro |
 | **YouTube** | 16:9 | 3–20 min per format | SEO title with exact technical terms, chapters, GitHub/docs links |
@@ -46,8 +46,9 @@ Render with `spectra_demo action=polish-clip` (clicks/cursor track) or `action=p
 **Non-App-Store default export** (PH/LinkedIn/YouTube/Reels): H.264 mp4, **no VFR**, AAC
 audio, +faststart — a safe universal target when the channel has no hard codec spec.
 
-Most common App Store rejections: HEVC/H.265 (screen recordings default to it — re-encode
-to H.264), variable frame rate, mono/missing audio, wrong resolution, no faststart.
+Preflight every App Store asset against Apple's live specification before upload. Spectra's
+house export prevents common compatibility risks, but it does not replace device-resolution
+and metadata validation in App Store Connect.
 
 > Production runs through `spectra_demo action=polish-clip`/`polish-script` (current Spectra
 > build). If `spectra_demo` isn't in the live MCP tool list, rebuild the plugin + restart
@@ -63,6 +64,7 @@ capture fans out to every channel with the right calibration.
 - **AI agent**: show trigger → action → output loop in real time; real outputs, no abstract
   AI imagery. Capture the actual workflow.
 - **Plugin**: record in a real browser with the plugin active; show before/after; 45–60s.
-- **iOS/Watch**: `sim:<device>`; App Store specs above; front-load the "aha" in 3–5s; no talking heads.
+- **iOS/iPadOS**: `sim:<device>`; use the App Store contract above and front-load the relevant product moment.
+- **watchOS**: capture the simulator or physical context for website/social clips; use screenshots for the current App Store watchOS surface.
 - **macOS**: show native feel (menu bar, shortcuts, Spotlight/Quick Look integration); landscape 1920×1080.
 - **web (B2B)**: explainer (60–90s hero) + demo (3–5min); enterprise adds case-study/ROI.

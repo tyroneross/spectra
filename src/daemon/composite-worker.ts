@@ -296,7 +296,7 @@ export function parseScreenRecordingPreflightOutput(output: string): ScreenRecor
 
 function runScreenRecordingPreflight(): ScreenRecordingPreflightFailure | undefined {
   const binary = ensureScreenRecordingPreflightBinary()
-  const result = spawnSync(binary, [], {
+  const result = spawnSync(binary, ['--no-request'], {
     encoding: 'utf8',
     maxBuffer: 1024 * 1024,
   })

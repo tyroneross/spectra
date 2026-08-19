@@ -47,7 +47,7 @@ export declare class CoreApiImplementation implements CoreApi {
      */
     private readonly computerUseInstances;
     constructor(options?: CoreApiImplementationOptions);
-    protected spawnCursorSampler(args: string[]): ChildProcess;
+    protected spawnCursorSampler(binaryPath: string, args: string[]): ChildProcess;
     /** Overridable seam so tests can simulate a missing/failed-to-build binary without compiling. */
     protected ensureCursorSamplerBinary(): string;
     health(params?: HealthParams): Promise<HealthResult>;
@@ -103,7 +103,7 @@ export declare class CoreApiImplementation implements CoreApi {
      */
     private getOrCreateComputerUse;
     close(): Promise<void>;
-    private startCursorSampler;
+    protected startCursorSampler(binaryPath: string, recordingId: string, sessionDir: string, fps: number, maxDurationSeconds: number): ActiveCursorSampler;
     private stopCursorSampler;
     private cursorTelemetryPathIfPresent;
     private addCompositeArtifact;
@@ -151,6 +151,10 @@ interface NativeRecordingHandle {
     started: NativeStartRecordingOutput;
     stop(): Promise<NativeStopRecordingOutput>;
     abort(): Promise<void>;
+}
+interface ActiveCursorSampler {
+    child: ChildProcess;
+    outPath: string;
 }
 export {};
 //# sourceMappingURL=core-impl.d.ts.map

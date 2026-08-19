@@ -14,15 +14,16 @@ describe('getPermissions — screen-recording probe', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.resetModules() })
 
   async function coreWith(preflightSucceeds: boolean) {
+    const execFile = vi.fn((file: string, args: unknown, opts: unknown, cb: unknown) => {
+      const callback = (typeof opts === 'function' ? opts : cb) as (err: Error | null, out?: { stdout: string; stderr: string }) => void
+      if (file.includes('osascript')) return callback(null, { stdout: 'true\n', stderr: '' })
+      if (file.includes('preflight')) {
+        return preflightSucceeds ? callback(null, { stdout: '', stderr: '' }) : callback(new Error('screen recording not granted'))
+      }
+      return callback(null, { stdout: '', stderr: '' })
+    })
     vi.doMock('node:child_process', () => ({
-      execFile: (file: string, args: unknown, opts: unknown, cb: unknown) => {
-        const callback = (typeof opts === 'function' ? opts : cb) as (err: Error | null, out?: { stdout: string; stderr: string }) => void
-        if (file.includes('osascript')) return callback(null, { stdout: 'true\n', stderr: '' })
-        if (file.includes('preflight')) {
-          return preflightSucceeds ? callback(null, { stdout: '', stderr: '' }) : callback(new Error('screen recording not granted'))
-        }
-        return callback(null, { stdout: '', stderr: '' })
-      },
+      execFile,
       spawn: () => { throw new Error('spawn not expected in permission probe test') },
       spawnSync: () => ({ status: 0, stdout: '', stderr: '' }),
     }))
@@ -31,6 +32,8 @@ describe('getPermissions — screen-recording probe', () => {
       ensureBinary: () => '/fake/bin/spectra-native',
       ensureCompositeBinary: () => '/fake/bin/spectra-composite-capture',
       ensureCursorSamplerBinary: () => '/fake/bin/spectra-cursor-sampler',
+      ensureWindowBoundsBinary: () => '/fake/bin/spectra-window-bounds',
+      WINDOW_BOUNDS_BINARY_PATH: '/fake/bin/spectra-window-bounds',
       SCREEN_RECORDING_PREFLIGHT_PATH: '/fake/bin/spectra-screen-recording-preflight',
       DAEMON_LAUNCHER_PATH: '/fake/bin/spectra-daemon-launcher',
     }))
@@ -40,26 +43,32 @@ describe('getPermissions — screen-recording probe', () => {
       clearRegrantMarker: () => {},
     }))
     const { createDaemonCore } = await import('../../src/daemon/core.js')
-    return createDaemonCore({})
+    return { core: createDaemonCore({}), execFile }
   }
 
   macIt('reports screen-recording GRANTED when the preflight binary exits 0 (not unknown)', async () => {
-    const core = await coreWith(true)
+    const { core, execFile } = await coreWith(true)
     const { permissions } = await core.getPermissions({})
     const sr = permissions.find((p) => p.permission === 'screen-recording')!
     expect(sr.state).toBe('granted')
     expect(sr.state).not.toBe('unknown') // the regression this fix closed
+    expect(execFile).toHaveBeenCalledWith(
+      '/fake/bin/spectra-screen-recording-preflight',
+      ['--no-request'],
+      expect.objectContaining({ timeout: 2_000 }),
+      expect.any(Function),
+    )
   })
 
   macIt('reports screen-recording DENIED when the preflight binary fails', async () => {
-    const core = await coreWith(false)
+    const { core } = await coreWith(false)
     const { permissions } = await core.getPermissions({})
     const sr = permissions.find((p) => p.permission === 'screen-recording')!
     expect(sr.state).toBe('denied')
   })
 
   macIt('keeps automation/developer-tools as unknown by design (no daemon-safe probe — not faked)', async () => {
-    const core = await coreWith(true)
+    const { core } = await coreWith(true)
     const { permissions } = await core.getPermissions({})
     expect(permissions.find((p) => p.permission === 'automation')!.state).toBe('unknown')
     expect(permissions.find((p) => p.permission === 'developer-tools')!.state).toBe('unknown')

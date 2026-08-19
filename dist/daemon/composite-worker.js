@@ -233,7 +233,7 @@ export function parseScreenRecordingPreflightOutput(output) {
 }
 function runScreenRecordingPreflight() {
     const binary = ensureScreenRecordingPreflightBinary();
-    const result = spawnSync(binary, [], {
+    const result = spawnSync(binary, ['--no-request'], {
         encoding: 'utf8',
         maxBuffer: 1024 * 1024,
     });

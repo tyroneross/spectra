@@ -27,6 +27,9 @@ npm run build
 ### Native bridge (macOS/iOS/watchOS automation)
 
 ```bash
+# Bare ~/.spectra/bin helpers are development-only and require an explicit mode.
+export SPECTRA_HELPER_MODE=development
+
 # Compile the Swift binary to ~/.spectra/bin/spectra-native
 npm run build:native
 
@@ -35,8 +38,9 @@ npm run build:test-app
 ```
 
 **macOS permissions required:**
-- System Settings → Privacy & Security → **Accessibility** — add your terminal app
-- System Settings → Privacy & Security → **Screen Recording** — add your terminal app (for video capture)
+
+- Installed `Spectra.app`: grant **Spectra** access in System Settings → Privacy & Security → **Accessibility** and **Screen & System Audio Recording** (named **Screen Recording** on older macOS versions).
+- Explicit development mode: macOS may attribute bare `~/.spectra/bin` helpers to the terminal or launcher. Use this only for local development, not installed-app or release verification.
 
 ### Dashboard (web UI)
 
@@ -624,7 +628,7 @@ spectra/
 ├── web-ui/             # Next.js dashboard (browse, manage, export captures)
 ├── commands/           # Claude Code slash commands
 ├── skills/             # Claude Code skills
-├── tests/              # Vitest test suite (30 files, 329 tests)
+├── tests/              # Vitest test suite
 ├── artifacts/          # Capture output (gitignored)
 └── .spectra/           # Session data, playbooks, archive (gitignored)
 ```
@@ -644,6 +648,12 @@ spectra/
 | Variable | Purpose |
 |----------|---------|
 | `SPECTRA_DEBUG` | Set to `1` for verbose debug logging in navigation and discovery |
+| `SPECTRA_HELPER_MODE` | `bundle` for installed production helpers or `development` for explicit `~/.spectra/bin` use |
+| `SPECTRA_APP_BUNDLE_PATH` | Stable installed `Spectra.app` path used in bundle mode |
+| `SPECTRA_APP_BUNDLE_HELPERS_DIR` | Explicit `Spectra.app/Contents/Helpers` directory; must agree with the bundle path |
+| `SPECTRA_NATIVE_HELPER_PATH` | Authoritative native bridge path; production must remain inside `Contents/Helpers` |
+| `SPECTRA_CURSOR_SAMPLER_PATH` | Authoritative cursor sampler path under the same helper contract |
+| `SPECTRA_WINDOW_BOUNDS_BIN` | Authoritative window-bounds helper path under the same helper contract |
 
 ## Platforms
 

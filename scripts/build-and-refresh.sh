@@ -25,28 +25,46 @@ if [[ "${1:-}" == "--adhoc" ]]; then
     MODE="adhoc"
 fi
 
+# Helper prebuilds never use a keychain identity. Xcode re-signs every nested
+# helper with the selected app identity during the enclosing build phase.
+export SPECTRA_CODESIGN_IDENTITY="-"
+
 EXPORT_APP="$MACOS_DIR/build/dmg-staging/$APP_NAME.app"
 RELEASE_DMG="$MACOS_DIR/release/$APP_NAME.dmg"
 
-echo "==> 1. xcodegen (idempotent — regenerates xcodeproj from project.yml)"
+echo "==> 1. Build complete ad-hoc helper inventory"
+export SPECTRA_UNIVERSAL_HELPERS=1
+( cd "$REPO_ROOT" && npm run build:native )
+( cd "$REPO_ROOT" && npm run build:daemon-helper )
+( cd "$REPO_ROOT" && npm run build:composite )
+( cd "$REPO_ROOT" && npm run build:cursor-sampler )
+( cd "$REPO_ROOT" && npm run build:window-bounds )
+( cd "$REPO_ROOT" && npm run build:text-render )
+bash "$REPO_ROOT/scripts/build-daemon-core.sh"
+
+echo "==> 2. xcodegen (idempotent — regenerates xcodeproj from project.yml)"
 ( cd "$MACOS_DIR" && xcodegen generate )
 
-echo "==> 2. Build + DMG ($MODE)"
+echo "==> 3. Build + DMG ($MODE, strict helper inventory)"
 if [[ "$MODE" == "signed" ]]; then
-    make -C "$MACOS_DIR" dmg
+    SPECTRA_REQUIRE_BUNDLED_HELPERS=1 make -C "$MACOS_DIR" dmg
 else
-    make -C "$MACOS_DIR" dmg-adhoc
+    SPECTRA_REQUIRE_BUNDLED_HELPERS=1 make -C "$MACOS_DIR" dmg-adhoc
 fi
 
-echo "==> 3. Refresh top-level $APP_NAME.app"
+echo "==> 4. Verify built Release bundle before replacing artifacts"
 if [[ ! -d "$EXPORT_APP" ]]; then
     echo "ERROR: expected exported app missing at $EXPORT_APP" >&2
     exit 1
 fi
+SPECTRA_EXPECTED_SIGNING_MODE="$MODE" \
+    bash "$REPO_ROOT/tests/macos/release-bundle-contract.sh" "$EXPORT_APP"
+
+echo "==> 5. Refresh top-level $APP_NAME.app"
 rm -rf "$TOP_APP"
 cp -R "$EXPORT_APP" "$TOP_APP"
 
-echo "==> 4. Refresh top-level $APP_NAME.dmg"
+echo "==> 6. Refresh top-level $APP_NAME.dmg"
 if [[ ! -f "$RELEASE_DMG" ]]; then
     echo "ERROR: expected dmg missing at $RELEASE_DMG" >&2
     exit 1
@@ -54,23 +72,10 @@ fi
 rm -f "$TOP_DMG"
 cp "$RELEASE_DMG" "$TOP_DMG"
 
-echo "==> 5. Verify codesign"
-if [[ "$MODE" == "signed" ]]; then
-    if codesign --verify --deep --strict "$TOP_APP" 2>&1; then
-        echo "    Signed: OK"
-    else
-        echo "    WARNING: codesign --verify --deep --strict failed."
-        echo "    The Release build did not produce a signed bundle — likely"
-        echo "    a missing Mac Development provisioning profile for"
-        echo "    dev.spectra.app. Open Spectra.xcodeproj in Xcode once,"
-        echo "    let it provision automatically, then re-run."
-        exit 1
-    fi
-else
-    echo "    Ad-hoc mode — codesign --verify --deep --strict is NOT"
-    echo "    expected to pass against the Apple Developer trust roots."
-fi
+echo "==> 7. Verify refreshed app"
+SPECTRA_EXPECTED_SIGNING_MODE="$MODE" \
+    bash "$REPO_ROOT/tests/macos/release-bundle-contract.sh" "$TOP_APP"
 
 echo
 echo "Top-level artifacts refreshed:"
-ls -la "$TOP_APP" "$TOP_DMG" | awk '{print "   " $0}'
+printf '   %s\n' "$TOP_APP" "$TOP_DMG"

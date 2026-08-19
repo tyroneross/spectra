@@ -23,6 +23,7 @@
 #
 # Usage:
 #   bash scripts/flip-g1.sh
+#   SPECTRA_HELPER_MODE=development bash scripts/flip-g1.sh  # local bare helpers
 #
 # Rollback: bash scripts/rollback-g1.sh (T-09 drill — restores TS-primary,
 # <2 minutes, no rebuild).
@@ -34,14 +35,16 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPECTRA_HOME="$HOME/.spectra"
+# shellcheck source=scripts/spectra-helper-paths.sh
+source "$REPO_ROOT/scripts/spectra-helper-paths.sh"
 
 FRONT_LABEL="dev.spectra.daemon"
 BACKEND_LABEL="dev.spectra.daemon-ts"
 FRONT_PLIST="$HOME/Library/LaunchAgents/$FRONT_LABEL.plist"
 BACKEND_PLIST="$HOME/Library/LaunchAgents/$BACKEND_LABEL.plist"
 
-DAEMON_CORE_BIN="$SPECTRA_HOME/bin/spectra-daemon-core"
-DAEMON_LAUNCHER="$SPECTRA_HOME/bin/spectra-daemon-launcher"
+DAEMON_CORE_BIN=""
+DAEMON_LAUNCHER=""
 DAEMON_SCRIPT="$SPECTRA_HOME/dist/cli/index.js"
 DIST_TS_ENTRY="$SPECTRA_HOME/dist/daemon/server.js"
 REPO_DIST_TS_ENTRY="$REPO_ROOT/dist/daemon/server.js"
@@ -62,12 +65,25 @@ resolve_node() {
     command -v node 2>/dev/null || { echo "ERROR: node not found in PATH or standard locations" >&2; exit 1; }
 }
 
+configure_helper_paths() {
+    spectra_resolve_helper_paths
+    DAEMON_CORE_BIN="$SPECTRA_RESOLVED_DAEMON_CORE"
+    DAEMON_LAUNCHER="$SPECTRA_RESOLVED_DAEMON_LAUNCHER"
+    if [[ "$SPECTRA_RESOLVED_HELPER_MODE" == "bundle" ]]; then
+        spectra_require_bundle_inventory
+    fi
+}
+
 # ─── Step 1: front-door binary present (build it if not — this script is
 # meant to be a one-command flip) ─────────────────────────────────────────
 ensure_daemon_core() {
     if [[ -x "$DAEMON_CORE_BIN" ]]; then
         echo "flip-g1: daemon-core binary present at $DAEMON_CORE_BIN"
         return 0
+    fi
+    if [[ "$SPECTRA_RESOLVED_HELPER_MODE" == "bundle" ]]; then
+        echo "flip-g1: ABORT — bundled daemon-core is missing or not executable at $DAEMON_CORE_BIN" >&2
+        exit 1
     fi
     echo "flip-g1: daemon-core binary missing — building via scripts/build-daemon-core.sh"
     bash "$REPO_ROOT/scripts/build-daemon-core.sh"
@@ -118,22 +134,23 @@ ensure_ts_dist_current() {
 
 # ─── Plist authors (mirrors LaunchAgentManager.swift's templates) ────────
 make_front_door_program_args() {
-    printf '        <string>%s</string>\n' "$DAEMON_CORE_BIN"
+    spectra_program_arguments_xml "        " "$DAEMON_CORE_BIN"
 }
 
 make_backend_program_args() {
     local node_path
     node_path="$(resolve_node)"
     if [[ -x "$DAEMON_LAUNCHER" ]]; then
-        printf '        <string>%s</string>\n        <string>--node</string>\n        <string>%s</string>\n        <string>--script</string>\n        <string>%s</string>\n' \
-            "$DAEMON_LAUNCHER" "$node_path" "$DAEMON_SCRIPT"
+        spectra_program_arguments_xml "        " \
+            "$DAEMON_LAUNCHER" "--node" "$node_path" "--script" "$DAEMON_SCRIPT"
     else
-        printf '        <string>%s</string>\n        <string>%s</string>\n        <string>daemon</string>\n' \
-            "$node_path" "$DAEMON_SCRIPT"
+        spectra_program_arguments_xml "        " "$node_path" "$DAEMON_SCRIPT" "daemon"
     fi
 }
 
 write_front_door_plist() {
+    local log_dir_xml
+    log_dir_xml="$(spectra_xml_escape "$LOG_DIR")"
     mkdir -p "$(dirname "$FRONT_PLIST")" "$LOG_DIR"
     cat > "$FRONT_PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -142,6 +159,7 @@ write_front_door_plist() {
 <dict>
     <key>Label</key>
     <string>$FRONT_LABEL</string>
+$(spectra_associated_bundle_identifiers_xml "    ")
     <key>ProgramArguments</key>
     <array>
 $(make_front_door_program_args)
@@ -154,16 +172,15 @@ $(make_front_door_program_args)
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
-        <key>SPECTRA_PROXY_BACKEND_SOCKET</key>
-        <string>$BACKEND_SOCKET</string>
-        <key>SPECTRA_DUAL_RUN</key>
-        <string>${SPECTRA_DUAL_RUN:-1}</string>
-$(if [[ -n "${SPECTRA_ROUTING_CONFIG:-}" ]]; then printf '        <key>SPECTRA_ROUTING_CONFIG</key>\n        <string>%s</string>\n' "$SPECTRA_ROUTING_CONFIG"; fi)
+$(spectra_environment_entry_xml "        " "SPECTRA_PROXY_BACKEND_SOCKET" "$BACKEND_SOCKET")
+$(spectra_environment_entry_xml "        " "SPECTRA_DUAL_RUN" "${SPECTRA_DUAL_RUN:-1}")
+$(spectra_helper_environment_xml "        ")
+$(if [[ -n "${SPECTRA_ROUTING_CONFIG:-}" ]]; then spectra_environment_entry_xml "        " "SPECTRA_ROUTING_CONFIG" "$SPECTRA_ROUTING_CONFIG"; fi)
     </dict>
     <key>StandardOutPath</key>
-    <string>$LOG_DIR/daemon.out.log</string>
+    <string>$log_dir_xml/daemon.out.log</string>
     <key>StandardErrorPath</key>
-    <string>$LOG_DIR/daemon.err.log</string>
+    <string>$log_dir_xml/daemon.err.log</string>
     <key>ProcessType</key>
     <string>Background</string>
 </dict>
@@ -173,6 +190,8 @@ EOF
 }
 
 write_backend_plist() {
+    local log_dir_xml
+    log_dir_xml="$(spectra_xml_escape "$LOG_DIR")"
     mkdir -p "$(dirname "$BACKEND_PLIST")" "$LOG_DIR"
     cat > "$BACKEND_PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -181,6 +200,7 @@ write_backend_plist() {
 <dict>
     <key>Label</key>
     <string>$BACKEND_LABEL</string>
+$(spectra_associated_bundle_identifiers_xml "    ")
     <key>ProgramArguments</key>
     <array>
 $(make_backend_program_args)
@@ -193,13 +213,13 @@ $(make_backend_program_args)
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
-        <key>SPECTRA_DAEMON_LISTEN_SOCKET</key>
-        <string>$BACKEND_SOCKET</string>
+$(spectra_environment_entry_xml "        " "SPECTRA_DAEMON_LISTEN_SOCKET" "$BACKEND_SOCKET")
+$(spectra_helper_environment_xml "        ")
     </dict>
     <key>StandardOutPath</key>
-    <string>$LOG_DIR/daemon-ts.out.log</string>
+    <string>$log_dir_xml/daemon-ts.out.log</string>
     <key>StandardErrorPath</key>
-    <string>$LOG_DIR/daemon-ts.err.log</string>
+    <string>$log_dir_xml/daemon-ts.err.log</string>
     <key>ProcessType</key>
     <string>Background</string>
 </dict>
@@ -247,6 +267,7 @@ smoke_check() {
 }
 
 echo "=== flip-g1: M3.G1 routing flip (two-LaunchAgent topology) ==="
+configure_helper_paths
 ensure_daemon_core
 ensure_ts_dist_current
 write_front_door_plist

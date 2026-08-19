@@ -16,14 +16,18 @@ Full detail: `SOURCE-GUIDE.md` Part III. Specs also in `spectra-production-map.m
   architecture (8–20m), changelog (2–5m), comparison (5–12m), Shorts (30–90s).
 - Series > standalone; consistency > production; reply to comments in first hour; embed in READMEs.
 
-## App Store (iOS/macOS/Watch) — the highest-leverage consumer/prosumer asset
-- Specs (2026): H.264 High L4.0 (NOT HEVC), **constant 30fps**, 15–30s, AAC stereo 48kHz
-  (even if silent), yuv420p, .mp4/.mov faststart; iPhone 886×1920/1920×886, Mac 1920×1080 (L),
-  Watch portrait.
-- Rejections: HEVC (re-encode), VFR, mono/missing audio, wrong res, no faststart.
-- Content rules: real functionality only, no pricing, no device frames, no other-platform
-  refs, no competitor comparisons. Hook in first 3–5s; 1–2 core workflows; no talking heads;
-  silent-autoplay text overlays; device-specific versions.
+## App Store (iOS/iPadOS/macOS)
+- Apple's current upload requirements: 15–30s; H.264 progressive up to High Profile L4.0
+  or ProRes 422 HQ; at most 30fps; `.mov`/`.m4v`/`.mp4` for H.264; Mac landscape
+  1920×1080. If audio is present, use Apple's stereo AAC/sample-rate contract.
+- Spectra house export: H.264/yuv420p, constant 30fps, fast-start MP4, clean AAC stereo
+  when audio is used. The extra constraints maximize playback/editor compatibility; they
+  are not all Apple-mandated.
+- Creative rules: show only the app itself; no hands/device footage; tell a cohesive story;
+  use readable copy because previews autoplay muted; avoid specific prices; disclose when
+  demonstrated functionality requires purchase, subscription, or login.
+- Apple currently publishes no watchOS app-preview resolution/upload surface. Use App Store
+  screenshots for watchOS and create glance-moment video for website/social distribution.
 
 ## Product Hunt (founders/devs/early adopters — spot generic demos instantly)
 - 45–75s (≤30s = best completion); Hook(0–5) → Problem(5–15) → real UI(15–30) →

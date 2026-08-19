@@ -36,6 +36,6 @@ quotes, current UI). Every release: ship a changelog/release video (highest-ROI,
 
 ## Checklists (Appendix in SOURCE-GUIDE.md)
 - **Pre**: goal · audience · type · one-sentence message · story spine · script (tech-reviewed if dev) · clean demo env.
-- **Prod**: clean audio · lighting · constant 30fps · eye-level · first-5s planned (no logo/intro).
+- **Prod**: clean audio when used · lighting · stable capture frame rate · eye-level · first-5s planned (no logo/intro).
 - **Post**: burned-in captions · on-screen key messages · info every 2–3s · one CTA · exported per aspect (16:9/1:1/9:16).
-- **App Store**: H.264 High (not HEVC) · constant 30fps · correct res · 15–30s · AAC stereo 48kHz (even if silent) · yuv420p · .mp4 faststart · no frames/pricing/competitor refs.
+- **App Store**: verify Apple's live target resolution · 15–30s · H.264 up to High Profile L4.0 or ProRes 422 HQ · max 30fps · valid extension · Apple audio contract when audio is present. Spectra house export adds yuv420p, constant 30fps, and fast-start MP4 for compatibility.
