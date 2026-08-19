@@ -1,5 +1,6 @@
 {
   "name": "spectra",
+  "version": "0.3.2",
   "description": "Capture screenshots, videos, and polished demo clips \u2014 spotlight focus, lower-third captions, and a tagged library \u2014 across web, macOS, and iOS",
   "author": {
     "name": "Tyrone Ross",
