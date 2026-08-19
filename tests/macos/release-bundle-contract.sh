@@ -45,11 +45,11 @@ signature_details() {
 }
 
 team_identifier() {
-    signature_details "$1" | awk -F= '/^TeamIdentifier=/{print $2; exit}'
+    signature_details "$1" | awk -F= '/^TeamIdentifier=/ && value == "" {value=$2} END {print value}'
 }
 
 signing_authority() {
-    signature_details "$1" | awk -F= '/^Authority=/{print $2; exit}'
+    signature_details "$1" | awk -F= '/^Authority=/ && value == "" {value=$2} END {print value}'
 }
 
 assert_runtime_signature() {
