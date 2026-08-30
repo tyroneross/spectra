@@ -6,7 +6,7 @@ description: >
   looks/feels off, the user asks how it should be paced, what color/font size to
   use, why it isn't engaging, or how to make it feel premium or authentic. Not for
   choosing or leveling specific music/sound-effect cues, use `audio-cues` instead.
-user-invocable: true
+user-invocable: false
 ---
 
 # Video Design (craft → Spectra render settings)

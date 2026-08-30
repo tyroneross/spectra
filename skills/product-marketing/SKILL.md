@@ -7,7 +7,7 @@ description: >
   marketing video, app store preview, product hunt launch, launch video,
   changelog/release video, readme demo GIF, or "what video should I make for
   <app>". Not for directly producing an already-scoped video, use `demo`.
-user-invocable: true
+user-invocable: false
 ---
 
 # Product Marketing — define → create → audit → repair

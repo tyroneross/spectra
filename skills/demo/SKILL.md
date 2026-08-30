@@ -2,7 +2,7 @@
 name: demo
 description: Edits an existing screen recording into a polished, shareable video. Use when the user asks to trim and caption a recording, highlight key moments, add spotlight focus, or turn a screen capture into a shareable demo. Not for capturing the raw recording itself, use `content-capture` or `host-walkthrough`; not for planning a marketing strategy for the video, use `product-marketing`.
 version: 0.1.0
-user-invocable: true
+user-invocable: false
 ---
 
 # Agent Demo Video Production

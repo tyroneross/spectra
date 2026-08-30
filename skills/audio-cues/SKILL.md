@@ -9,7 +9,7 @@ description: >
   from `assets/audio/`, sets the bed/cue prep levels the pipeline does NOT apply
   for you, and enforces the no-copyrighted-audio rule. Not for general visual
   pacing, color, or typography design, use `video-design` instead.
-user-invocable: true
+user-invocable: false
 ---
 
 # Audio Cues (beat → cue, deterministically)
