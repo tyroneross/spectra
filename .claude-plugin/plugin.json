@@ -1,7 +1,6 @@
 {
   "name": "spectra",
-  "version": "0.3.3",
-  "description": "Capture screenshots, videos, and polished demo clips \u2014 spotlight focus, lower-third captions, and a tagged library \u2014 across web, macOS, and iOS",
+  "description": "Product screenshots and demo clips go stale the moment the UI changes, and re-shooting them by hand costs an afternoon. Spectra drives your running app across web, macOS, iOS, and watchOS to capture screenshots, videos, and narrated walkthroughs, then files every asset in a searchable tagged library. You get publish-ready visuals for docs, launch posts, and App Store previews without reshooting.",
   "author": {
     "name": "Tyrone Ross",
     "url": "https://github.com/tyroneross"

@@ -1,8 +1,12 @@
 # Spectra
 
-Content capture for marketing — screenshots, videos, and app usage sequences for blog posts, social media, and documentation.
+Product screenshots and demo clips go stale the moment the UI changes, and re-shooting them by hand costs an afternoon. Spectra drives your running app across **web** (Chrome DevTools Protocol), **macOS** (accessibility bridge), **iOS** and **watchOS** (simulators) to capture screenshots, videos, and narrated walkthroughs, then files every asset in a searchable tagged library. You get publish-ready visuals for docs, launch posts, and App Store previews without reshooting.
 
-Works across **web** (Chrome DevTools Protocol), **macOS** (accessibility bridge), **iOS** and **watchOS** (simulators).
+## Start here
+
+Type **`/spectra`** and describe what you want in plain language — "grab a screenshot of the settings screen", "record a 30-second demo of onboarding", "find the captures I tagged launch". That one command routes to every workflow below; you never have to pick a subcommand.
+
+To report a bug or request a feature: **`/spectra:submit-feedback`**.
 
 ## Install
 
@@ -82,6 +86,7 @@ Or add to `.claude/settings.json`:
 | `/spectra:record composite` | Record two macOS windows side by side |
 | `/spectra:library` | Find, tag, preserve, and export captures |
 | `/spectra:marketing <brief>` | Plan, produce, improve, or audit audience-specific marketing content |
+| `/spectra:submit-feedback` | Report a bug or request a feature — drafts a GitHub issue, files it only after you approve |
 
 ### Marketing content loop
 
