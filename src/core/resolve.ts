@@ -136,6 +136,42 @@ function resolveAlgorithmic(options: ResolveOptions): ResolveResult {
   const intentLower = intent.toLowerCase()
   const hints = parseSpatialHints(intentLower)
 
+  if (hints.ordinal !== undefined) {
+    // Resolve explicit ordinals before fuzzy scoring or exact-label score floors.
+    // Include common roles even when the snapshot has none of that role.
+    const roles = new Set([
+      'button', 'textfield', 'link', 'checkbox', 'radio', 'combobox',
+      'tab', 'menuitem', 'switch', 'slider', 'heading', 'image', 'item',
+      ...elements.map((el) => el.role.toLowerCase()),
+    ])
+    // Strip commands only before the ordinal: later words belong to the label.
+    const words = intentLower
+      .replace(/^(?:\s*(?:click|tap|press|select|choose|the|a|an)\b)+\s*/, '')
+      .trim().split(/\s+/)
+    const ordinalIndex = words.findIndex((word) => /^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)$/.test(word))
+    let roleIndex = -1
+    for (let i = 0; i < words.length; i++) {
+      if ([...roles].some((role) => scoreRole(words[i], role) > 0)) roleIndex = i
+    }
+
+    // Without a requested role, ordinary words such as "Second Chance"
+    // remain label queries and follow the existing scoring path.
+    if (roleIndex >= 0 && ordinalIndex >= 0) {
+      const roleWord = words[roleIndex]
+      // Remove only the syntax tokens, preserving identical words in labels.
+      const label = words.filter((_, i) => i !== ordinalIndex && i !== roleIndex).join(' ')
+      const matches = elements.filter((el) =>
+        scoreRole(roleWord, el.role) > 0
+        && (label === '' || el.label.toLowerCase() === label),
+      )
+      // Disabled controls retain their position; execution checks permission.
+      const element = matches[hints.ordinal - 1]
+      return element
+        ? { element, confidence: 1 }
+        : { element: elements[0], confidence: 0, candidates: [] }
+    }
+  }
+
   // Strip spatial hint words from intent for label matching
   const cleanedIntent = cleanIntent(intentLower)
 

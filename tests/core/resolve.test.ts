@@ -271,12 +271,97 @@ describe('resolve — algorithmic mode, ordinal spatial hint', () => {
       makeEl('b2', 'button', 'Cancel'),
       makeEl('b3', 'button', 'Delete'),
     ]
-    // "second button" — position hint is not set (no 'first'/'last'/'top'/'bottom'),
-    // but ordinal=2 is parsed. The resolver uses spatial score; second element gets high score.
     const result = resolve({ intent: 'second button', elements: buttons, mode: 'algorithmic' })
-    // b2 should rank higher than b1 or b3 due to ordinal=2 mapping to 'last'/'middle'
-    // Current spatial scorer uses position field; verify resolve returns a button
-    expect(['b1', 'b2', 'b3']).toContain(result.element.id)
+    expect(result.element.id).toBe('b2')
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7)
+    expect(result.candidates).toBeUndefined()
+  })
+})
+
+describe('resolve — ordinal selection contract', () => {
+  const controls = [
+    makeEl('heading', 'heading', 'second', []),
+    makeEl('b1', 'button', 'Save'),
+    makeEl('link', 'link', 'Save'),
+    { ...makeEl('b2', 'button', 'Cancel'), enabled: false },
+    makeEl('input', 'textfield', 'Save'),
+    makeEl('b3', 'button', 'Delete'),
+    makeEl('b4', 'button', 'Continue'),
+    makeEl('b5', 'button', 'Finish'),
+  ]
+
+  it.each([
+    ['first', 'b1'], ['second', 'b2'], ['third', 'b3'],
+    ['fourth', 'b4'], ['fifth', 'b5'], ['1st', 'b1'],
+    ['2nd', 'b2'], ['3rd', 'b3'], ['4th', 'b4'], ['5th', 'b5'],
+  ])('selects %s button in role order, including disabled controls', (ordinal, id) => {
+    const result = resolve({ intent: `click the ${ordinal} button`, elements: controls, mode: 'algorithmic' })
+    expect(result.element.id).toBe(id)
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7)
+    expect(result.candidates).toBeUndefined()
+  })
+
+  it.each(['button', 'btn'])('supports the %s role spelling', (role) => {
+    expect(resolve({ intent: `2nd ${role}`, elements: controls, mode: 'algorithmic' }).element.id).toBe('b2')
+  })
+
+  it.each(['input', 'textfield', 'text'])('supports the %s textfield spelling', (role) => {
+    const fields = [...controls, makeEl('second-input', 'textfield', 'Email')]
+    expect(resolve({ intent: `second ${role}`, elements: fields, mode: 'algorithmic' }).element.id).toBe('second-input')
+  })
+
+  it('selects the second exact label within a role, ignoring case and other labels', () => {
+    const duplicates = [
+      makeEl('other-label', 'button', 'Save As'),
+      makeEl('save1', 'button', 'Save'),
+      makeEl('other-role', 'link', 'Save'),
+      makeEl('cancel', 'button', 'Cancel'),
+      { ...makeEl('save2', 'button', 'sAVE'), enabled: false },
+      makeEl('save3', 'button', 'Save'),
+    ]
+    const result = resolve({ intent: 'click the SECOND Save button', elements: duplicates, mode: 'algorithmic' })
+    expect(result.element.id).toBe('save2')
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7)
+    expect(result.candidates).toBeUndefined()
+  })
+
+  it.each(['Select All', 'Go To Top', 'Save & Exit', 'Second Chance', 'Button Settings', 'The Button'])(
+    'preserves syntax-like words and punctuation in exact label %s', (label) => {
+      const duplicates = [
+        makeEl('other', 'button', 'Other'),
+        makeEl('first-match', 'button', label),
+        makeEl('between', 'button', 'Unrelated'),
+        makeEl('second-match', 'button', label),
+      ]
+      const result = resolve({ intent: `click the second ${label} button`, elements: duplicates, mode: 'algorithmic' })
+      expect(result.element.id).toBe('second-match')
+      expect(result.confidence).toBe(1)
+      expect(result.candidates).toBeUndefined()
+    },
+  )
+
+  it.each(['third button', 'second Save button', 'first checkbox'])('fails closed for missing position: %s', (intent) => {
+    const result = resolve({ intent, elements: controls.slice(0, 4), mode: 'algorithmic' })
+    expect(result.confidence).toBe(0)
+    expect(result.candidates).toEqual([])
+  })
+
+  it('preserves empty snapshot behavior for ordinal requests', () => {
+    expect(resolve({ intent: 'second button', elements: [], mode: 'algorithmic' }))
+      .toEqual({ element: null, confidence: 0, candidates: [] })
+  })
+
+  it('preserves ordinary ordinal words in label queries without a role', () => {
+    const labels = [makeEl('cancel', 'button', 'Cancel'), makeEl('second-chance', 'button', 'Second Chance')]
+    expect(resolve({ intent: 'Second Chance', elements: labels, mode: 'algorithmic' }).element.id).toBe('second-chance')
+  })
+
+  it('leaves Claude scoring unchanged for ordinal requests', () => {
+    const duplicates = [makeEl('save1', 'button', 'Save'), makeEl('save2', 'button', 'Save')]
+    const result = resolve({ intent: 'second Save button', elements: duplicates, mode: 'claude' })
+    expect(result.element.id).toBe('save1')
+    expect(result.confidence).toBe(0.7)
+    expect(result.candidates?.map((el) => el.id)).toEqual(['save1', 'save2'])
   })
 })
 
