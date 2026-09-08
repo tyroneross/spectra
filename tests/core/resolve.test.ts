@@ -346,6 +346,32 @@ describe('resolve — ordinal selection contract', () => {
     expect(result.candidates).toEqual([])
   })
 
+  it.each(['select', 'group'])('fails closed when canonical %s is absent from a nonempty snapshot', (role) => {
+    const buttons = [
+      makeEl('save', 'button', 'Save'),
+      makeEl('cancel', 'button', 'Cancel'),
+      makeEl('delete', 'button', 'Delete'),
+      makeEl('help', 'button', 'Help'),
+      makeEl('exit', 'button', 'Exit'),
+    ]
+    const result = resolve({ intent: `second ${role}`, elements: buttons, mode: 'algorithmic' })
+    expect(result.confidence).toBe(0)
+    expect(result.candidates).toEqual([])
+  })
+
+  it.each(['radio', 'combobox', 'menuitem', 'item'])('fails closed when supported external %s is absent from a nonempty snapshot', (role) => {
+    const buttons = [
+      makeEl('save', 'button', 'Save'),
+      makeEl('cancel', 'button', 'Cancel'),
+      makeEl('delete', 'button', 'Delete'),
+      makeEl('help', 'button', 'Help'),
+      makeEl('exit', 'button', 'Exit'),
+    ]
+    const result = resolve({ intent: `second ${role}`, elements: buttons, mode: 'algorithmic' })
+    expect(result.confidence).toBe(0)
+    expect(result.candidates).toEqual([])
+  })
+
   it('preserves empty snapshot behavior for ordinal requests', () => {
     expect(resolve({ intent: 'second button', elements: [], mode: 'algorithmic' }))
       .toEqual({ element: null, confidence: 0, candidates: [] })

@@ -16,6 +16,11 @@ const MACOS_ROLES = {
     AXList: 'group', AXOutline: 'group', AXTable: 'group',
     AXRow: 'group', AXColumn: 'group', AXCell: 'group',
 };
+/** Canonical roles emitted by platform normalization. */
+export const NORMALIZED_ROLES = new Set([
+    ...Object.values(WEB_ROLES),
+    ...Object.values(MACOS_ROLES),
+]);
 export function normalizeRole(rawRole, platform) {
     if (platform === 'web')
         return WEB_ROLES[rawRole] ?? 'group';

@@ -20,6 +20,12 @@ const MACOS_ROLES: Record<string, string> = {
   AXRow: 'group', AXColumn: 'group', AXCell: 'group',
 }
 
+/** Canonical roles emitted by platform normalization. */
+export const NORMALIZED_ROLES: ReadonlySet<string> = new Set([
+  ...Object.values(WEB_ROLES),
+  ...Object.values(MACOS_ROLES),
+])
+
 export function normalizeRole(rawRole: string, platform: Platform): string {
   if (platform === 'web') return WEB_ROLES[rawRole] ?? 'group'
   // iOS and watchOS share macOS AX role naming conventions

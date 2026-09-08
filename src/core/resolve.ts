@@ -1,4 +1,8 @@
 import type { Element, ResolveOptions, ResolveResult } from './types.js'
+import { NORMALIZED_ROLES } from './normalize.js'
+
+// Preserve ordinal parsing for supported external roles that are not canonical outputs.
+const ORDINAL_ROLE_COMPATIBILITY_TOKENS = ['radio', 'combobox', 'menuitem', 'item']
 
 export function resolve(options: ResolveOptions): ResolveResult {
   if (options.mode === 'algorithmic') {
@@ -138,10 +142,10 @@ function resolveAlgorithmic(options: ResolveOptions): ResolveResult {
 
   if (hints.ordinal !== undefined) {
     // Resolve explicit ordinals before fuzzy scoring or exact-label score floors.
-    // Include common roles even when the snapshot has none of that role.
+    // Include normalized roles even when the snapshot has none of that role.
     const roles = new Set([
-      'button', 'textfield', 'link', 'checkbox', 'radio', 'combobox',
-      'tab', 'menuitem', 'switch', 'slider', 'heading', 'image', 'item',
+      ...NORMALIZED_ROLES,
+      ...ORDINAL_ROLE_COMPATIBILITY_TOKENS,
       ...elements.map((el) => el.role.toLowerCase()),
     ])
     // Strip commands only before the ordinal: later words belong to the label.
