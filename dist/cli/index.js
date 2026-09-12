@@ -21,12 +21,42 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { startStdio } from '../mcp/server.js';
 import { getVersionInfo } from '../mcp/version.js';
 import { apiOperations } from '../contract/schemas.js';
 import { DaemonClient, DaemonError } from '../client/daemon-client.js';
 import { spawnDaemonBootstrap } from '../client/bootstrap.js';
+import { scanFrames, FrameScanInputError, FfmpegUnavailableError, } from '../media/frame-secret-scan.js';
 const OPERATIONS = new Set(apiOperations);
+function parseScanFramesArgs(rest) {
+    let input;
+    let fps;
+    let out;
+    let json = false;
+    const allow = [];
+    for (let i = 0; i < rest.length; i += 1) {
+        const arg = rest[i];
+        if (arg === '--fps') {
+            fps = Number(rest[++i]);
+        }
+        else if (arg === '--out') {
+            out = rest[++i];
+        }
+        else if (arg === '--allow') {
+            allow.push(rest[++i]);
+        }
+        else if (arg === '--json') {
+            json = true;
+        }
+        else if (!arg.startsWith('--') && input === undefined) {
+            input = arg;
+        }
+    }
+    if (!input)
+        return null;
+    return { input, fps, out, allow, json };
+}
 function parseArgs(argv) {
     const rest = argv.slice(2);
     if (rest.length === 0)
@@ -38,6 +68,9 @@ function parseArgs(argv) {
         return { command: 'version' };
     if (head === 'daemon')
         return { command: 'daemon' };
+    if (head === 'scan-frames') {
+        return { command: 'scan-frames', scanFrames: parseScanFramesArgs(rest.slice(1)) ?? undefined };
+    }
     if (OPERATIONS.has(head)) {
         return { command: 'operation', operation: head, paramsJson: rest[1] };
     }
@@ -51,6 +84,7 @@ Usage:
   spectra                       Start stdio MCP proxy (default; used by Claude Code)
   spectra daemon                Exec the GUI-session daemon (dist/daemon/server.js)
   spectra <operation> [json]    Forward a CoreApi operation to the running daemon
+  spectra scan-frames <input>   Pre-publish secret/privacy scan of a recording's frames
   spectra version               Print { apiVersion, daemonVersion } from the contract
   spectra --help                Show this message
 
@@ -60,10 +94,24 @@ Environment:
 Operations (forwarded over ~/.spectra/daemon.sock, or $SPECTRA_DAEMON_SOCKET):
   ${apiOperations.join(', ')}
 
+scan-frames options:
+  --fps <n>          Sample rate for video input (default: 1)
+  --out <path>       Write the full JSON report to this path
+  --allow <regex>    Suppress matches (repeatable) — e.g. your own home path
+  --json             Print the full JSON report to stdout instead of a summary
+
+scan-frames exit codes:
+  0  clean — no findings
+  1  review — medium/low findings (email, home path, generic secret-shaped text)
+  2  blocked — a high-severity finding (API key, token, private key, etc.)
+  3  ffmpeg/OCR engine unavailable, or input not found
+
 Examples:
   spectra health
   spectra createSession '{"target":"http://localhost:3000"}'
   spectra listSessions '{"includeClosed":true}'
+  spectra scan-frames demo.mp4 --fps 2 --out report.json
+  spectra scan-frames screenshot.png --allow '/Users/tyrone.*'
 `;
 /** Resolve the compiled BE daemon entry (dist/daemon/server.js). */
 function resolveDaemonEntry() {
@@ -150,6 +198,69 @@ function resolveOutPath(params) {
         return params;
     return { ...params, outPath: resolve(process.cwd(), outPath) };
 }
+function severityRank(sev) {
+    return sev === 'high' ? 0 : sev === 'medium' ? 1 : 2;
+}
+function printScanFramesSummary(report) {
+    process.stdout.write(`spectra scan-frames: ${report.frameCount} frame(s) sampled @ ${report.fps}fps via ${report.engine}\n`);
+    if (report.unscannedReason) {
+        process.stdout.write(`  not scanned — ${report.unscannedReason}\n`);
+        return;
+    }
+    if (report.findings.length === 0) {
+        process.stdout.write('  verdict: clean — no findings\n');
+        return;
+    }
+    process.stdout.write(`  verdict: ${report.verdict} — ${report.findings.length} finding(s)\n`);
+    const sorted = [...report.findings].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
+    for (const f of sorted) {
+        process.stdout.write(`  [${f.severity}] ${f.description} (${f.patternId}) — ${f.redacted} @ frame ${f.frameIndex} (${f.tMs}ms)\n`);
+    }
+}
+async function runScanFrames(args) {
+    if (!args) {
+        process.stderr.write('spectra scan-frames: missing <input>\n\nUsage:\n  spectra scan-frames <video-or-image> [--fps 1] [--out <report.json>] [--allow <regex>]... [--json]\n');
+        return 3;
+    }
+    const inputPath = isAbsolute(args.input) ? args.input : resolve(process.cwd(), args.input);
+    let allow;
+    try {
+        allow = args.allow.map((pattern) => new RegExp(pattern));
+    }
+    catch (err) {
+        process.stderr.write(`spectra scan-frames: invalid --allow regex — ${err.message}\n`);
+        return 3;
+    }
+    let report;
+    try {
+        report = await scanFrames(inputPath, { fps: args.fps, allow });
+    }
+    catch (err) {
+        if (err instanceof FrameScanInputError || err instanceof FfmpegUnavailableError) {
+            process.stderr.write(`spectra scan-frames: ${err.message}\n`);
+            return 3;
+        }
+        process.stderr.write(`spectra scan-frames: ${err.message}\n`);
+        return 3;
+    }
+    if (args.out) {
+        const outPath = isAbsolute(args.out) ? args.out : resolve(process.cwd(), args.out);
+        await writeFile(outPath, JSON.stringify(report, null, 2) + '\n', 'utf-8');
+    }
+    if (args.json) {
+        process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+    }
+    else {
+        printScanFramesSummary(report);
+    }
+    if (report.unscannedReason)
+        return 3;
+    if (report.verdict === 'blocked')
+        return 2;
+    if (report.verdict === 'review')
+        return 1;
+    return 0;
+}
 async function main() {
     const args = parseArgs(process.argv);
     switch (args.command) {
@@ -167,6 +278,9 @@ async function main() {
             return;
         case 'operation':
             process.exit(await forwardOperation(args.operation, args.paramsJson));
+            return;
+        case 'scan-frames':
+            process.exit(await runScanFrames(args.scanFrames));
             return;
     }
 }

@@ -14,7 +14,7 @@ Transforms raw screen recordings into polished, shareable demo clips. Applies a 
 Before producing a demo from any recording:
 
 - **Strip audio always.** The pipeline does NOT do this for you: `polish-clip` and `polish-script` both preserve a source audio track when the input has one (`polish-script` mixes it under any music bed / sound cues), and only emit `-an` when the input has no audio stream at all. Pre-strip the capture — `ffmpeg -i raw.mp4 -c:v copy -an -y raw-silent.mp4` — unless the session audio is deliberately part of the deliverable and cleared. Never re-add audio from a recording session.
-- **Frame-scan for secrets.** Review captured frames with `spectra_capture mode=auto` or a frame-by-frame read before sharing. Look for API keys, tokens, passwords, hostnames, and internal URLs in terminal output or browser developer tools.
+- **Frame-scan for secrets.** Review captured frames with `spectra_capture mode=auto` or a frame-by-frame read before sharing. Look for API keys, tokens, passwords, hostnames, and internal URLs in terminal output or browser developer tools. Before export, also run `spectra scan-frames <output.mp4>` — an automated OCR-based secret/privacy gate (exit 2 blocks on high-severity findings like API keys; exit 1 flags emails/home paths for review) — as a backstop, not a replacement, for the manual look.
 - **Real footage only.** The on-camera work must be a real run, never a replayed or scripted sequence presented as live. Staging is fine for setup; what runs on camera is real.
 - **Keep artifacts local.** Outputs go into `.spectra/` or a user-specified path. Never move demo artifacts into `artifacts/` (the library) or any public-facing directory without an explicit review step.
 
