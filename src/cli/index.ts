@@ -239,6 +239,9 @@ function printScanFramesSummary(report: FrameScanReport): void {
     process.stdout.write(`  not scanned — ${report.unscannedReason}\n`)
     return
   }
+  if (report.longLines > 0) {
+    process.stdout.write(`  ${report.longLines} line(s) exceeded 4 KB and were scanned in overlapping windows\n`)
+  }
   if (report.findings.length === 0) {
     process.stdout.write('  verdict: clean — no findings\n')
     return

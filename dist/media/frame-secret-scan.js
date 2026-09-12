@@ -248,52 +248,83 @@ export function applyOcrConfusionMap(text) {
 // bound and lets several patterns' greedy-quantifier-then-required-literal
 // shape (e.g. home-path-noslash's `[...]{2,}/`) backtrack over the whole
 // blob on non-matching runs, making a single big frame scan quadratic in
-// frame size. Splitting on newlines and capping each line restores the bound.
-// Trade-off: content past the cap on a single pathological unbroken line is
-// not scanned — acceptable for a pre-publish gate, not for a forensic one.
+// frame size. Splitting on newlines bounds the common case; a line that is
+// STILL longer than the cap (pathological OCR garbage, or real text with no
+// newlines) is scanned in overlapping windows instead of being silently
+// truncated, so a secret past the first 4 KB is not dropped without a trace.
+// The 256-char overlap is comfortably larger than any DEFAULT_SECRET_PATTERNS
+// match, so a secret straddling a window boundary is fully contained in at
+// least one window.
 const MAX_LINE_LENGTH = 4096;
-function splitIntoScannableLines(text) {
-    const lines = [];
+const WINDOW_OVERLAP = 256;
+const WINDOW_STRIDE = MAX_LINE_LENGTH - WINDOW_OVERLAP;
+function windowLine(normalizedLine, lineOffset) {
+    if (normalizedLine.length <= MAX_LINE_LENGTH) {
+        return [{ text: normalizedLine, offset: lineOffset }];
+    }
+    const windows = [];
+    for (let start = 0;; start += WINDOW_STRIDE) {
+        windows.push({ text: normalizedLine.slice(start, start + MAX_LINE_LENGTH), offset: lineOffset + start });
+        if (start + MAX_LINE_LENGTH >= normalizedLine.length)
+            break;
+    }
+    return windows;
+}
+function splitIntoScanWindows(text) {
+    const windows = [];
+    let longLines = 0;
     let offset = 0;
     for (const rawLine of text.split('\n')) {
-        const normalized = normalizeOcrText(rawLine).slice(0, MAX_LINE_LENGTH);
-        lines.push({ text: normalized, offset });
+        const normalized = normalizeOcrText(rawLine);
+        if (normalized.length > MAX_LINE_LENGTH)
+            longLines += 1;
+        windows.push(...windowLine(normalized, offset));
         // +1 approximates the separator consumed between original lines. `index`
         // is used for de-duplication and display, not for slicing back into the
         // raw OCR text, so an approximate running offset is sufficient.
         offset += normalized.length + 1;
     }
-    return lines;
+    return { windows, longLines };
 }
 /**
- * Runs `scanText` twice per line — once on the normalized line, once on the
- * OCR-confusion-mapped variant — and merges the results. Because the
+ * Runs `scanText` twice per window — once on the normalized window, once on
+ * the OCR-confusion-mapped variant — and merges the results. Because the
  * confusion map is a 1:1 character substitution, offsets line up between the
  * two passes, so a hit found in both passes is de-duplicated by
- * (patternId, index); a hit found only after confusion-mapping is kept and
- * flagged `viaOcrConfusionPass`.
+ * (patternId, absolute index). Overlapping windows on long lines can also
+ * re-find the same match at the same absolute index — deduplicated the same
+ * way, so a boundary-straddling secret is reported exactly once.
  */
-export function scanOcrText(rawOcrText, opts = {}) {
-    const lines = splitIntoScannableLines(rawOcrText);
+function scanOcrTextDetailed(rawOcrText, opts = {}) {
+    const { windows, longLines } = splitIntoScanWindows(rawOcrText);
     const primary = [];
     const seen = new Set();
-    for (const line of lines) {
-        for (const finding of scanText(line.text, opts)) {
-            const adjusted = { ...finding, index: finding.index + line.offset };
+    for (const window of windows) {
+        for (const finding of scanText(window.text, opts)) {
+            const adjusted = { ...finding, index: finding.index + window.offset };
+            const key = `${adjusted.patternId}:${adjusted.index}`;
+            if (seen.has(key))
+                continue;
+            seen.add(key);
             primary.push(adjusted);
-            seen.add(`${adjusted.patternId}:${adjusted.index}`);
         }
     }
     const secondary = [];
-    for (const line of lines) {
-        const confusedLine = applyOcrConfusionMap(line.text);
-        for (const finding of scanText(confusedLine, opts)) {
-            const adjusted = { ...finding, index: finding.index + line.offset, viaOcrConfusionPass: true };
-            if (!seen.has(`${adjusted.patternId}:${adjusted.index}`))
-                secondary.push(adjusted);
+    for (const window of windows) {
+        const confusedWindow = applyOcrConfusionMap(window.text);
+        for (const finding of scanText(confusedWindow, opts)) {
+            const adjusted = { ...finding, index: finding.index + window.offset, viaOcrConfusionPass: true };
+            const key = `${adjusted.patternId}:${adjusted.index}`;
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            secondary.push(adjusted);
         }
     }
-    return [...primary, ...secondary];
+    return { findings: [...primary, ...secondary], longLines };
+}
+export function scanOcrText(rawOcrText, opts = {}) {
+    return scanOcrTextDetailed(rawOcrText, opts).findings;
 }
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
 function isImageFile(input) {
@@ -383,14 +414,17 @@ export async function scanFrames(input, opts = {}) {
             findings: [],
             verdict: 'review',
             unscannedReason: `${engine.name} not available on PATH`,
+            longLines: 0,
         };
     }
     const frames = await sampleFrames(input, { fps, outDir: workDir });
     const findings = [];
+    let longLines = 0;
     for (const frame of frames) {
         const text = await engine.recognize(frame.path);
-        const hits = scanOcrText(text, { patterns: opts.patterns, allow: opts.allow });
-        for (const hit of hits) {
+        const result = scanOcrTextDetailed(text, { patterns: opts.patterns, allow: opts.allow });
+        longLines += result.longLines;
+        for (const hit of result.findings) {
             findings.push({ ...hit, frameIndex: frame.index, tMs: frame.tMs, framePath: frame.path });
         }
     }
@@ -402,6 +436,7 @@ export async function scanFrames(input, opts = {}) {
         frameCount: frames.length,
         findings,
         verdict: computeVerdict(findings),
+        longLines,
     };
 }
 //# sourceMappingURL=frame-secret-scan.js.map

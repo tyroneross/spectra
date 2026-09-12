@@ -191,6 +191,20 @@ describe('OCR-confusion pass', () => {
     expect(combined[0].viaOcrConfusionPass).toBe(true)
   })
 
+  it('finds a secret straddling the 4 KB window boundary exactly once', () => {
+    // Previously the whole line was truncated at MAX_LINE_LENGTH (4096), so a
+    // key crossing that offset was silently dropped. Now long lines scan in
+    // overlapping windows: the key must be found (not truncated away) and
+    // exactly once (overlapping windows must not double-report it).
+    const key = 'sk-ant-api03-' + 'A'.repeat(24) // 37 chars
+    const before = 'x'.repeat(4080)
+    const after = 'y'.repeat(2000)
+    const line = before + key + after // key spans absolute offset 4080-4117, straddling 4096
+    const findings = scanOcrText(line).filter((f) => f.patternId === 'anthropic-api-key')
+    expect(findings.length).toBe(1)
+    expect(findings[0].index).toBe(4080)
+  })
+
   it('normalizes Unicode dashes to ASCII "-" in the first (lossless) pass', () => {
     // Tesseract commonly renders the ASCII hyphens in "sk-ant-api03" as an
     // em-dash: "sk-ant—api03". Confirm the pattern still matches, and that it
@@ -261,6 +275,32 @@ describe('scanFrames verdict mapping', () => {
     expect(report.verdict).toBe('review')
     expect(report.frameCount).toBe(0)
     expect(report.unscannedReason).toContain('fake')
+  })
+
+  it('blocks on a key at offset 5000 of an 8192-char line instead of silently truncating it', async () => {
+    const dir = await makeWorkDir()
+    const png = join(dir, 'frame.png')
+    await encodeTinyPng(png)
+    const key = 'sk-ant-api03-' + 'A'.repeat(24)
+    const before = 'x'.repeat(5000)
+    const after = 'x'.repeat(8192 - before.length - key.length)
+    const line = before + key + after
+    expect(line.length).toBe(8192)
+
+    const report = await scanFrames(png, { engine: fakeEngine(line) })
+    expect(report.verdict).toBe('blocked')
+    expect(report.longLines).toBe(1)
+    const anthropicFinding = report.findings.find((f) => f.patternId === 'anthropic-api-key')
+    expect(anthropicFinding).toBeDefined()
+    expect(anthropicFinding!.index).toBe(5000)
+  })
+
+  it('reports longLines: 0 when no line needs windowing', async () => {
+    const dir = await makeWorkDir()
+    const png = join(dir, 'frame.png')
+    await encodeTinyPng(png)
+    const report = await scanFrames(png, { engine: fakeEngine('short line, nothing to see') })
+    expect(report.longLines).toBe(0)
   })
 })
 

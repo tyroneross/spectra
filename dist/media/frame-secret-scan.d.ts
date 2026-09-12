@@ -41,14 +41,6 @@ export declare function scanText(text: string, opts?: {
 }): TextFinding[];
 export declare function normalizeOcrText(text: string): string;
 export declare function applyOcrConfusionMap(text: string): string;
-/**
- * Runs `scanText` twice per line — once on the normalized line, once on the
- * OCR-confusion-mapped variant — and merges the results. Because the
- * confusion map is a 1:1 character substitution, offsets line up between the
- * two passes, so a hit found in both passes is de-duplicated by
- * (patternId, index); a hit found only after confusion-mapping is kept and
- * flagged `viaOcrConfusionPass`.
- */
 export declare function scanOcrText(rawOcrText: string, opts?: {
     patterns?: SecretPattern[];
     allow?: RegExp[];
@@ -89,6 +81,8 @@ export interface FrameScanReport {
     findings: FrameFinding[];
     verdict: FrameScanVerdict;
     unscannedReason?: string;
+    /** Count of OCR lines (across all frames) longer than 4 KB that needed overlapping-window scanning. */
+    longLines: number;
 }
 export declare function scanFrames(input: string, opts?: {
     fps?: number;
