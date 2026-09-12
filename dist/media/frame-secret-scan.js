@@ -165,11 +165,19 @@ export const DEFAULT_SECRET_PATTERNS = [
     },
 ];
 const PATH_PATTERN_IDS = new Set(['home-path-unix', 'home-path-linux', 'home-path-noslash']);
-/** First 4 + '…' + last 2. Never write the full match anywhere. */
+/**
+ * First 4 + '…' + last 2 — but only once the match is long enough that head
+ * and tail don't overlap and re-expose the whole thing. For match.length <= 8,
+ * `slice(0,4)+slice(-2)` covers 6+ of the string's characters (or all of it,
+ * for a 6-char email like "a@b.co" → "a@b.…co" — every character present,
+ * just with an ellipsis stitched in). Short matches get a harsher cut.
+ */
 function redact(match) {
-    const head = match.slice(0, 4);
-    const tail = match.length > 4 ? match.slice(-2) : match.slice(-1);
-    return `${head}…${tail}`;
+    if (match.length <= 3)
+        return '…';
+    if (match.length <= 8)
+        return `${match.slice(0, 2)}…`;
+    return `${match.slice(0, 4)}…${match.slice(-2)}`;
 }
 /**
  * Path findings get a stricter redaction than the generic first-4/last-2
@@ -213,35 +221,78 @@ export function scanText(text, opts = {}) {
 // ─── OCR-confusion normalization ──────────────────────────────
 //
 // OCR frequently confuses visually similar glyphs (capital O vs digit 0,
-// lowercase l vs digit 1, capital I vs digit 1). Collapsing whitespace and
-// then re-running the scan with those glyphs canonicalized raises recall on
-// secrets OCR mangled — at the cost of false positives elsewhere in the text
-// (ordinary words containing O/l/I get corrupted too). For a pre-publish
-// gate, a false positive costs a human a second look; a false negative ships
-// a real secret. Trade recall for precision here.
-const OCR_CONFUSION_MAP = { O: '0', l: '1', I: '1' };
+// lowercase l vs digit 1, capital I vs digit 1, '@' vs digit 0). Collapsing
+// whitespace and then re-running the scan with those glyphs canonicalized
+// raises recall on secrets OCR mangled — at the cost of false positives
+// elsewhere in the text (ordinary words containing O/l/I get corrupted too).
+// For a pre-publish gate, a false positive costs a human a second look; a
+// false negative ships a real secret. Trade recall for precision here.
+//
+// Unicode dash normalization (hyphen/en-dash/em-dash/minus-sign → ASCII '-')
+// is lossless — none of these glyphs mean anything else in this context — so
+// it runs in the FIRST pass too, not just the confusion pass. Tesseract
+// commonly renders the ASCII hyphen in "sk-ant-api03" as an em-dash
+// ("sk-ant—api03"), which would otherwise make every hyphen-bearing pattern
+// (anthropic/openai/aws/github/slack keys) miss entirely.
+const UNICODE_DASH_RE = /[‐-―−]/g;
+const OCR_CONFUSION_MAP = { O: '0', l: '1', I: '1', '@': '0' };
 export function normalizeOcrText(text) {
-    return text.replace(/\s+/g, ' ').trim();
+    return text.replace(UNICODE_DASH_RE, '-').replace(/\s+/g, ' ').trim();
 }
 export function applyOcrConfusionMap(text) {
-    return text.replace(/[OlI]/g, (ch) => OCR_CONFUSION_MAP[ch] ?? ch);
+    return text.replace(/[OlI@]/g, (ch) => OCR_CONFUSION_MAP[ch] ?? ch);
+}
+// Bounds regex work per scan unit. Real OCR output line-wraps naturally
+// (typical terminal/browser-chrome lines run well under 200 chars); collapsing
+// an entire frame's text into one line before scanning removes that natural
+// bound and lets several patterns' greedy-quantifier-then-required-literal
+// shape (e.g. home-path-noslash's `[...]{2,}/`) backtrack over the whole
+// blob on non-matching runs, making a single big frame scan quadratic in
+// frame size. Splitting on newlines and capping each line restores the bound.
+// Trade-off: content past the cap on a single pathological unbroken line is
+// not scanned — acceptable for a pre-publish gate, not for a forensic one.
+const MAX_LINE_LENGTH = 4096;
+function splitIntoScannableLines(text) {
+    const lines = [];
+    let offset = 0;
+    for (const rawLine of text.split('\n')) {
+        const normalized = normalizeOcrText(rawLine).slice(0, MAX_LINE_LENGTH);
+        lines.push({ text: normalized, offset });
+        // +1 approximates the separator consumed between original lines. `index`
+        // is used for de-duplication and display, not for slicing back into the
+        // raw OCR text, so an approximate running offset is sufficient.
+        offset += normalized.length + 1;
+    }
+    return lines;
 }
 /**
- * Runs `scanText` twice — once on the whitespace-normalized OCR text, once on
- * the OCR-confusion-mapped variant — and merges the results. Because the
+ * Runs `scanText` twice per line — once on the normalized line, once on the
+ * OCR-confusion-mapped variant — and merges the results. Because the
  * confusion map is a 1:1 character substitution, offsets line up between the
  * two passes, so a hit found in both passes is de-duplicated by
  * (patternId, index); a hit found only after confusion-mapping is kept and
  * flagged `viaOcrConfusionPass`.
  */
 export function scanOcrText(rawOcrText, opts = {}) {
-    const normalized = normalizeOcrText(rawOcrText);
-    const primary = scanText(normalized, opts);
-    const seen = new Set(primary.map((f) => `${f.patternId}:${f.index}`));
-    const confused = normalizeOcrText(applyOcrConfusionMap(normalized));
-    const secondary = scanText(confused, opts)
-        .filter((f) => !seen.has(`${f.patternId}:${f.index}`))
-        .map((f) => ({ ...f, viaOcrConfusionPass: true }));
+    const lines = splitIntoScannableLines(rawOcrText);
+    const primary = [];
+    const seen = new Set();
+    for (const line of lines) {
+        for (const finding of scanText(line.text, opts)) {
+            const adjusted = { ...finding, index: finding.index + line.offset };
+            primary.push(adjusted);
+            seen.add(`${adjusted.patternId}:${adjusted.index}`);
+        }
+    }
+    const secondary = [];
+    for (const line of lines) {
+        const confusedLine = applyOcrConfusionMap(line.text);
+        for (const finding of scanText(confusedLine, opts)) {
+            const adjusted = { ...finding, index: finding.index + line.offset, viaOcrConfusionPass: true };
+            if (!seen.has(`${adjusted.patternId}:${adjusted.index}`))
+                secondary.push(adjusted);
+        }
+    }
     return [...primary, ...secondary];
 }
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);

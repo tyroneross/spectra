@@ -38,13 +38,25 @@ function parseScanFramesArgs(rest) {
     for (let i = 0; i < rest.length; i += 1) {
         const arg = rest[i];
         if (arg === '--fps') {
-            fps = Number(rest[++i]);
+            const value = rest[++i];
+            if (value === undefined)
+                return null;
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed) || parsed <= 0)
+                return null;
+            fps = parsed;
         }
         else if (arg === '--out') {
-            out = rest[++i];
+            const value = rest[++i];
+            if (value === undefined)
+                return null;
+            out = value;
         }
         else if (arg === '--allow') {
-            allow.push(rest[++i]);
+            const value = rest[++i];
+            if (value === undefined)
+                return null;
+            allow.push(value);
         }
         else if (arg === '--json') {
             json = true;

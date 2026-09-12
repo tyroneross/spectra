@@ -2,7 +2,8 @@
 
 import { execSync, spawnSync } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -16,31 +17,14 @@ import {
   type OcrEngine,
 } from '../../src/media/frame-secret-scan.js'
 
+const TEST_DIR = dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT = join(TEST_DIR, '..', '..')
+const FIXTURE_PNG = join(TEST_DIR, 'fixtures', 'secret-frame.png')
+
 function tesseractAvailable(): boolean {
   try {
     const found = execSync('which tesseract', { stdio: 'pipe' }).toString().trim()
     return found.length > 0
-  } catch {
-    return false
-  }
-}
-
-function ffmpegAvailable(): boolean {
-  try {
-    const found = execSync('which ffmpeg', { stdio: 'pipe' }).toString().trim()
-    return found.length > 0
-  } catch {
-    return false
-  }
-}
-
-// Some ffmpeg builds (notably Homebrew's when linked without libfreetype) omit
-// the drawtext filter entirely. The integration test renders text with it, so
-// skip gracefully rather than fail on a build-configuration gap unrelated to
-// this module's own correctness.
-function drawtextAvailable(): boolean {
-  try {
-    return execSync('ffmpeg -filters', { stdio: 'pipe' }).toString().includes('drawtext')
   } catch {
     return false
   }
@@ -139,6 +123,40 @@ describe('scanText', () => {
       expect(JSON.stringify(finding)).not.toContain(secret)
     }
   })
+
+  it('never fully exposes a short match — redaction always drops at least one character', () => {
+    // Regression for a bug where slice(0,4)+slice(-2) on a match <= 6 chars
+    // covered every character in the original string, so the "redacted"
+    // preview was the full secret with an ellipsis stitched into the middle.
+    const samples: Record<string, string> = {
+      'anthropic-api-key': 'sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAA',
+      'openai-api-key': 'sk-AAAAAAAAAAAAAAAAAAAAAAAA',
+      'aws-access-key': 'AKIAABCDEFGHIJKLMNOP',
+      'github-token': 'ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      'github-pat': 'github_pat_AAAAAAAAAAAAAAAAAAAAAAAA',
+      'slack-token': 'xoxb-1234567890-abcdefghij',
+      'google-api-key': 'AIzaSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      jwt: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PYb4tR6X8jK',
+      'pem-private-key': '-----BEGIN RSA PRIVATE KEY-----',
+      'bearer-token': 'Bearer aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'generic-secret-assignment': 'password: "correct-horse-battery"',
+      'email-address': 'a@b.co', // 6 chars — the exact boundary case that used to leak everything
+      'home-path-unix': '/Users/tyrone',
+      'home-path-linux': '/home/tyrone',
+      'home-path-noslash': ' Users/tyroneross/',
+    }
+
+    for (const [patternId, text] of Object.entries(samples)) {
+      const pattern = DEFAULT_SECRET_PATTERNS.find((p) => p.id === patternId)!
+      const finding = scanText(text, { patterns: [pattern] })[0]
+      expect(finding, `expected a finding for ${patternId}`).toBeDefined()
+      const exposedChars = finding.redacted.replace(/…/g, '').length
+      expect(
+        exposedChars,
+        `${patternId}: redacted "${finding.redacted}" exposes ${exposedChars}/${finding.length} chars of the match`,
+      ).toBeLessThan(finding.length)
+    }
+  })
 })
 
 describe('OCR-confusion pass', () => {
@@ -171,6 +189,31 @@ describe('OCR-confusion pass', () => {
     const combined = scanOcrText(ocrText, { patterns: [onlyDigitPattern] })
     expect(combined.length).toBe(1)
     expect(combined[0].viaOcrConfusionPass).toBe(true)
+  })
+
+  it('normalizes Unicode dashes to ASCII "-" in the first (lossless) pass', () => {
+    // Tesseract commonly renders the ASCII hyphens in "sk-ant-api03" as an
+    // em-dash: "sk-ant—api03". Confirm the pattern still matches, and that it
+    // matches WITHOUT needing the confusion pass (dash normalization is
+    // lossless and belongs in the first pass, not gated behind confusion).
+    const ocrText = 'sk-ant—api03-' + 'A'.repeat(24)
+    const findings = scanOcrText(ocrText)
+    const anthropicFinding = findings.find((f) => f.patternId === 'anthropic-api-key')
+    expect(anthropicFinding).toBeDefined()
+    expect(anthropicFinding!.severity).toBe('high')
+    expect(anthropicFinding!.viaOcrConfusionPass).toBeFalsy()
+  })
+
+  it('scans a 200 kB single line (no newlines) in well under a second', () => {
+    // Regression for O(n^2) backtracking when an entire frame's OCR text is
+    // collapsed into one giant line before scanning. Line-splitting + a 4 KB
+    // per-line cap should keep this fast regardless of total input size.
+    const huge = 'the quick brown fox jumps over the lazy dog. '.repeat(4400) // ~200 kB, no newlines
+    const start = Date.now()
+    const findings = scanOcrText(huge)
+    const elapsedMs = Date.now() - start
+    expect(elapsedMs).toBeLessThan(1000)
+    expect(findings).toEqual([])
   })
 })
 
@@ -228,32 +271,66 @@ describe('TesseractOcrEngine', () => {
   })
 })
 
-// Renders a real single-frame PNG with ffmpeg's drawtext filter, embeds a
-// fake Anthropic key, and runs the full scanFrames pipeline through the real
-// tesseract binary. Skipped in environments without tesseract installed.
-describe.skipIf(!tesseractAvailable() || !ffmpegAvailable() || !drawtextAvailable())('scanFrames integration (tesseract)', () => {
-  it('detects a rendered secret in a captured frame and blocks', async () => {
-    const dir = await makeWorkDir()
-    const framePng = join(dir, 'rendered.png')
-    const drawtext = "drawtext=text='api_key = sk-ant-api03-TESTTESTTESTTESTTESTTEST':fontcolor=white:fontsize=28:x=20:y=80"
-    const result = spawnSync('ffmpeg', [
-      '-y',
-      '-f', 'lavfi',
-      '-i', 'color=c=black:s=800x200',
-      '-vf', drawtext,
-      '-frames:v', '1',
-      framePng,
-    ], { stdio: 'pipe' })
-    expect(result.status).toBe(0)
+describe('scan-frames CLI argument parsing', () => {
+  it('exits 3 with usage when --fps is given with no value', () => {
+    const result = spawnSync('npx', ['tsx', 'src/cli/index.ts', 'scan-frames', 'x.mp4', '--fps'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf-8',
+    })
+    expect(result.status).toBe(3)
+    expect(result.stderr).toContain('Usage')
+  })
 
-    const report = await scanFrames(framePng, { workDir: join(dir, 'work') })
+  it('exits 3 when --fps is non-numeric or non-positive', () => {
+    for (const badFps of ['nope', '0', '-1']) {
+      const result = spawnSync('npx', ['tsx', 'src/cli/index.ts', 'scan-frames', 'x.mp4', '--fps', badFps], {
+        cwd: REPO_ROOT,
+        encoding: 'utf-8',
+      })
+      expect(result.status, `--fps ${badFps} should exit 3`).toBe(3)
+    }
+  })
+})
+
+// Uses a checked-in fixture PNG (tests/media/fixtures/secret-frame.png,
+// rendered once with Python Pillow — see the generation note at the bottom
+// of this file) instead of rendering text at test time, so this test has no
+// ffmpeg drawtext dependency. Runs the real tesseract binary end to end
+// through the actual CLI entrypoint. Skipped when tesseract isn't installed.
+describe.skipIf(!tesseractAvailable())('scanFrames integration (tesseract)', () => {
+  it('detects the fixture secret via the library and blocks', async () => {
+    const dir = await makeWorkDir()
+    const report = await scanFrames(FIXTURE_PNG, { workDir: join(dir, 'work') })
     expect(report.frameCount).toBe(1)
     expect(report.verdict).toBe('blocked')
     const anthropicFinding = report.findings.find((f) => f.patternId === 'anthropic-api-key')
     expect(anthropicFinding).toBeDefined()
     expect(anthropicFinding!.redacted).not.toContain('TESTTESTTESTTESTTESTTEST')
   })
+
+  it('detects the fixture secret via the CLI and exits 2 (blocked)', () => {
+    const result = spawnSync('npx', ['tsx', 'src/cli/index.ts', 'scan-frames', FIXTURE_PNG, '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf-8',
+    })
+    expect(result.status).toBe(2)
+    expect(result.stdout).not.toContain('TESTTESTTESTTESTTESTTEST')
+    const report = JSON.parse(result.stdout) as { verdict: string }
+    expect(report.verdict).toBe('blocked')
+  })
 })
+
+// tests/media/fixtures/secret-frame.png was generated once with:
+//
+//   from PIL import Image, ImageDraw, ImageFont
+//   text = 'api_key = sk-ant-api03-TESTTESTTESTTESTTESTTEST  /Users/demo/app'
+//   font = ImageFont.truetype('/System/Library/Fonts/Monaco.ttf', 32)
+//   img = Image.new('RGB', (1309, 112), color='black')
+//   ImageDraw.Draw(img).text((40, 40), text, fill='white', font=font)
+//   img.save('tests/media/fixtures/secret-frame.png')
+//
+// It is a static fixture, not regenerated at test time — no Pillow/ffmpeg
+// drawtext dependency for CI.
 
 async function encodeTinyPng(path: string): Promise<void> {
   const { encodePng } = await import('../../src/media/png.js')

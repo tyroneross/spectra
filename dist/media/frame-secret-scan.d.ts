@@ -42,8 +42,8 @@ export declare function scanText(text: string, opts?: {
 export declare function normalizeOcrText(text: string): string;
 export declare function applyOcrConfusionMap(text: string): string;
 /**
- * Runs `scanText` twice — once on the whitespace-normalized OCR text, once on
- * the OCR-confusion-mapped variant — and merges the results. Because the
+ * Runs `scanText` twice per line — once on the normalized line, once on the
+ * OCR-confusion-mapped variant — and merges the results. Because the
  * confusion map is a 1:1 character substitution, offsets line up between the
  * two passes, so a hit found in both passes is de-duplicated by
  * (patternId, index); a hit found only after confusion-mapping is kept and
