@@ -70,9 +70,21 @@ final class SingleWindowRecordingStore {
         let maxDuration = max(0.5, params["maxDuration"]?.doubleValue ?? params["duration"]?.doubleValue ?? 300)
         let captureAudio = params["captureAudio"]?.boolValue ?? false
         let sessionId = params["sessionId"]?.stringValue
+        // Exact selectors resolved by the TS caller. Either one makes the app
+        // name a label, not a selector: a second instance of the same app must
+        // never be recorded because the name matched it first.
+        let windowId = params["windowId"]?.intValue
+        let pid = params["pid"]?.intValue
 
         let content = try await singleWindowShareableContent(timeoutSeconds: 15)
-        let window = try selectSingleWindow(content.windows, displays: content.displays, app: app, title: title)
+        let window = try selectSingleWindow(
+            content.windows,
+            displays: content.displays,
+            app: app,
+            title: title,
+            windowId: windowId,
+            pid: pid
+        )
         let outputURL = URL(fileURLWithPath: outPath).standardizedFileURL
         try FileManager.default.createDirectory(
             at: outputURL.deletingLastPathComponent(),
@@ -841,7 +853,14 @@ final class SingleWindowShareableContentState: @unchecked Sendable {
     }
 }
 
-func selectSingleWindow(_ windows: [SCWindow], displays: [SCDisplay], app: String, title: String?) throws -> SCWindow {
+func selectSingleWindow(
+    _ windows: [SCWindow],
+    displays: [SCDisplay],
+    app: String,
+    title: String?,
+    windowId: Int? = nil,
+    pid: Int? = nil
+) throws -> SCWindow {
     let appNeedle = app.lowercased()
     let titleNeedle = title?.lowercased()
 
@@ -849,7 +868,7 @@ func selectSingleWindow(_ windows: [SCWindow], displays: [SCDisplay], app: Strin
     // never fall back to a full-display capture: every candidate below belongs to
     // the target app, so the eventual SCContentFilter(desktopIndependentWindow:)
     // is always built from one of THIS app's windows, never the display.
-    let appMatches = windows.filter { window in
+    var appMatches = windows.filter { window in
         let appName = window.owningApplication?.applicationName.lowercased() ?? ""
         let bundle = window.owningApplication?.bundleIdentifier.lowercased() ?? ""
         let matchesApp = appName.contains(appNeedle) || bundle.contains(appNeedle)
@@ -857,6 +876,23 @@ func selectSingleWindow(_ windows: [SCWindow], displays: [SCDisplay], app: Strin
     }
     guard !appMatches.isEmpty else {
         throw SingleWindowRecordingError(description: "No ScreenCaptureKit window found for app '\(app)'")
+    }
+
+    // An exact window id narrows the set to exactly that window; a pid narrows
+    // it to that one process. Both are hard filters — when they match nothing
+    // this throws instead of widening back to the app-name set, because the
+    // fallback is precisely the wrong-instance capture these selectors exist
+    // to prevent.
+    if let windowId = windowId {
+        appMatches = appMatches.filter { $0.windowID == UInt32(windowId) }
+        guard !appMatches.isEmpty else {
+            throw SingleWindowRecordingError(description: "No ScreenCaptureKit window \(windowId) for app '\(app)'")
+        }
+    } else if let pid = pid {
+        appMatches = appMatches.filter { $0.owningApplication?.processID == pid_t(pid) }
+        guard !appMatches.isEmpty else {
+            throw SingleWindowRecordingError(description: "No ScreenCaptureKit window for pid \(pid) of app '\(app)'")
+        }
     }
 
     // The title hint (the session name) only *disambiguates* between several
