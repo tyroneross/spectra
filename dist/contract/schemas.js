@@ -88,6 +88,9 @@ export const createSessionParamsSchema = z.object({
     name: z.string().optional(),
     record: z.boolean().optional(),
     repoPath: z.string().optional(),
+    // macOS only: bind the session to one exact process. `target: "pid:<n>"` is
+    // the string spelling of the same selector.
+    pid: z.number().int().positive().optional(),
 });
 export const listSessionsParamsSchema = z.object({
     includeClosed: z.boolean().optional(),

@@ -77,6 +77,31 @@ describe('DaemonClient — contract round-trip', () => {
   })
 })
 
+describe('DaemonClient — socket resolution', () => {
+  const previous = process.env.SPECTRA_DAEMON_SOCKET
+
+  afterEach(() => {
+    if (previous === undefined) delete process.env.SPECTRA_DAEMON_SOCKET
+    else process.env.SPECTRA_DAEMON_SOCKET = previous
+  })
+
+  it('honors SPECTRA_DAEMON_SOCKET when no socketPath option is given', async () => {
+    daemon = await startMockDaemon()
+    process.env.SPECTRA_DAEMON_SOCKET = daemon.socketPath
+    const client = new DaemonClient({ surface: 'test' })
+    const health = await client.call<HealthResult>('health', {})
+    expect(health.apiVersion).toBe(2)
+  })
+
+  it('lets an explicit socketPath option win over the env override', async () => {
+    daemon = await startMockDaemon()
+    process.env.SPECTRA_DAEMON_SOCKET = join(mkdtempSync(join(tmpdir(), 'spectra-env-')), 'unused.sock')
+    const client = new DaemonClient({ socketPath: daemon.socketPath, surface: 'test' })
+    await client.call<HealthResult>('health', {})
+    expect(daemon.calls[0]).toMatchObject({ operation: 'health' })
+  })
+})
+
 describe('DaemonClient — validation + error envelopes', () => {
   it('rejects invalid params client-side with an actionable DaemonError', async () => {
     daemon = await startMockDaemon()

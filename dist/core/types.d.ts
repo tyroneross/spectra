@@ -39,6 +39,15 @@ export interface ActResult {
 export interface DriverTarget {
     url?: string;
     appName?: string;
+    /**
+     * macOS only — bind the session to one exact process. When two instances of
+     * the same app are running (e.g. a user's live app and an isolated test
+     * instance), the app name is ambiguous and the native helper resolves it to
+     * whichever instance it finds first. A pid makes the binding exact: every AX
+     * snapshot/act and the recording window filter select this process only, and
+     * never fall back to the name.
+     */
+    pid?: number;
     deviceId?: string;
     command?: string;
 }

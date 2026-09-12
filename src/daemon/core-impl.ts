@@ -350,7 +350,7 @@ export class CoreApiImplementation implements CoreApi {
       )
     }
 
-    const target = await this.resolveRecordingTarget(session.target.appName, session.name)
+    const target = await this.resolveRecordingTarget(session.target.appName, session.name, session.target.pid)
     const recordingId = `recording-${randomUUID().slice(0, 8)}`
     const sessionDir = this.ctx.sessions.sessionDir(params.sessionId)
     await mkdir(sessionDir, { recursive: true })
@@ -369,7 +369,14 @@ export class CoreApiImplementation implements CoreApi {
         recordingId,
         sessionId: params.sessionId,
         app: session.target.appName,
-        title: session.name,
+        // A pid-bound session hands the recorder the exact window it resolved,
+        // and uses that window's real title as the disambiguation hint instead
+        // of the session name (which is a slug and rarely matches a title).
+        title: session.target.pid !== undefined && target.title.trim().length > 0
+          ? target.title
+          : session.name,
+        windowId: target.windowId,
+        pid: session.target.pid,
         outPath,
         fps,
         codec,
@@ -1120,16 +1127,39 @@ export class CoreApiImplementation implements CoreApi {
     })
   }
 
-  private async resolveRecordingTarget(app: string, titleHint?: string): Promise<WindowRecord> {
+  private async resolveRecordingTarget(app: string, titleHint?: string, pid?: number): Promise<WindowRecord> {
     const appNeedle = app.toLowerCase()
     const windows = await this.windowListProvider()
+    const onScreenCandidate = (window: WindowRecord): boolean =>
+      window.onScreen
+      && window.layer === 0
+      && window.width >= 100
+      && window.height >= 100
+
+    // A pid-bound session filters on the process id alone, BEFORE any name or
+    // title heuristic, and fails loudly when that process has no on-screen
+    // window. Falling back to the app name here would record another instance
+    // of the same app — the exact leak pid targeting exists to prevent.
+    if (pid !== undefined) {
+      const owned = windows.filter((window) => window.processId === pid && onScreenCandidate(window))
+      if (owned.length === 0) {
+        throw new DaemonApiError(
+          'recording_failed',
+          `No on-screen window for pid ${pid} of app ${app}`,
+          {
+            status: 404,
+            retryable: false,
+            hint: 'Confirm the pid is still running and its window is visible (not minimized or on another Space).',
+          },
+        )
+      }
+      return this.orderRecordingCandidates(owned, titleHint)[0]
+    }
+
     let candidates = windows.filter((window) => {
       const appName = window.appName.toLowerCase()
       const bundle = window.bundleIdentifier?.toLowerCase() ?? ''
-      return window.onScreen
-        && window.layer === 0
-        && window.width >= 100
-        && window.height >= 100
+      return onScreenCandidate(window)
         && (appName.includes(appNeedle) || bundle.includes(appNeedle))
     })
     if (candidates.length === 0) {
@@ -1139,20 +1169,27 @@ export class CoreApiImplementation implements CoreApi {
         { status: 404, retryable: false },
       )
     }
-    // A title hint (the session name) disambiguates when several windows of the
-    // same app are open — record the window whose title matches, not the largest.
+    return this.orderRecordingCandidates(candidates, titleHint)[0]
+  }
+
+  /**
+   * Title hint disambiguates between several windows of one process/app — it
+   * never widens the candidate set, so a pid filter upstream still holds.
+   */
+  private orderRecordingCandidates(candidates: WindowRecord[], titleHint?: string): WindowRecord[] {
+    let ordered = candidates
     if (titleHint && titleHint.trim().length > 0) {
       const needle = titleHint.toLowerCase()
-      const titled = candidates.filter((window) => window.title.toLowerCase().includes(needle))
-      if (titled.length > 0) candidates = titled
+      const titled = ordered.filter((window) => window.title.toLowerCase().includes(needle))
+      if (titled.length > 0) ordered = titled
     }
-    return candidates.sort((left, right) => {
+    return [...ordered].sort((left, right) => {
       const leftTitled = left.title.length > 0
       const rightTitled = right.title.length > 0
       if (leftTitled !== rightTitled) return leftTitled ? -1 : 1
       if (left.layer !== right.layer) return left.layer - right.layer
       return (right.width * right.height) - (left.width * left.height)
-    })[0]
+    })
   }
 }
 
@@ -1161,6 +1198,10 @@ interface NativeStartRecordingInput {
   sessionId: string
   app: string
   title?: string
+  /** ScreenCaptureKit window id resolved in TS (from the window list). */
+  windowId?: number
+  /** Process id the session is bound to, when pid targeting is in use. */
+  pid?: number
   outPath: string
   fps: number
   codec: string
@@ -1371,6 +1412,8 @@ class NativeRecordingProcess implements NativeRecordingHandle {
       sessionId: this.input.sessionId,
       app: this.input.app,
       title: this.input.title,
+      windowId: this.input.windowId,
+      pid: this.input.pid,
       outPath: this.input.outPath,
       fps: this.input.fps,
       codec: this.input.codec,

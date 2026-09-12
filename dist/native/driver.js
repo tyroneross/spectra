@@ -11,22 +11,31 @@ export class NativeDriver {
         this.bridge = bridge ?? getSharedBridge();
     }
     async connect(target) {
-        if (!target.appName) {
-            throw new Error('NativeDriver requires appName in target');
+        if (!target.appName && target.pid === undefined) {
+            throw new Error('NativeDriver requires appName or pid in target');
         }
-        this.appName = target.appName;
-        // Verify the app is accessible by taking a snapshot
+        this.appName = target.appName ?? null;
+        this.appPid = target.pid ?? null;
+        // Verify the app is accessible by taking a snapshot. A pid-bound target
+        // sends ONLY the pid — sending the app name too would let the native
+        // helper's name lookup win and silently select another instance.
         await this.bridge.start();
-        const result = await this.bridge.send('snapshot', { app: this.appName });
+        const result = await this.bridge.send('snapshot', this.targetParams());
         this.windowId = result.window.id;
     }
+    /**
+     * The process selector for every native bridge call. `pid` wins outright:
+     * once a session is pid-bound, no call may ever be resolved by app name.
+     */
+    targetParams() {
+        if (this.appPid !== null)
+            return { pid: this.appPid };
+        if (this.appName !== null)
+            return { app: this.appName };
+        return {};
+    }
     async snapshot() {
-        const params = {};
-        if (this.appPid)
-            params.pid = this.appPid;
-        else if (this.appName)
-            params.app = this.appName;
-        const result = await this.bridge.send('snapshot', params);
+        const result = await this.bridge.send('snapshot', this.targetParams());
         // Map NativeElement[] to Element[] with sequential IDs
         this.idToPath.clear();
         const elements = result.elements.map((nel, i) => {
@@ -69,7 +78,7 @@ export class NativeDriver {
                 : action === 'clear' ? 'setValue'
                     : action;
         const params = {
-            app: this.appName,
+            ...this.targetParams(),
             elementPath: path,
             action: nativeAction,
         };
@@ -97,7 +106,7 @@ export class NativeDriver {
         }
     }
     async screenshot() {
-        const result = await this.bridge.send('screenshot', { app: this.appName });
+        const result = await this.bridge.send('screenshot', this.targetParams());
         const buf = await readFile(result.path);
         await unlink(result.path).catch(() => { });
         return buf;

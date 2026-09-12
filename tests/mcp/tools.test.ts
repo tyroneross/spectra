@@ -103,6 +103,70 @@ describe('handleConnect', () => {
       platform: 'macos',
     }))
   })
+
+  it('binds the driver to an explicit pid param', async () => {
+    const ctx = mockContext()
+    const driver = mockDriver()
+
+    await handleConnect(
+      { target: 'Easy Terminal', pid: 4242 },
+      ctx,
+      () => driver,
+    )
+
+    expect(driver.connect).toHaveBeenCalledWith({ appName: 'Easy Terminal', pid: 4242 })
+    expect(ctx.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'macos',
+      target: { appName: 'Easy Terminal', pid: 4242 },
+    }))
+  })
+
+  it('accepts the pid:<n> target form and resolves a readable app name', async () => {
+    const ctx = mockContext()
+    const driver = mockDriver()
+
+    await handleConnect(
+      { target: 'pid:4242' },
+      ctx,
+      () => driver,
+      async (pid) => (pid === 4242 ? 'Easy Terminal' : undefined),
+    )
+
+    expect(driver.connect).toHaveBeenCalledWith({ appName: 'Easy Terminal', pid: 4242 })
+  })
+
+  it('keeps the pid binding when the app name cannot be resolved', async () => {
+    const ctx = mockContext()
+    const driver = mockDriver()
+
+    await handleConnect(
+      { target: 'pid:4242' },
+      ctx,
+      () => driver,
+      async () => undefined,
+    )
+
+    expect(driver.connect).toHaveBeenCalledWith({ appName: 'pid:4242', pid: 4242 })
+  })
+
+  it('rejects a pid:<n> target that disagrees with the pid param', async () => {
+    const ctx = mockContext()
+    await expect(handleConnect(
+      { target: 'pid:4242', pid: 99 },
+      ctx,
+      () => mockDriver(),
+      async () => 'Easy Terminal',
+    )).rejects.toThrow(/disagree/)
+  })
+
+  it('rejects pid targeting on a non-macOS target', async () => {
+    const ctx = mockContext()
+    await expect(handleConnect(
+      { target: 'http://localhost:3000', pid: 4242 },
+      ctx,
+      () => mockDriver(),
+    )).rejects.toThrow(/macOS-only/)
+  })
 })
 
 describe('handleSnapshot', () => {

@@ -146,6 +146,12 @@ export interface CreateSessionParams {
     name?: string;
     record?: boolean;
     repoPath?: string;
+    /**
+     * macOS only — bind the session to this exact process id, so AX calls and
+     * window recording can never reach another instance of the same app. The
+     * target string form `pid:<n>` sets the same field.
+     */
+    pid?: number;
 }
 export interface LaunchInfo {
     kind: string;

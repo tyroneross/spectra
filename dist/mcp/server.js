@@ -181,11 +181,12 @@ export const spectraComputerUseInputShape = {
 export function createSpectraServer(client) {
     const server = new McpServer({ name: 'spectra', version: getVersionInfo().daemonVersion });
     registerResources(server, client);
-    server.tool('spectra_connect', 'Start a new UI automation session. Target: URL (web), app name (macOS), sim:device (iOS/watchOS). If repoPath is set, the launcher first boots a dev server / macOS app from that directory and uses its resolved URL/app-name as the effective target.', {
-        target: z.string().describe('URL, app name, or sim:device identifier. Ignored if repoPath is set and the launcher resolves a target.'),
+    server.tool('spectra_connect', 'Start a new UI automation session. Target: URL (web), app name (macOS), pid:<n> (one exact macOS process), sim:device (iOS/watchOS). If repoPath is set, the launcher first boots a dev server / macOS app from that directory and uses its resolved URL/app-name as the effective target.', {
+        target: z.string().describe('URL, app name, pid:<n>, or sim:device identifier. Ignored if repoPath is set and the launcher resolves a target.'),
         name: z.string().optional().describe('Human-readable session name'),
         record: z.boolean().optional().describe('Start video recording'),
         repoPath: z.string().optional().describe('Absolute path to a repo to launch first (Next.js / Vite / static HTML / macOS Xcode project).'),
+        pid: z.number().int().positive().optional().describe('macOS only: bind the session to this exact process id. Use when two instances of the same app are running — AX actions and window recording then never touch the other instance.'),
     }, { readOnlyHint: false, destructiveHint: false, idempotentHint: true }, async (args) => forward(client, 'spectra_connect', args));
     server.tool('spectra_snapshot', 'Get current AX tree snapshot of the active session.', {
         sessionId: z.string().describe('Session ID'),

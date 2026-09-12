@@ -111,12 +111,21 @@ export declare class CoreApiImplementation implements CoreApi {
     private emitRecordingStatus;
     private emitArtifactAdded;
     private resolveRecordingTarget;
+    /**
+     * Title hint disambiguates between several windows of one process/app — it
+     * never widens the candidate set, so a pid filter upstream still holds.
+     */
+    private orderRecordingCandidates;
 }
 interface NativeStartRecordingInput {
     recordingId: string;
     sessionId: string;
     app: string;
     title?: string;
+    /** ScreenCaptureKit window id resolved in TS (from the window list). */
+    windowId?: number;
+    /** Process id the session is bound to, when pid targeting is in use. */
+    pid?: number;
     outPath: string;
     fps: number;
     codec: string;

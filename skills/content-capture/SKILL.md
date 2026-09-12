@@ -33,6 +33,7 @@ Opens a capture session against a target. The target can be:
 - A URL (web via Chrome DevTools Protocol): `https://app.example.com/dashboard`
 - A macOS app name: `Xcode`, `Figma`, `Linear`
 - A simulator device: `sim:iPhone 16 Pro`, `sim:Apple Watch Series 10`
+- One exact macOS process: `pid:4242` (or pass `pid: 4242`) — use this when two instances of the same app are running, so actions and recording can never reach the other instance.
 
 Returns a session ID used by all subsequent calls. Multiple sessions can be open simultaneously across different targets.
 

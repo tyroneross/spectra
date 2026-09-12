@@ -125,16 +125,32 @@ Start a new UI automation session.
 
 | Param | Type | Required | Description |
 |-------|------|:--------:|-------------|
-| `target` | string | yes | URL, app name, or `sim:device` identifier |
+| `target` | string | yes | URL, app name, `pid:<n>`, or `sim:device` identifier |
 | `name` | string | | Human-readable session name |
 | `record` | boolean | | Start video recording immediately |
+| `pid` | number | | macOS only — bind the session to this exact process id |
 
 **Examples:**
 ```
 target: "https://myapp.vercel.app"       → web (CDP)
 target: "Finder"                          → macOS native (AX)
+target: "pid:4242"                        → one exact macOS process
 target: "sim:iPhone 16 Pro"              → iOS simulator
 target: "sim:Apple Watch Series 10"      → watchOS simulator
+```
+
+**Targeting one instance when two are running.** An app name is ambiguous while
+two instances of the same app are up — a live app and an isolated test instance,
+say — and the native helper resolves the name to whichever instance it finds
+first, usually the live one. Pass `pid` (or the `pid:<n>` target form, which
+sets the same field) to make the binding exact: every AX snapshot and action
+goes to that process only, and `startRecording` records a window owned by that
+pid or fails with `recording_failed` — it never falls back to the app name.
+`pid:<n>` still resolves a readable app name for the session label.
+
+```
+spectra_connect { "target": "Easy Terminal", "pid": 4242 }
+spectra_connect { "target": "pid:4242" }
 ```
 
 **Returns:** `{ sessionId, platform, target, name }`
@@ -659,13 +675,14 @@ spectra/
 | `SPECTRA_NATIVE_HELPER_PATH` | Authoritative native bridge path; production must remain inside `Contents/Helpers` |
 | `SPECTRA_CURSOR_SAMPLER_PATH` | Authoritative cursor sampler path under the same helper contract |
 | `SPECTRA_WINDOW_BOUNDS_BIN` | Authoritative window-bounds helper path under the same helper contract |
+| `SPECTRA_DAEMON_SOCKET` | Daemon socket path used by the CLI and `DaemonClient` (default `~/.spectra/daemon.sock`); an explicit `socketPath` option still wins |
 
 ## Platforms
 
 | Platform | Driver | Target Format | Features |
 |----------|--------|---------------|----------|
 | Web | `CdpDriver` | Any URL | Full CDP: screenshot, navigate, act, state triggers, cleanup |
-| macOS | `NativeDriver` | App name (e.g., `"Finder"`) | AX tree, actions, screenshot via native bridge |
+| macOS | `NativeDriver` | App name (e.g., `"Finder"`) or `pid:<n>` | AX tree, actions, screenshot via native bridge |
 | iOS | `SimDriver` | `sim:iPhone 16 Pro` | Simulator AX, screenshot, status bar cleanup |
 | watchOS | `SimDriver` | `sim:Apple Watch Series 10` | Simulator AX, screenshot, Digital Crown |
 
