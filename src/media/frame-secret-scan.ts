@@ -173,7 +173,19 @@ export const DEFAULT_SECRET_PATTERNS: SecretPattern[] = [
     regex: /\/home\/[A-Za-z0-9._-]+/,
     description: 'Linux absolute home directory path',
   },
+  {
+    id: 'home-path-noslash',
+    severity: 'low',
+    // OCR frequently drops the leading '/' at the start of a line or word
+    // boundary, turning "/Users/tyrone/..." into "Users/tyrone/...". Catch
+    // that mangled form too — it's the same privacy leak, just missing a
+    // character OCR is prone to dropping.
+    regex: /(?:^|[^A-Za-z0-9/])(?:Users|home)\/[A-Za-z0-9._-]{2,}\//,
+    description: 'Home directory path with OCR-dropped leading slash',
+  },
 ]
+
+const PATH_PATTERN_IDS = new Set(['home-path-unix', 'home-path-linux', 'home-path-noslash'])
 
 // ─── Text scanning (pure, unit-testable) ─────────────────────
 
@@ -198,6 +210,19 @@ function redact(match: string): string {
   return `${head}…${tail}`
 }
 
+/**
+ * Path findings get a stricter redaction than the generic first-4/last-2
+ * scheme: keep only the first path segment (e.g. `/Users` or `Users` for the
+ * slash-dropped form) plus '…'. The generic scheme would still leak most of
+ * the username via its trailing 2 characters; a home path's sensitive part
+ * IS the username, so drop it entirely.
+ */
+function redactPath(match: string): string {
+  const trimmed = match.replace(/^[^A-Za-z0-9/]+/, '')
+  const firstSegment = trimmed.match(/^\/?[A-Za-z]+/)?.[0] ?? trimmed.slice(0, 5)
+  return `${firstSegment}…`
+}
+
 /** Returns a fresh global-flagged RegExp so callers never share `lastIndex` state. */
 function toGlobalRegex(pattern: RegExp): RegExp {
   const flags = pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g'
@@ -220,7 +245,7 @@ export function scanText(
         patternId: pattern.id,
         severity: pattern.severity,
         description: pattern.description,
-        redacted: redact(matched),
+        redacted: PATH_PATTERN_IDS.has(pattern.id) ? redactPath(matched) : redact(matched),
         index: m.index ?? -1,
         length: matched.length,
       })

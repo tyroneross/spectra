@@ -77,6 +77,7 @@ describe('scanText', () => {
       'email-address': 'contact tyrone.ross@gmail.com for access',
       'home-path-unix': 'saved to /Users/tyrone/Downloads/screenshot.png',
       'home-path-linux': 'saved to /home/tyrone/screenshot.png',
+      'home-path-noslash': 'assertions in Users/tyroneross/dev/git-folder/spectra/tests',
     }
 
     for (const [patternId, text] of Object.entries(samples)) {
@@ -97,6 +98,29 @@ describe('scanText', () => {
 
     const withAllow = scanText(text, { allow: [/tyrone\.ross@gmail\.com/] })
     expect(withAllow.some((f) => f.patternId === 'email-address')).toBe(false)
+  })
+
+  it('flags a home path even when OCR dropped the leading slash', () => {
+    const text = 'Full npm test had four unrelated existing environment failures in Users/tyroneross/dev/git-folder/spectra/tests/pipeline'
+    const findings = scanText(text)
+    const finding = findings.find((f) => f.patternId === 'home-path-noslash')
+    expect(finding).toBeDefined()
+    expect(finding!.severity).toBe('low')
+    // Only the first path segment survives redaction — the username is never exposed.
+    expect(finding!.redacted).toBe('Users…')
+    expect(finding!.redacted).not.toContain('tyroneross')
+  })
+
+  it('allow-lists the demo user across both slashed and slash-dropped path forms', () => {
+    const slashed = 'saved to /Users/tyroneross/Downloads/demo.mp4'
+    const slashDropped = 'path was Users/tyroneross/dev/git-folder/spectra'
+    const allow = [/tyroneross/]
+
+    expect(scanText(slashed).some((f) => f.patternId === 'home-path-unix')).toBe(true)
+    expect(scanText(slashed, { allow }).some((f) => f.patternId === 'home-path-unix')).toBe(false)
+
+    expect(scanText(slashDropped).some((f) => f.patternId === 'home-path-noslash')).toBe(true)
+    expect(scanText(slashDropped, { allow }).some((f) => f.patternId === 'home-path-noslash')).toBe(false)
   })
 
   it('never includes the full secret in a finding, only a redacted preview', () => {

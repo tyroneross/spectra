@@ -1,5 +1,6 @@
 node_modules/
 .spectra/
+.spectra-smoke/
 *.tsbuildinfo
 .DS_Store
 
