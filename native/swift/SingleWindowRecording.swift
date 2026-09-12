@@ -861,37 +861,47 @@ func selectSingleWindow(
     windowId: Int? = nil,
     pid: Int? = nil
 ) throws -> SCWindow {
-    let appNeedle = app.lowercased()
     let titleNeedle = title?.lowercased()
 
-    // App-name/bundle match is the hard requirement — this is what guarantees we
-    // never fall back to a full-display capture: every candidate below belongs to
-    // the target app, so the eventual SCContentFilter(desktopIndependentWindow:)
-    // is always built from one of THIS app's windows, never the display.
-    var appMatches = windows.filter { window in
-        let appName = window.owningApplication?.applicationName.lowercased() ?? ""
-        let bundle = window.owningApplication?.bundleIdentifier.lowercased() ?? ""
-        let matchesApp = appName.contains(appNeedle) || bundle.contains(appNeedle)
-        return matchesApp && singleWindowCaptureCandidate(window)
-    }
-    guard !appMatches.isEmpty else {
-        throw SingleWindowRecordingError(description: "No ScreenCaptureKit window found for app '\(app)'")
-    }
-
-    // An exact window id narrows the set to exactly that window; a pid narrows
-    // it to that one process. Both are hard filters — when they match nothing
-    // this throws instead of widening back to the app-name set, because the
-    // fallback is precisely the wrong-instance capture these selectors exist
-    // to prevent.
-    if let windowId = windowId {
-        appMatches = appMatches.filter { $0.windowID == UInt32(windowId) }
-        guard !appMatches.isEmpty else {
-            throw SingleWindowRecordingError(description: "No ScreenCaptureKit window \(windowId) for app '\(app)'")
+    // An exact window id or pid REPLACES the app name as the selector: both are
+    // resolved from the live window list by the caller, so they are strictly
+    // more precise than a name. The name is then only a label — matching on it
+    // as well would break a session whose recorded appName came from the `ps`
+    // basename fallback (e.g. the literal "pid:4242", or an executable name
+    // that differs from the ScreenCaptureKit applicationName). Both selectors
+    // are applied when both are sent, and a miss throws rather than widening
+    // back to the name, because that fallback is the wrong-instance capture
+    // these selectors exist to prevent. The candidate predicate still applies,
+    // so the filter is always built from a real window, never the display.
+    var appMatches: [SCWindow]
+    if windowId != nil || pid != nil {
+        appMatches = windows.filter(singleWindowCaptureCandidate)
+        if let windowId = windowId {
+            appMatches = appMatches.filter { $0.windowID == UInt32(windowId) }
+            guard !appMatches.isEmpty else {
+                throw SingleWindowRecordingError(description: "No ScreenCaptureKit window \(windowId) for app '\(app)'")
+            }
         }
-    } else if let pid = pid {
-        appMatches = appMatches.filter { $0.owningApplication?.processID == pid_t(pid) }
+        if let pid = pid {
+            appMatches = appMatches.filter { $0.owningApplication?.processID == pid_t(pid) }
+            guard !appMatches.isEmpty else {
+                throw SingleWindowRecordingError(description: "No ScreenCaptureKit window for pid \(pid) of app '\(app)'")
+            }
+        }
+    } else {
+        // App-name/bundle match is the hard requirement — this is what guarantees we
+        // never fall back to a full-display capture: every candidate below belongs to
+        // the target app, so the eventual SCContentFilter(desktopIndependentWindow:)
+        // is always built from one of THIS app's windows, never the display.
+        let appNeedle = app.lowercased()
+        appMatches = windows.filter { window in
+            let appName = window.owningApplication?.applicationName.lowercased() ?? ""
+            let bundle = window.owningApplication?.bundleIdentifier.lowercased() ?? ""
+            let matchesApp = appName.contains(appNeedle) || bundle.contains(appNeedle)
+            return matchesApp && singleWindowCaptureCandidate(window)
+        }
         guard !appMatches.isEmpty else {
-            throw SingleWindowRecordingError(description: "No ScreenCaptureKit window for pid \(pid) of app '\(app)'")
+            throw SingleWindowRecordingError(description: "No ScreenCaptureKit window found for app '\(app)'")
         }
     }
 

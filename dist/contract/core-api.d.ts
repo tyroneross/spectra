@@ -1081,6 +1081,12 @@ export type ComputerUseActionInput = {
 export interface ComputerUseTarget {
     app?: string;
     pid?: number;
+    /**
+     * Inherit the target from a session: a pid-bound session keeps its pid here,
+     * so computer use cannot drift to the focused instance of the same app.
+     * An explicit `pid`/`app` still wins.
+     */
+    sessionId?: string;
 }
 export type ComputerUseParams = ({
     action: 'snapshot';

@@ -389,6 +389,7 @@ export declare const spectraComputerUseInputShape: {
     action: z.ZodEnum<["snapshot", "act", "fill-form"]>;
     app: z.ZodOptional<z.ZodString>;
     pid: z.ZodOptional<z.ZodNumber>;
+    sessionId: z.ZodOptional<z.ZodString>;
     threshold: z.ZodOptional<z.ZodNumber>;
     op: z.ZodOptional<z.ZodObject<{
         kind: z.ZodEnum<["click", "set-value", "key"]>;

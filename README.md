@@ -148,6 +148,15 @@ goes to that process only, and `startRecording` records a window owned by that
 pid or fails with `recording_failed` — it never falls back to the app name.
 `pid:<n>` still resolves a readable app name for the session label.
 
+Pid-bound **recording** additionally requires a native helper that reports the
+`windowId`/`pid` recording selectors from its `capabilities` RPC. Before
+starting such a recording the daemon performs that handshake and refuses when
+it is absent, because a helper without the selectors would quietly record by
+app name. A helper embedded in an installed `Spectra.app` takes precedence over
+the locally built one (`ensureBinary()`), so a bundle predating this feature
+must be rebuilt and re-embedded — or point `SPECTRA_APP_BUNDLE_HELPERS_DIR` at
+a directory holding a rebuilt helper. AX snapshot/act need no handshake.
+
 ```
 spectra_connect { "target": "Easy Terminal", "pid": 4242 }
 spectra_connect { "target": "pid:4242" }

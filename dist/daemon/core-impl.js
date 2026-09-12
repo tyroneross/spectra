@@ -27,6 +27,7 @@ import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
 import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary, resolveHelperMode, SCREEN_RECORDING_PREFLIGHT_PATH, DAEMON_LAUNCHER_PATH, } from '../native/compiler.js';
 import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native/signing.js';
+import { getSharedBridge } from '../native/bridge.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
@@ -46,6 +47,7 @@ export class CoreApiImplementation {
     singleWindowRecordingRunner;
     windowListProvider;
     eventSink;
+    nativeBridge;
     recordings = new RecordingRegistry();
     compositeRecordings = new CompositeRecordingRegistry();
     /**
@@ -69,6 +71,38 @@ export class CoreApiImplementation {
         this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording;
         this.windowListProvider = options.windowListProvider ?? listMacWindows;
         this.eventSink = options.eventSink;
+        this.nativeBridge = options.nativeBridge ?? getSharedBridge();
+    }
+    /**
+     * A pid-bound recording is only safe if the native helper honors the exact
+     * selectors. `ensureBinary()` prefers a helper embedded in an installed
+     * Spectra.app, and that bundled copy can predate windowId/pid support — it
+     * would then quietly fall back to app+title and record the wrong instance.
+     * The handshake makes that unreachable: no capability (or an old helper that
+     * errors on the unknown method) means no recording.
+     */
+    async assertPidSelectorSupport(pid, app) {
+        const fail = (detail) => {
+            throw new DaemonApiError('recording_failed', 'native helper lacks pid/windowId window selection (bundled helper predates it); '
+                + 'set SPECTRA_APP_BUNDLE_HELPERS_DIR to a rebuilt helper', {
+                status: 500,
+                retryable: false,
+                hint: `Recording pid ${pid} (${app}) requires a helper reporting the windowId/pid recording selectors. ${detail}`,
+            });
+        };
+        let capabilities;
+        try {
+            capabilities = await this.nativeBridge.send('capabilities');
+        }
+        catch (error) {
+            return fail(`Capability probe failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        const selectors = Array.isArray(capabilities?.recordingSelectors)
+            ? capabilities.recordingSelectors.filter((entry) => typeof entry === 'string')
+            : [];
+        if (!selectors.includes('windowId') || !selectors.includes('pid')) {
+            return fail(`Helper reported selectors: ${selectors.length > 0 ? selectors.join(', ') : '(none)'}.`);
+        }
     }
     spawnCursorSampler(binaryPath, args) {
         const child = spawn(binaryPath, args, { stdio: 'ignore' });
@@ -213,6 +247,9 @@ export class CoreApiImplementation {
         }
         if (this.recordings.forSession(params.sessionId)) {
             throw new DaemonApiError('conflict', `Session ${params.sessionId} already has an active recording.`, { status: 409, retryable: false });
+        }
+        if (session.target.pid !== undefined) {
+            await this.assertPidSelectorSupport(session.target.pid, session.target.appName);
         }
         const target = await this.resolveRecordingTarget(session.target.appName, session.name, session.target.pid);
         const recordingId = `recording-${randomUUID().slice(0, 8)}`;
@@ -745,11 +782,21 @@ export class CoreApiImplementation {
      * failure modes are mapped to actionable daemon errors, never a crash.
      */
     async computerUse(params) {
+        // A pid-bound session must stay pid-bound here too: without this, a
+        // computer-use call on such a session falls through to the focused app,
+        // which is whichever instance the user last clicked.
+        const sessionTarget = params.sessionId !== undefined
+            ? this.ctx.sessions.get(params.sessionId)?.target
+            : undefined;
         const target = {};
         if (params.pid !== undefined)
             target.pid = params.pid;
+        else if (sessionTarget?.pid !== undefined)
+            target.pid = sessionTarget.pid;
         else if (params.app !== undefined)
             target.app = params.app;
+        else if (sessionTarget?.appName !== undefined)
+            target.app = sessionTarget.appName;
         const threshold = params.action === 'snapshot' ? params.threshold : undefined;
         const cu = await this.getOrCreateComputerUse(target);
         try {

@@ -1776,14 +1776,17 @@ export declare const computerUseParamsSchema: z.ZodDiscriminatedUnion<"action", 
     action: z.ZodLiteral<"snapshot">;
     app: z.ZodOptional<z.ZodString>;
     pid: z.ZodOptional<z.ZodNumber>;
+    sessionId: z.ZodOptional<z.ZodString>;
     threshold: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     action: "snapshot";
+    sessionId?: string | undefined;
     pid?: number | undefined;
     app?: string | undefined;
     threshold?: number | undefined;
 }, {
     action: "snapshot";
+    sessionId?: string | undefined;
     pid?: number | undefined;
     app?: string | undefined;
     threshold?: number | undefined;
@@ -1791,6 +1794,7 @@ export declare const computerUseParamsSchema: z.ZodDiscriminatedUnion<"action", 
     action: z.ZodLiteral<"act">;
     app: z.ZodOptional<z.ZodString>;
     pid: z.ZodOptional<z.ZodNumber>;
+    sessionId: z.ZodOptional<z.ZodString>;
     op: z.ZodDiscriminatedUnion<"kind", [z.ZodObject<{
         kind: z.ZodLiteral<"click">;
         role: z.ZodOptional<z.ZodString>;
@@ -1839,6 +1843,7 @@ export declare const computerUseParamsSchema: z.ZodDiscriminatedUnion<"action", 
         key: string;
         kind: "key";
     };
+    sessionId?: string | undefined;
     pid?: number | undefined;
     app?: string | undefined;
 }, {
@@ -1855,21 +1860,25 @@ export declare const computerUseParamsSchema: z.ZodDiscriminatedUnion<"action", 
         key: string;
         kind: "key";
     };
+    sessionId?: string | undefined;
     pid?: number | undefined;
     app?: string | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"fill-form">;
     app: z.ZodOptional<z.ZodString>;
     pid: z.ZodOptional<z.ZodNumber>;
+    sessionId: z.ZodOptional<z.ZodString>;
     fields: z.ZodRecord<z.ZodString, z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     action: "fill-form";
     fields: Record<string, string>;
+    sessionId?: string | undefined;
     pid?: number | undefined;
     app?: string | undefined;
 }, {
     action: "fill-form";
     fields: Record<string, string>;
+    sessionId?: string | undefined;
     pid?: number | undefined;
     app?: string | undefined;
 }>]>;
@@ -3532,14 +3541,17 @@ export declare const operationParamSchemas: {
         action: z.ZodLiteral<"snapshot">;
         app: z.ZodOptional<z.ZodString>;
         pid: z.ZodOptional<z.ZodNumber>;
+        sessionId: z.ZodOptional<z.ZodString>;
         threshold: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         action: "snapshot";
+        sessionId?: string | undefined;
         pid?: number | undefined;
         app?: string | undefined;
         threshold?: number | undefined;
     }, {
         action: "snapshot";
+        sessionId?: string | undefined;
         pid?: number | undefined;
         app?: string | undefined;
         threshold?: number | undefined;
@@ -3547,6 +3559,7 @@ export declare const operationParamSchemas: {
         action: z.ZodLiteral<"act">;
         app: z.ZodOptional<z.ZodString>;
         pid: z.ZodOptional<z.ZodNumber>;
+        sessionId: z.ZodOptional<z.ZodString>;
         op: z.ZodDiscriminatedUnion<"kind", [z.ZodObject<{
             kind: z.ZodLiteral<"click">;
             role: z.ZodOptional<z.ZodString>;
@@ -3595,6 +3608,7 @@ export declare const operationParamSchemas: {
             key: string;
             kind: "key";
         };
+        sessionId?: string | undefined;
         pid?: number | undefined;
         app?: string | undefined;
     }, {
@@ -3611,21 +3625,25 @@ export declare const operationParamSchemas: {
             key: string;
             kind: "key";
         };
+        sessionId?: string | undefined;
         pid?: number | undefined;
         app?: string | undefined;
     }>, z.ZodObject<{
         action: z.ZodLiteral<"fill-form">;
         app: z.ZodOptional<z.ZodString>;
         pid: z.ZodOptional<z.ZodNumber>;
+        sessionId: z.ZodOptional<z.ZodString>;
         fields: z.ZodRecord<z.ZodString, z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         action: "fill-form";
         fields: Record<string, string>;
+        sessionId?: string | undefined;
         pid?: number | undefined;
         app?: string | undefined;
     }, {
         action: "fill-form";
         fields: Record<string, string>;
+        sessionId?: string | undefined;
         pid?: number | undefined;
         app?: string | undefined;
     }>]>;

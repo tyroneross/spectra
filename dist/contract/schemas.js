@@ -394,18 +394,21 @@ export const computerUseParamsSchema = z.discriminatedUnion('action', [
         action: z.literal('snapshot'),
         app: z.string().optional(),
         pid: z.number().optional(),
+        sessionId: z.string().optional(),
         threshold: z.number().optional(),
     }),
     z.object({
         action: z.literal('act'),
         app: z.string().optional(),
         pid: z.number().optional(),
+        sessionId: z.string().optional(),
         op: computerUseActionSchema,
     }),
     z.object({
         action: z.literal('fill-form'),
         app: z.string().optional(),
         pid: z.number().optional(),
+        sessionId: z.string().optional(),
         fields: z.record(z.string()),
     }),
 ]);

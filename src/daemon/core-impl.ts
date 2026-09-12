@@ -111,6 +111,7 @@ import {
   DAEMON_LAUNCHER_PATH,
 } from '../native/compiler.js'
 import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native/signing.js'
+import { getSharedBridge } from '../native/bridge.js'
 import {
   COMPOSITE_WORKER_DEFAULTS,
   parseLuminance,
@@ -124,6 +125,16 @@ import { createKeepAwakeController } from './keep-awake.js'
 const execFileAsync = promisify(execFile)
 
 type CompositeWorker = typeof recordCompositeWithWorker
+
+/** Minimal native-bridge surface the capability handshake needs (fakeable in tests). */
+export interface NativeCapabilityBridge {
+  send<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T>
+}
+
+interface NativeCapabilities {
+  recordingSelectors?: unknown
+  version?: unknown
+}
 type SingleWindowRecordingRunner = (input: NativeStartRecordingInput) => Promise<NativeRecordingHandle>
 type DaemonEventSink = (event: DaemonEvent) => void
 let screenCaptureKitWindowList: Promise<WindowRecord[]> | undefined
@@ -138,6 +149,8 @@ export interface CoreApiImplementationOptions {
   singleWindowRecordingRunner?: SingleWindowRecordingRunner
   windowListProvider?: () => Promise<WindowRecord[]>
   eventSink?: DaemonEventSink
+  /** Native bridge used for the recording-selector capability handshake. */
+  nativeBridge?: NativeCapabilityBridge
 }
 
 export function createCoreApi(options: CoreApiImplementationOptions = {}): CoreApi {
@@ -154,6 +167,7 @@ export class CoreApiImplementation implements CoreApi {
   private readonly singleWindowRecordingRunner: SingleWindowRecordingRunner
   private readonly windowListProvider: () => Promise<WindowRecord[]>
   private readonly eventSink?: DaemonEventSink
+  private readonly nativeBridge: NativeCapabilityBridge
   private readonly recordings = new RecordingRegistry()
   private readonly compositeRecordings = new CompositeRecordingRegistry()
   /**
@@ -178,6 +192,42 @@ export class CoreApiImplementation implements CoreApi {
     this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording
     this.windowListProvider = options.windowListProvider ?? listMacWindows
     this.eventSink = options.eventSink
+    this.nativeBridge = options.nativeBridge ?? getSharedBridge()
+  }
+
+  /**
+   * A pid-bound recording is only safe if the native helper honors the exact
+   * selectors. `ensureBinary()` prefers a helper embedded in an installed
+   * Spectra.app, and that bundled copy can predate windowId/pid support — it
+   * would then quietly fall back to app+title and record the wrong instance.
+   * The handshake makes that unreachable: no capability (or an old helper that
+   * errors on the unknown method) means no recording.
+   */
+  private async assertPidSelectorSupport(pid: number, app: string): Promise<void> {
+    const fail = (detail: string): never => {
+      throw new DaemonApiError(
+        'recording_failed',
+        'native helper lacks pid/windowId window selection (bundled helper predates it); '
+          + 'set SPECTRA_APP_BUNDLE_HELPERS_DIR to a rebuilt helper',
+        {
+          status: 500,
+          retryable: false,
+          hint: `Recording pid ${pid} (${app}) requires a helper reporting the windowId/pid recording selectors. ${detail}`,
+        },
+      )
+    }
+    let capabilities: NativeCapabilities
+    try {
+      capabilities = await this.nativeBridge.send<NativeCapabilities>('capabilities')
+    } catch (error) {
+      return fail(`Capability probe failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    const selectors = Array.isArray(capabilities?.recordingSelectors)
+      ? capabilities.recordingSelectors.filter((entry): entry is string => typeof entry === 'string')
+      : []
+    if (!selectors.includes('windowId') || !selectors.includes('pid')) {
+      return fail(`Helper reported selectors: ${selectors.length > 0 ? selectors.join(', ') : '(none)'}.`)
+    }
   }
 
   protected spawnCursorSampler(binaryPath: string, args: string[]): ChildProcess {
@@ -348,6 +398,10 @@ export class CoreApiImplementation implements CoreApi {
         `Session ${params.sessionId} already has an active recording.`,
         { status: 409, retryable: false },
       )
+    }
+
+    if (session.target.pid !== undefined) {
+      await this.assertPidSelectorSupport(session.target.pid, session.target.appName)
     }
 
     const target = await this.resolveRecordingTarget(session.target.appName, session.name, session.target.pid)
@@ -926,9 +980,17 @@ export class CoreApiImplementation implements CoreApi {
    * failure modes are mapped to actionable daemon errors, never a crash.
    */
   async computerUse(params: ComputerUseParams): Promise<ComputerUseResult> {
+    // A pid-bound session must stay pid-bound here too: without this, a
+    // computer-use call on such a session falls through to the focused app,
+    // which is whichever instance the user last clicked.
+    const sessionTarget = params.sessionId !== undefined
+      ? this.ctx.sessions.get(params.sessionId)?.target
+      : undefined
     const target: AxTarget = {}
     if (params.pid !== undefined) target.pid = params.pid
+    else if (sessionTarget?.pid !== undefined) target.pid = sessionTarget.pid
     else if (params.app !== undefined) target.app = params.app
+    else if (sessionTarget?.appName !== undefined) target.app = sessionTarget.appName
 
     const threshold = params.action === 'snapshot' ? params.threshold : undefined
     const cu = await this.getOrCreateComputerUse(target)

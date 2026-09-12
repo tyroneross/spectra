@@ -164,6 +164,7 @@ export const spectraComputerUseInputShape = {
     action: z.enum(['snapshot', 'act', 'fill-form']).describe('snapshot: scoped AX tree of the focused window | act: run one action (click/set-value/key) | fill-form: resolve a {label:value} map, set + verify each field'),
     app: z.string().optional().describe('Target app name substring. Omit (with pid) to target the FOCUSED/frontmost app.'),
     pid: z.number().optional().describe('Target process id. Takes precedence over app.'),
+    sessionId: z.string().optional().describe('Inherit the target from this session — a pid-bound session keeps its pid, so computer use cannot drift to the focused instance. An explicit pid/app still wins.'),
     threshold: z.number().optional().describe('snapshot: min AX node-count before the vision fallback is signalled (default 1)'),
     op: z.object({
         kind: z.enum(['click', 'set-value', 'key']),
