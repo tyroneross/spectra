@@ -80,6 +80,21 @@ These are defaults to test against the brief, not rigid prescriptions.
 
 For a new product with limited performance data, default to a **45–60 second proof-led video showing one realistic task from input to verified result, product visible within five seconds, and one low-friction CTA**.
 
+## Short before/after demos
+
+For an explicitly requested short before/after clip, use a 15–20 second starting storyboard: **before (3–4s) → real product action (6–8s) → visible result (4–6s) → one CTA (2s)**. Extend it when proof or readability needs more time; never imply edited timing is measured performance.
+
+- Write the one sentence the viewer should remember before selecting shots. Every beat and derivative must support that promise; remove unrelated features.
+- Show the same task and representative input before and after. Keep framing comparable, make the product's role visible, and preserve the real source recording.
+- Once the brief and route are selected through the creative loop, reuse them for repeat captures. Resolve targets once, then use a small Python/Node wrapper around Spectra's CLI for deterministic capture and rendering; avoid repeated LLM navigation and full-tree output.
+- Web `demo` action `run-script` executes timed actions and returns an action log; it does **not** start or stop recording. Wrap it with `startRecording`/`stopRecording`, inspect failed action entries, and verify the final UI state before labeling the result. For native apps, use observed targets with `act`.
+- Pre-strip incidental audio before `demo` action `polish-script`; reuse timed captions and framing. Review the before, transition, and after frames plus the final playback, while retaining the existing evidence and creative-audit gates.
+- Treat the prompt as a production request. Infer the app and change from available context; if either remains unknown, ask only for that missing detail. Return the resulting local video link; distinguish a storyboard from a rendered demo.
+
+Review: can a viewer repeat the message, see the change, identify the product's contribution, and understand the next step with sound off? Would swapping in a competitor's logo leave the story unchanged? Check for unintended meanings as well as clarity.
+
+Creative references (qualitative lessons, not effectiveness rankings): [Apple's The Underdogs](https://www.theapplepost.com/2019/04/02/29437/apple-shares-new-the-underdogs-short-film-promoting-apple-at-work/) connects features through one task; [Volvo's The Epic Split](https://news.cision.com/volvo-trucks/r/jean-claude-van-damme-and-volvo-trucks-perform-world-first-stunt,c9498091) makes the benefit visible; [Disneyland Paris's The Little Duck](https://news.disneylandparis.com/en/disneyland-paris-introduces-its-new-brands-campaign-2/?lang=en&page=) delivers the promise through the ending. Carry one campaign idea across assets, as in [Shot on iPhone](https://www.apple.com/newsroom/2019/01/share-your-best-photos-shot-on-iphone/), while adapting the execution to each placement.
+
 ## Production calibration
 
 Match polish to audience and placement. If audio is used, it must be clean; the visual/text track must still carry the core message for muted autoplay.
