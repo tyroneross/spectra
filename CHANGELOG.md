@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/tyroneross/spectra/compare/spectra-v0.4.1...spectra-v0.4.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* **resolve:** recognize absent normalized roles without losing compatibility ([5b4dfe3](https://github.com/tyroneross/spectra/commit/5b4dfe3948283cf6a8a6992c467b1d1fa9ae6b1e))
+* **resolve:** select ordinal matches before fuzzy scoring ([3d6075e](https://github.com/tyroneross/spectra/commit/3d6075ecc69673d9495873e63afc42354c674c2a))
+
 ## [0.4.1](https://github.com/tyroneross/spectra/compare/spectra-v0.4.0...spectra-v0.4.1) (2026-09-06)
 
 
