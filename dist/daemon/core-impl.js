@@ -27,6 +27,7 @@ import { handleStep } from '../mcp/tools/step.js';
 import { handleWalkthrough } from '../mcp/tools/walkthrough.js';
 import { ensureBinary, ensureCompositeBinary, ensureScreenRecordingPreflightBinary, ensureCursorSamplerBinary, resolveHelperMode, SCREEN_RECORDING_PREFLIGHT_PATH, DAEMON_LAUNCHER_PATH, } from '../native/compiler.js';
 import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native/signing.js';
+import { getSharedBridge } from '../native/bridge.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
 import { health as daemonHealth } from './health.js';
@@ -46,6 +47,7 @@ export class CoreApiImplementation {
     singleWindowRecordingRunner;
     windowListProvider;
     eventSink;
+    nativeBridge;
     recordings = new RecordingRegistry();
     compositeRecordings = new CompositeRecordingRegistry();
     /**
@@ -69,6 +71,38 @@ export class CoreApiImplementation {
         this.singleWindowRecordingRunner = options.singleWindowRecordingRunner ?? startNativeSingleWindowRecording;
         this.windowListProvider = options.windowListProvider ?? listMacWindows;
         this.eventSink = options.eventSink;
+        this.nativeBridge = options.nativeBridge ?? getSharedBridge();
+    }
+    /**
+     * A pid-bound recording is only safe if the native helper honors the exact
+     * selectors. `ensureBinary()` prefers a helper embedded in an installed
+     * Spectra.app, and that bundled copy can predate windowId/pid support — it
+     * would then quietly fall back to app+title and record the wrong instance.
+     * The handshake makes that unreachable: no capability (or an old helper that
+     * errors on the unknown method) means no recording.
+     */
+    async assertPidSelectorSupport(pid, app) {
+        const fail = (detail) => {
+            throw new DaemonApiError('recording_failed', 'native helper lacks pid/windowId window selection (bundled helper predates it); '
+                + 'set SPECTRA_APP_BUNDLE_HELPERS_DIR to a rebuilt helper', {
+                status: 500,
+                retryable: false,
+                hint: `Recording pid ${pid} (${app}) requires a helper reporting the windowId/pid recording selectors. ${detail}`,
+            });
+        };
+        let capabilities;
+        try {
+            capabilities = await this.nativeBridge.send('capabilities');
+        }
+        catch (error) {
+            return fail(`Capability probe failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        const selectors = Array.isArray(capabilities?.recordingSelectors)
+            ? capabilities.recordingSelectors.filter((entry) => typeof entry === 'string')
+            : [];
+        if (!selectors.includes('windowId') || !selectors.includes('pid')) {
+            return fail(`Helper reported selectors: ${selectors.length > 0 ? selectors.join(', ') : '(none)'}.`);
+        }
     }
     spawnCursorSampler(binaryPath, args) {
         const child = spawn(binaryPath, args, { stdio: 'ignore' });
@@ -214,7 +248,10 @@ export class CoreApiImplementation {
         if (this.recordings.forSession(params.sessionId)) {
             throw new DaemonApiError('conflict', `Session ${params.sessionId} already has an active recording.`, { status: 409, retryable: false });
         }
-        const target = await this.resolveRecordingTarget(session.target.appName, session.name);
+        if (session.target.pid !== undefined) {
+            await this.assertPidSelectorSupport(session.target.pid, session.target.appName);
+        }
+        const target = await this.resolveRecordingTarget(session.target.appName, session.name, session.target.pid);
         const recordingId = `recording-${randomUUID().slice(0, 8)}`;
         const sessionDir = this.ctx.sessions.sessionDir(params.sessionId);
         await mkdir(sessionDir, { recursive: true });
@@ -232,7 +269,14 @@ export class CoreApiImplementation {
                 recordingId,
                 sessionId: params.sessionId,
                 app: session.target.appName,
-                title: session.name,
+                // A pid-bound session hands the recorder the exact window it resolved,
+                // and uses that window's real title as the disambiguation hint instead
+                // of the session name (which is a slug and rarely matches a title).
+                title: session.target.pid !== undefined && target.title.trim().length > 0
+                    ? target.title
+                    : session.name,
+                windowId: target.windowId,
+                pid: session.target.pid,
                 outPath,
                 fps,
                 codec,
@@ -738,11 +782,21 @@ export class CoreApiImplementation {
      * failure modes are mapped to actionable daemon errors, never a crash.
      */
     async computerUse(params) {
+        // A pid-bound session must stay pid-bound here too: without this, a
+        // computer-use call on such a session falls through to the focused app,
+        // which is whichever instance the user last clicked.
+        const sessionTarget = params.sessionId !== undefined
+            ? this.ctx.sessions.get(params.sessionId)?.target
+            : undefined;
         const target = {};
         if (params.pid !== undefined)
             target.pid = params.pid;
+        else if (sessionTarget?.pid !== undefined)
+            target.pid = sessionTarget.pid;
         else if (params.app !== undefined)
             target.app = params.app;
+        else if (sessionTarget?.appName !== undefined)
+            target.app = sessionTarget.appName;
         const threshold = params.action === 'snapshot' ? params.threshold : undefined;
         const cu = await this.getOrCreateComputerUse(target);
         try {
@@ -925,30 +979,52 @@ export class CoreApiImplementation {
             data: artifact,
         });
     }
-    async resolveRecordingTarget(app, titleHint) {
+    async resolveRecordingTarget(app, titleHint, pid) {
         const appNeedle = app.toLowerCase();
         const windows = await this.windowListProvider();
+        const onScreenCandidate = (window) => window.onScreen
+            && window.layer === 0
+            && window.width >= 100
+            && window.height >= 100;
+        // A pid-bound session filters on the process id alone, BEFORE any name or
+        // title heuristic, and fails loudly when that process has no on-screen
+        // window. Falling back to the app name here would record another instance
+        // of the same app — the exact leak pid targeting exists to prevent.
+        if (pid !== undefined) {
+            const owned = windows.filter((window) => window.processId === pid && onScreenCandidate(window));
+            if (owned.length === 0) {
+                throw new DaemonApiError('recording_failed', `No on-screen window for pid ${pid} of app ${app}`, {
+                    status: 404,
+                    retryable: false,
+                    hint: 'Confirm the pid is still running and its window is visible (not minimized or on another Space).',
+                });
+            }
+            return this.orderRecordingCandidates(owned, titleHint)[0];
+        }
         let candidates = windows.filter((window) => {
             const appName = window.appName.toLowerCase();
             const bundle = window.bundleIdentifier?.toLowerCase() ?? '';
-            return window.onScreen
-                && window.layer === 0
-                && window.width >= 100
-                && window.height >= 100
+            return onScreenCandidate(window)
                 && (appName.includes(appNeedle) || bundle.includes(appNeedle));
         });
         if (candidates.length === 0) {
             throw new DaemonApiError('recording_failed', `No on-screen ScreenCaptureKit window found for app ${app}`, { status: 404, retryable: false });
         }
-        // A title hint (the session name) disambiguates when several windows of the
-        // same app are open — record the window whose title matches, not the largest.
+        return this.orderRecordingCandidates(candidates, titleHint)[0];
+    }
+    /**
+     * Title hint disambiguates between several windows of one process/app — it
+     * never widens the candidate set, so a pid filter upstream still holds.
+     */
+    orderRecordingCandidates(candidates, titleHint) {
+        let ordered = candidates;
         if (titleHint && titleHint.trim().length > 0) {
             const needle = titleHint.toLowerCase();
-            const titled = candidates.filter((window) => window.title.toLowerCase().includes(needle));
+            const titled = ordered.filter((window) => window.title.toLowerCase().includes(needle));
             if (titled.length > 0)
-                candidates = titled;
+                ordered = titled;
         }
-        return candidates.sort((left, right) => {
+        return [...ordered].sort((left, right) => {
             const leftTitled = left.title.length > 0;
             const rightTitled = right.title.length > 0;
             if (leftTitled !== rightTitled)
@@ -956,7 +1032,7 @@ export class CoreApiImplementation {
             if (left.layer !== right.layer)
                 return left.layer - right.layer;
             return (right.width * right.height) - (left.width * left.height);
-        })[0];
+        });
     }
 }
 const CURSOR_SAMPLER_SILENT_FAILURE_WARNING = 'cursor telemetry requested but the sampler produced no output (is spectra-cursor-sampler built? run npm run build:cursor-sampler)';
@@ -1082,6 +1158,8 @@ class NativeRecordingProcess {
             sessionId: this.input.sessionId,
             app: this.input.app,
             title: this.input.title,
+            windowId: this.input.windowId,
+            pid: this.input.pid,
             outPath: this.input.outPath,
             fps: this.input.fps,
             codec: this.input.codec,

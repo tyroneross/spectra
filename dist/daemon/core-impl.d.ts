@@ -9,6 +9,10 @@ import { recordCompositeWithWorker } from './composite-worker.js';
 import { type HealthProbeOptions } from './health.js';
 import type { KeepAwakeController } from './keep-awake.js';
 type CompositeWorker = typeof recordCompositeWithWorker;
+/** Minimal native-bridge surface the capability handshake needs (fakeable in tests). */
+export interface NativeCapabilityBridge {
+    send<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T>;
+}
 type SingleWindowRecordingRunner = (input: NativeStartRecordingInput) => Promise<NativeRecordingHandle>;
 type DaemonEventSink = (event: DaemonEvent) => void;
 export interface CoreApiImplementationOptions {
@@ -21,6 +25,8 @@ export interface CoreApiImplementationOptions {
     singleWindowRecordingRunner?: SingleWindowRecordingRunner;
     windowListProvider?: () => Promise<WindowRecord[]>;
     eventSink?: DaemonEventSink;
+    /** Native bridge used for the recording-selector capability handshake. */
+    nativeBridge?: NativeCapabilityBridge;
 }
 export declare function createCoreApi(options?: CoreApiImplementationOptions): CoreApi;
 export declare class CoreApiImplementation implements CoreApi {
@@ -33,6 +39,7 @@ export declare class CoreApiImplementation implements CoreApi {
     private readonly singleWindowRecordingRunner;
     private readonly windowListProvider;
     private readonly eventSink?;
+    private readonly nativeBridge;
     private readonly recordings;
     private readonly compositeRecordings;
     /**
@@ -47,6 +54,15 @@ export declare class CoreApiImplementation implements CoreApi {
      */
     private readonly computerUseInstances;
     constructor(options?: CoreApiImplementationOptions);
+    /**
+     * A pid-bound recording is only safe if the native helper honors the exact
+     * selectors. `ensureBinary()` prefers a helper embedded in an installed
+     * Spectra.app, and that bundled copy can predate windowId/pid support — it
+     * would then quietly fall back to app+title and record the wrong instance.
+     * The handshake makes that unreachable: no capability (or an old helper that
+     * errors on the unknown method) means no recording.
+     */
+    private assertPidSelectorSupport;
     protected spawnCursorSampler(binaryPath: string, args: string[]): ChildProcess;
     /** Overridable seam so tests can simulate a missing/failed-to-build binary without compiling. */
     protected ensureCursorSamplerBinary(): string;
@@ -111,12 +127,21 @@ export declare class CoreApiImplementation implements CoreApi {
     private emitRecordingStatus;
     private emitArtifactAdded;
     private resolveRecordingTarget;
+    /**
+     * Title hint disambiguates between several windows of one process/app — it
+     * never widens the candidate set, so a pid filter upstream still holds.
+     */
+    private orderRecordingCandidates;
 }
 interface NativeStartRecordingInput {
     recordingId: string;
     sessionId: string;
     app: string;
     title?: string;
+    /** ScreenCaptureKit window id resolved in TS (from the window list). */
+    windowId?: number;
+    /** Process id the session is bound to, when pid targeting is in use. */
+    pid?: number;
     outPath: string;
     fps: number;
     codec: string;

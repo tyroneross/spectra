@@ -118,6 +118,7 @@
     "computerUse": [],
     "createSession": [
       "name",
+      "pid",
       "record",
       "repoPath",
       "target"

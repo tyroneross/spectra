@@ -54,7 +54,10 @@ Usage:
   spectra version               Print { apiVersion, daemonVersion } from the contract
   spectra --help                Show this message
 
-Operations (forwarded over ~/.spectra/daemon.sock):
+Environment:
+  SPECTRA_DAEMON_SOCKET         Override the daemon socket path (default ~/.spectra/daemon.sock)
+
+Operations (forwarded over ~/.spectra/daemon.sock, or $SPECTRA_DAEMON_SOCKET):
   ${apiOperations.join(', ')}
 
 Examples:

@@ -33,6 +33,22 @@ describe('mapToolCall — 1:1 tools', () => {
   })
 })
 
+describe('mapToolCall — pid targeting', () => {
+  it('carries pid through to createSession (stripping it would silently drop the binding)', () => {
+    expect(mapToolCall('spectra_connect', { target: 'X', pid: 4242 }).params).toMatchObject({
+      target: 'X',
+      pid: 4242,
+    })
+  })
+
+  it('carries sessionId through to computerUse', () => {
+    expect(mapToolCall('spectra_computer_use', { action: 'snapshot', sessionId: 's1' }).params).toMatchObject({
+      action: 'snapshot',
+      sessionId: 's1',
+    })
+  })
+})
+
 describe('mapToolCall — dispatched tools', () => {
   it('spectra_capture dispatches by type', () => {
     expect(mapToolCall('spectra_capture', { sessionId: 's', type: 'screenshot' }).operation).toBe('screenshot')

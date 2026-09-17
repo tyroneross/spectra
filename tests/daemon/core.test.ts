@@ -10,6 +10,23 @@ import { CoreApiImplementation } from '../../src/daemon/core-impl.js'
 import { eventEnvelope, formatSseFrame, sseFrame, successEnvelope } from '../../src/daemon/envelope.js'
 import type { KeepAwakeController } from '../../src/daemon/keep-awake.js'
 import { createContext } from '../../src/mcp/context.js'
+import { NativeAxBridgePort } from '../../src/computer-use/native-port.js'
+import type { NativeBridge } from '../../src/native/bridge.js'
+
+/** Native bridge stub for the recording-selector capability handshake. */
+function capabilityBridge(
+  selectors: string[] | 'error' = ['windowId', 'pid'],
+  calls: string[] = [],
+) {
+  return {
+    send: async (method: string) => {
+      calls.push(method)
+      if (method !== 'capabilities') throw new Error(`unexpected method ${method}`)
+      if (selectors === 'error') throw new Error('Unknown method: capabilities')
+      return { recordingSelectors: selectors, version: 1 }
+    },
+  }
+}
 
 class FakeKeepAwake implements KeepAwakeController {
   readonly events: string[] = []
@@ -958,6 +975,254 @@ describe('daemon core', () => {
         sessionId: session.id,
         data: { type: 'video', path: '/tmp/composite.mp4' },
       })
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('records the window owned by the session pid, not the same-named window of another process', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-pid-recording-'))
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'Easy Terminal', pid: 777 },
+      repoPath,
+    })
+    const inputs: Array<Record<string, unknown>> = []
+    const core = createDaemonCore({
+      context: ctx,
+      keepAwake: new FakeKeepAwake(),
+      nativeBridge: capabilityBridge(),
+      windowListProvider: async () => [
+        // The user's live instance: bigger, titled, first in the list — every
+        // name/size/title heuristic would pick it.
+        {
+          windowId: 11,
+          appName: 'Easy Terminal',
+          bundleIdentifier: 'ai.rosslabs.easy-terminal',
+          processId: 555,
+          title: 'Easy Terminal',
+          x: 0,
+          y: 0,
+          width: 1600,
+          height: 1200,
+          onScreen: true,
+          active: true,
+          layer: 0,
+        },
+        {
+          windowId: 22,
+          appName: 'Easy Terminal',
+          bundleIdentifier: 'ai.rosslabs.easy-terminal',
+          processId: 777,
+          title: '',
+          x: 0,
+          y: 0,
+          width: 400,
+          height: 300,
+          onScreen: true,
+          active: false,
+          layer: 0,
+        },
+      ],
+      singleWindowRecordingRunner: async (input: any) => {
+        inputs.push(input)
+        return {
+          pid: 999,
+          started: {
+            recordingId: input.recordingId,
+            path: input.outPath,
+            startedAt: Date.now(),
+            fps: input.fps,
+            codec: input.codec,
+            bitrate: input.bitrate,
+            width: 400,
+            height: 300,
+          },
+          stop: async () => ({ path: input.outPath, format: 'mp4', durationMs: 1 }),
+          abort: async () => {},
+        }
+      },
+    })
+
+    try {
+      await core.startRecording({ sessionId: session.id })
+      expect(inputs).toHaveLength(1)
+      expect(inputs[0]).toMatchObject({ windowId: 22, pid: 777, app: 'Easy Terminal' })
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    ['the helper reports no windowId/pid selectors', ['title'] as string[]],
+    ['the capability probe errors (helper predates the method)', 'error' as const],
+  ])('refuses a pid-bound recording when %s', async (_label, selectors) => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-pid-capability-'))
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'Easy Terminal', pid: 777 },
+      repoPath,
+    })
+    let runnerCalls = 0
+    const probed: string[] = []
+    const core = createDaemonCore({
+      context: ctx,
+      keepAwake: new FakeKeepAwake(),
+      nativeBridge: capabilityBridge(selectors, probed),
+      windowListProvider: async () => [{
+        windowId: 22,
+        appName: 'Easy Terminal',
+        bundleIdentifier: 'ai.rosslabs.easy-terminal',
+        processId: 777,
+        title: 'Easy Terminal',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async () => {
+        runnerCalls += 1
+        throw new Error('runner must not be reached')
+      },
+    })
+
+    try {
+      await expect(core.startRecording({ sessionId: session.id })).rejects.toMatchObject({
+        code: 'recording_failed',
+        retryable: false,
+        message: expect.stringContaining('native helper lacks pid/windowId window selection'),
+      })
+      expect(probed).toEqual(['capabilities'])
+      expect(runnerCalls).toBe(0)
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('leaves a name-only recording free of the capability handshake', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-no-capability-'))
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'TextEdit' },
+      repoPath,
+    })
+    const probed: string[] = []
+    const core = createDaemonCore({
+      context: ctx,
+      keepAwake: new FakeKeepAwake(),
+      nativeBridge: capabilityBridge('error', probed),
+      windowListProvider: async () => [{
+        windowId: 42,
+        appName: 'TextEdit',
+        bundleIdentifier: 'com.apple.TextEdit',
+        processId: 123,
+        title: 'Notes',
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 600,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async (input: any) => ({
+        pid: 999,
+        started: { recordingId: input.recordingId, path: input.outPath, startedAt: Date.now() },
+        stop: async () => ({ path: input.outPath, format: 'mp4', durationMs: 1 }),
+        abort: async () => {},
+      }),
+    })
+
+    try {
+      await core.startRecording({ sessionId: session.id })
+      expect(probed).toEqual([])
+    } finally {
+      await core.close()
+      rmSync(repoPath, { recursive: true, force: true })
+    }
+  })
+
+  it('inherits a pid-bound session target for computer use', async () => {
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'Easy Terminal', pid: 777 },
+    })
+    const sent: Array<{ method: string; params?: Record<string, unknown> }> = []
+    const axBridge = {
+      send: async (method: string, params?: Record<string, unknown>) => {
+        sent.push({ method, params })
+        return { window: { title: 'Easy Terminal', bounds: [0, 0, 800, 600] }, elements: [] }
+      },
+    } as unknown as NativeBridge
+
+    class AxTestCore extends CoreApiImplementation {
+      protected createAxBridgePort() {
+        return new NativeAxBridgePort(axBridge)
+      }
+      protected async createVisionFallback() {
+        return undefined
+      }
+    }
+    const core = new AxTestCore({ context: ctx })
+
+    try {
+      await core.computerUse({ action: 'snapshot', sessionId: session.id })
+      expect(sent[0]).toMatchObject({ method: 'cuSnapshot', params: { pid: 777 } })
+      expect(sent[0].params).not.toHaveProperty('app')
+    } finally {
+      await core.close()
+    }
+  })
+
+  it('fails a pid-bound recording instead of falling back to another process window', async () => {
+    const repoPath = mkdtempSync(join('/private/tmp', 'spectra-pid-recording-miss-'))
+    const ctx = createContext()
+    const session = await ctx.sessions.create({
+      platform: 'macos',
+      target: { appName: 'Easy Terminal', pid: 777 },
+      repoPath,
+    })
+    let runnerCalls = 0
+    const core = createDaemonCore({
+      context: ctx,
+      keepAwake: new FakeKeepAwake(),
+      nativeBridge: capabilityBridge(),
+      windowListProvider: async () => [{
+        windowId: 11,
+        appName: 'Easy Terminal',
+        bundleIdentifier: 'ai.rosslabs.easy-terminal',
+        processId: 555,
+        title: 'Easy Terminal',
+        x: 0,
+        y: 0,
+        width: 1600,
+        height: 1200,
+        onScreen: true,
+        active: true,
+        layer: 0,
+      }],
+      singleWindowRecordingRunner: async () => {
+        runnerCalls += 1
+        throw new Error('runner must not be reached')
+      },
+    })
+
+    try {
+      await expect(core.startRecording({ sessionId: session.id })).rejects.toMatchObject({
+        code: 'recording_failed',
+        message: expect.stringContaining('No on-screen window for pid 777 of app Easy Terminal'),
+      })
+      expect(runnerCalls).toBe(0)
     } finally {
       await core.close()
       rmSync(repoPath, { recursive: true, force: true })

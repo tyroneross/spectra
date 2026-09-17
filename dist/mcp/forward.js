@@ -25,7 +25,7 @@ export class ToolMappingError extends Error {
 export function mapToolCall(toolName, args = {}) {
     switch (toolName) {
         case 'spectra_connect':
-            return op('createSession', pick(args, ['target', 'name', 'record', 'repoPath']));
+            return op('createSession', pick(args, ['target', 'name', 'record', 'repoPath', 'pid']));
         case 'spectra_snapshot':
             return op('snapshot', pick(args, ['sessionId', 'screenshot']));
         case 'spectra_act':

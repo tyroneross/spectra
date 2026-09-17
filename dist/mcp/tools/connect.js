@@ -4,6 +4,30 @@ import { NativeDriver } from '../../native/driver.js';
 import { SimDriver } from '../../native/sim.js';
 import { serializeSnapshot } from '../../core/serialize.js';
 import { launchRepo, LauncherError } from '../../launcher/index.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
+const PID_TARGET = /^pid:(\d+)$/;
+/**
+ * Default resolver: ask the OS for the executable path of the pid and use its
+ * basename. This is permission-free and works before any AX/ScreenCaptureKit
+ * grant — the native snapshot response carries no app name, so it cannot serve
+ * as the source here.
+ */
+async function appNameForPid(pid) {
+    if (process.platform !== 'darwin')
+        return undefined;
+    try {
+        const { stdout } = await execFileAsync('/bin/ps', ['-p', String(pid), '-o', 'comm='], { timeout: 2_000 });
+        const executable = stdout.trim();
+        if (!executable)
+            return undefined;
+        return executable.split('/').pop() || undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
 /**
  * If launching, the resolved target overrides the user-supplied one. For web
  * we use the printed dev-server URL; for macos we use the resolved app name.
@@ -15,7 +39,7 @@ function deriveTargetFromLaunch(handle) {
         return handle.appName;
     throw new LauncherError('Launch produced no usable target', 'Launcher returned neither a URL nor an app name.');
 }
-export async function handleConnect(params, ctx, createDriver) {
+export async function handleConnect(params, ctx, createDriver, resolvePidAppName = appNameForPid) {
     // ─── Launch first if a repoPath was supplied ─────────────────
     let launchHandle;
     let effectiveTarget = params.target;
@@ -23,13 +47,37 @@ export async function handleConnect(params, ctx, createDriver) {
         launchHandle = await launchRepo(params.repoPath);
         effectiveTarget = deriveTargetFromLaunch(launchHandle);
     }
+    // `pid:<n>` is the target-string spelling of the `pid` param. Strip it before
+    // platform detection so the rest of the pipeline sees a normal macOS target.
+    const targetPidMatch = PID_TARGET.exec(effectiveTarget.trim());
+    let pid = params.pid;
+    if (targetPidMatch) {
+        const parsed = Number(targetPidMatch[1]);
+        if (pid !== undefined && pid !== parsed) {
+            throw new Error(`connect: target "${effectiveTarget}" and pid ${pid} disagree — pass one or make them match.`);
+        }
+        pid = parsed;
+    }
+    if (pid !== undefined && (!Number.isInteger(pid) || pid <= 0)) {
+        throw new Error(`connect: pid must be a positive integer, got ${pid}`);
+    }
+    if (targetPidMatch) {
+        // The session still records a human-readable app name for display and for
+        // the recording-window lookup; the pid remains the authoritative selector.
+        effectiveTarget = (pid !== undefined ? await resolvePidAppName(pid) : undefined) ?? `pid:${pid}`;
+    }
     const { platform, driverType } = detectPlatform(effectiveTarget);
+    if (pid !== undefined && platform !== 'macos') {
+        throw new Error(`connect: pid targeting is macOS-only (target "${effectiveTarget}" resolved to ${platform}).`);
+    }
     const driverTarget = {};
     if (platform === 'web') {
         driverTarget.url = effectiveTarget;
     }
     else if (platform === 'macos') {
         driverTarget.appName = effectiveTarget;
+        if (pid !== undefined)
+            driverTarget.pid = pid;
     }
     else {
         driverTarget.deviceId = effectiveTarget.replace(/^sim:/, '');

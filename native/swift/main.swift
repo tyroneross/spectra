@@ -47,6 +47,15 @@ func handleRequest(_ request: Request) {
     case "ping":
         sendResult(id: request.id, .dictionary(["pong": .bool(true)]))
 
+    case "capabilities":
+        // Capability handshake. The TS daemon refuses a pid-bound recording
+        // unless this reports the exact-window selectors, so an older helper
+        // (which silently records by app name) can never be used for one.
+        sendResult(id: request.id, .dictionary([
+            "recordingSelectors": .array([.string("windowId"), .string("pid")]),
+            "version": .int(1),
+        ]))
+
     case "quit":
         sendResult(id: request.id, .dictionary(["bye": .bool(true)]))
         exit(0)

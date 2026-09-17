@@ -91,7 +91,10 @@ export class DaemonClient {
   private readonly validateParams: boolean
 
   constructor(opts: DaemonClientOptions = {}) {
-    this.socketPath = expandHome(opts.socketPath ?? DEFAULT_SOCKET_PATH)
+    // SPECTRA_DAEMON_SOCKET lets a test/isolated daemon be addressed without
+    // touching the caller's code path; an explicit socketPath option still wins.
+    const envSocket = process.env.SPECTRA_DAEMON_SOCKET?.trim()
+    this.socketPath = expandHome(opts.socketPath ?? (envSocket || DEFAULT_SOCKET_PATH))
     this.surface = opts.surface ?? 'unknown'
     this.callerName = opts.callerName
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS

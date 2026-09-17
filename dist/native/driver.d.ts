@@ -8,6 +8,11 @@ export declare class NativeDriver implements Driver {
     private idToPath;
     constructor(bridge?: NativeBridge);
     connect(target: DriverTarget): Promise<void>;
+    /**
+     * The process selector for every native bridge call. `pid` wins outright:
+     * once a session is pid-bound, no call may ever be resolved by app name.
+     */
+    private targetParams;
     snapshot(): Promise<Snapshot>;
     act(elementId: string, action: ActionType, value?: string): Promise<ActResult>;
     screenshot(): Promise<Buffer>;
