@@ -200,6 +200,9 @@ describe('daemon core', () => {
       aquaSession: true,
       windowServer: { connected: true },
     })
+    // Identifies the answering build so a stray daemon from another checkout is visible.
+    expect(health.servedBy?.distRoot).toMatch(/[\\/]/)
+    expect(existsSync(join(health.servedBy!.distRoot, 'package.json'))).toBe(true)
     expect(health.permissions).toHaveLength(4)
     expect(health.permissions).toEqual([
       expect.objectContaining({

@@ -67,6 +67,10 @@ describe('mapToolCall — dispatched tools', () => {
     expect(mapToolCall('spectra_session', { action: 'close', sessionId: 's' }).operation).toBe('closeSession')
     expect(mapToolCall('spectra_session', { action: 'close_all' }).operation).toBe('closeAllSessions')
     expect(mapToolCall('spectra_session', { action: 'record_llm_usage', sessionId: 's', usage: {} }).operation).toBe('recordLlmUsage')
+    expect(mapToolCall('spectra_session', { action: 'status' })).toMatchObject({
+      operation: 'health',
+      params: { includePermissions: true },
+    })
   })
 
   it('spectra_demo maps to the demo operation for every action', () => {

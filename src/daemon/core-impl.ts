@@ -118,7 +118,7 @@ import {
   recordCompositeWithWorker,
 } from './composite-worker.js'
 import { DaemonApiError } from './errors.js'
-import { health as daemonHealth, type HealthProbeOptions } from './health.js'
+import { health as daemonHealth, parentExecutablePath, type HealthProbeOptions } from './health.js'
 import type { KeepAwakeController } from './keep-awake.js'
 import { createKeepAwakeController } from './keep-awake.js'
 
@@ -1622,10 +1622,11 @@ async function getPermissionStatuses(filter?: PermissionKind[]): Promise<Permiss
     'developer-tools',
   ]
   const now = Date.now()
+  const grantee = permissions.includes('accessibility') ? await parentExecutablePath() : undefined
   const states = await Promise.all(permissions.map(async (permission) => {
     const state = await probePermission(permission)
     const staleness = diagnoseStaleness(permission, state)
-    return permissionStatus(permission, state, now, staleness)
+    return permissionStatus(permission, state, now, staleness, grantee)
   }))
   return states
 }
@@ -1712,6 +1713,7 @@ function permissionStatus(
   state: PermissionState,
   lastCheckedAt: number,
   staleness?: PermissionStaleness,
+  grantee?: string,
 ): PermissionStatus {
   const requiredFor: Record<PermissionKind, string[]> = {
     accessibility: ['macOS UI snapshots', 'macOS UI actions'],
@@ -1727,7 +1729,9 @@ function permissionStatus(
     settingsUrl: process.platform === 'darwin' ? settingsUrl(permission) : undefined,
     message: staleness === 'grant_stale_rebuild'
       ? 'Spectra was rebuilt since this permission was granted. Remove the old Spectra entry in System Settings › Privacy & Security and re-grant.'
-      : undefined,
+      : state === 'denied' && permission === 'accessibility' && grantee
+        ? `macOS checks ${grantee} for this daemon. Turn it on (or add it with +) in System Settings › Privacy & Security › Accessibility.`
+        : undefined,
     staleness,
     lastCheckedAt,
   }

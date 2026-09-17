@@ -145,8 +145,21 @@ func registerHealth(_ registry: HandlerRegistry) {
             "uptimeSec": Int(Date().timeIntervalSince(ctx.startedAt)),
             "windowServer": windowServer,
         ]
+        result["servedBy"] = ["distRoot": (Bundle.main.executablePath as NSString?)?.deletingLastPathComponent ?? ""]
         if let obj = params as? [String: Any], obj["includePermissions"] as? Bool == true {
-            result["permissions"] = permissionStatuses(filter: nil)
+            // UI snapshots and actions run in helpers the TS backend spawns, and
+            // macOS charges those to the backend's launcher — not to this core.
+            // Report the backend's view when it answers; fall back to our own.
+            if let backend = ProcessInfo.processInfo.environment["SPECTRA_PROXY_BACKEND_SOCKET"],
+               let backendHealth = (try? ProxyClient.shadowCall(
+                   operation: "health", params: ["includePermissions": true], backendSocketPath: backend
+               )) as? [String: Any],
+               let permissions = backendHealth["permissions"] {
+                result["permissions"] = permissions
+                if let servedBy = backendHealth["servedBy"] { result["servedBy"] = servedBy }
+            } else {
+                result["permissions"] = permissionStatuses(filter: nil)
+            }
         }
         return result
     }

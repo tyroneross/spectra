@@ -4768,6 +4768,27 @@
             "typeText": "number"
           },
           {
+            "name": "servedBy",
+            "optional": true,
+            "typeText": "{\n    distRoot: string\n    /** Parent launcher executable; macOS charges the daemon's Accessibility check to it. */\n    launcherPath?: string\n  }",
+            "type": {
+              "kind": "interface",
+              "typeName": "(inline)",
+              "properties": [
+                {
+                  "name": "distRoot",
+                  "optional": false,
+                  "typeText": "string"
+                },
+                {
+                  "name": "launcherPath",
+                  "optional": true,
+                  "typeText": "string"
+                }
+              ]
+            }
+          },
+          {
             "name": "startedAt",
             "optional": true,
             "typeText": "TimestampMs"
@@ -8417,5 +8438,5 @@
       ]
     }
   },
-  "hash": "2097964b2996b20b7f4f247a7988355fdb72440ef5d53305cc0e6adc239b98a2"
+  "hash": "e9316b8a8475c0ca4472d60f26e9f905f445bd8b906ac78feac4f6ea1fad9ba6"
 }

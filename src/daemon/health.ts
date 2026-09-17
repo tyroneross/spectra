@@ -15,6 +15,7 @@ export interface HealthProbeOptions {
   aquaSessionProbe?: () => Promise<boolean>
   windowServerProbe?: (aquaSession: boolean) => Promise<{ connected: boolean; error?: string }>
   permissionsProvider?: () => Promise<PermissionStatus[]>
+  launcherPathProvider?: () => Promise<string | undefined>
 }
 
 export async function health(
@@ -41,6 +42,26 @@ export async function health(
     permissions: params.includePermissions && options.permissionsProvider
       ? await options.permissionsProvider()
       : undefined,
+    servedBy: {
+      distRoot: daemonDistRoot(),
+      launcherPath: await (options.launcherPathProvider?.() ?? parentExecutablePath()),
+    },
+  }
+}
+
+/** Package root of the running build (the directory holding its package.json). */
+export function daemonDistRoot(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+}
+
+/** Executable of the parent process (the daemon launcher in normal installs). */
+export async function parentExecutablePath(ppid: number = process.ppid): Promise<string | undefined> {
+  if (process.platform !== 'darwin' || ppid <= 1) return undefined
+  try {
+    const { stdout } = await execFileAsync('/bin/ps', ['-o', 'comm=', '-p', String(ppid)], { timeout: 1_000 })
+    return stdout.trim() || undefined
+  } catch {
+    return undefined
   }
 }
 

@@ -357,9 +357,9 @@ export function createSpectraServer(client: DaemonClient): McpServer {
 
   server.tool(
     'spectra_session',
-    'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session.',
+    'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session. action=status is a preflight: the serving daemon build, its launcher, and Accessibility / Screen Recording state.',
     {
-      action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage']),
+      action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage', 'status']),
       sessionId: z.string().optional(),
       usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
     },

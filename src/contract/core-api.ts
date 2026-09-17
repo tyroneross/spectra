@@ -174,6 +174,12 @@ export interface HealthResult {
     error?: string
   }
   permissions?: PermissionStatus[]
+  /** Which Spectra build answered: several daemons from different checkouts can run at once. */
+  servedBy?: {
+    distRoot: string
+    /** Parent launcher executable; macOS charges the daemon's Accessibility check to it. */
+    launcherPath?: string
+  }
 }
 
 export interface CreateSessionParams {
