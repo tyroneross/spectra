@@ -224,6 +224,11 @@ private final class ComputerUseSession {
         } catch {
             let message = String(describing: error)
             if isPermissionMessage(message) {
+                // The native helper names the process macOS actually checks; keep it.
+                if let range = message.range(of: "Accessibility permission not granted."),
+                   message.contains("macOS checks ") {
+                    throw AxPermissionError(message: String(message[range.lowerBound...]))
+                }
                 throw AxPermissionError(
                     message: "Accessibility permission not granted. Grant Accessibility permission to the "
                     + "Spectra daemon helper in System Settings → Privacy & Security → Accessibility, then retry."

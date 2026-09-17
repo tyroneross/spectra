@@ -119,7 +119,7 @@ func snapshotFocusedWindow(pid: pid_t) -> Result<FocusedSnapshotResult, AXBridge
     let result = AXUIElementCopyAttributeValue(app, kAXRoleAttribute as CFString, &roleRef)
     guard result == .success else {
         if result == .apiDisabled {
-            return .failure(AXBridgeError(message: "Accessibility permission not granted. Open System Settings → Privacy & Security → Accessibility and add Terminal (or your IDE)."))
+            return .failure(AXBridgeError(message: accessibilityDeniedMessage()))
         }
         return .failure(AXBridgeError(message: "Cannot access app (PID \(pid)). Error: \(result.rawValue)"))
     }

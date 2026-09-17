@@ -103,8 +103,12 @@ export class ComputerUse {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       if (err instanceof AxPermissionError || isPermissionMessage(message)) {
+        // The native helper names the app macOS actually checks; keep that
+        // detail instead of replacing it with a generic instruction.
         throw new AxPermissionError(
-          'Accessibility permission not granted. Grant it in System Settings → Privacy & Security → Accessibility, then retry.',
+          /macOS checks /.test(message)
+            ? message.slice(message.indexOf('Accessibility permission not granted'))
+            : 'Accessibility permission not granted. Grant it in System Settings → Privacy & Security → Accessibility, then retry.',
         )
       }
       throw err

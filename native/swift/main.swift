@@ -428,7 +428,7 @@ DispatchQueue.global(qos: .userInitiated).async {
 
     // Check accessibility on startup (non-blocking)
     if !checkAccessibilityPermission() {
-        fputs("WARNING: Accessibility permission not granted. Open System Settings → Privacy & Security → Accessibility and add Terminal (or your IDE).\n", stderr)
+        fputs("WARNING: \(accessibilityDeniedMessage())\n", stderr)
     }
 
     while let line = readLine() {

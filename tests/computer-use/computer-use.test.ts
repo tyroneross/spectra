@@ -369,6 +369,16 @@ describe('ComputerUse — failure modes + efficiency', () => {
     await expect(cu.snapshotFocusedWindow()).rejects.toBeInstanceOf(AxPermissionError)
   })
 
+  it('keeps the native helper\'s named grantee in the permission error', async () => {
+    const native = 'Native error -1: Accessibility permission not granted. macOS checks /Users/me/.spectra/bin/spectra-daemon-launcher, the process that started this Spectra helper.'
+    const port = new FakeAxBridgePort(loginFormSnapshot())
+    port.snapshotFocused = async () => { throw new Error(native) }
+    const cu = new ComputerUse(port)
+    await expect(cu.snapshotFocusedWindow()).rejects.toThrow(
+      /^Accessibility permission not granted\. macOS checks \/Users\/me\/\.spectra\/bin\/spectra-daemon-launcher/,
+    )
+  })
+
   it('caches the snapshot and re-reads only on change', async () => {
     let snapshotCalls = 0
     const base = loginFormSnapshot()
