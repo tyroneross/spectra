@@ -63,7 +63,7 @@ Takes a screenshot or records video of the current session state.
 - Video start: begins recording; all subsequent navigation and state changes are included.
 - Video stop: finalizes the recording and returns a file path to the video file.
 
-All output is written to the `artifacts/` directory at the project root. File names include a timestamp and an optional label passed at capture time.
+Output is written under the session directory, `.spectra/sessions/<id>/` in the project root (or `~/.spectra/` outside a project). The returned path is authoritative. To keep a capture long-term, add it to the library with `spectra_library action="add"`.
 
 This is the primary output-producing tool. Every meaningful state in a content capture workflow should end with a `spectra_capture` call.
 
@@ -94,8 +94,8 @@ Use `spectra_step` to move through the UI to the state that needs to be captured
 If the starting state is unknown, call `spectra_snapshot` first to inventory the screen, then decide where to navigate.
 
 ```
-spectra_step({ session: "<id>", intent: "click the Integrations tab" })
-spectra_step({ session: "<id>", intent: "open the GitHub integration" })
+spectra_step({ sessionId: "<id>", intent: "click the Integrations tab" })
+spectra_step({ sessionId: "<id>", intent: "open the GitHub integration" })
 ```
 
 ### 3. Capture
@@ -103,17 +103,17 @@ spectra_step({ session: "<id>", intent: "open the GitHub integration" })
 Call `spectra_capture` at each state worth capturing. For a blog post covering a multi-step flow, capture each distinct step. For a social media card, one high-quality screenshot of the key feature is typically sufficient.
 
 ```
-spectra_capture({ session: "<id>", type: "screenshot", label: "github-integration-empty-state" })
-spectra_step({ session: "<id>", intent: "connect a repository" })
-spectra_capture({ session: "<id>", type: "screenshot", label: "github-integration-connected" })
+spectra_capture({ sessionId: "<id>", type: "screenshot" })
+spectra_step({ sessionId: "<id>", intent: "connect a repository" })
+spectra_capture({ sessionId: "<id>", type: "screenshot" })
 ```
 
 For video, wrap the entire navigated sequence:
 
 ```
-spectra_capture({ session: "<id>", type: "video", action: "start", label: "onboarding-flow" })
+spectra_capture({ sessionId: "<id>", type: "start_recording" })
 // ... multiple spectra_step calls ...
-spectra_capture({ session: "<id>", type: "video", action: "stop" })
+spectra_capture({ sessionId: "<id>", type: "stop_recording" })
 ```
 
 ### 4. Review and Close
@@ -122,7 +122,7 @@ Call `spectra_session` to list the artifacts produced. Confirm the files exist a
 
 ```
 spectra_session({ action: "list" })
-spectra_session({ action: "close", session: "<id>" })
+spectra_session({ action: "close", sessionId: "<id>" })
 ```
 
 ## Platform Support
@@ -133,7 +133,7 @@ Connects via Chrome DevTools Protocol. Target is any URL. The browser must be ru
 
 ### macOS
 
-Connects via the macOS accessibility bridge. Target is the application name exactly as it appears in the menu bar. The app must be running and must have granted accessibility access to the terminal or host process running Spectra.
+Connects via the macOS accessibility bridge. Target is the application name exactly as it appears in the menu bar, or `pid:<n>` (or the `pid` param) when several running apps share a name; an ambiguous name returns an error listing each pid. Accessibility and Screen Recording must be granted to the process macOS checks, which is not always Spectra.app. Run `spectra_session action="status"` first: it names the serving build, its launcher, and each permission state.
 
 ### iOS and watchOS
 
@@ -143,7 +143,7 @@ Physical iOS device capture is not currently supported.
 
 ## Output
 
-All captured media is written to `artifacts/` at the project root. The directory should be in `.gitignore` — it is a working directory, not source code. Media files are named with a timestamp prefix and the label passed at capture time. If no label is provided, a sequential index is used.
+Captured media is written under `.spectra/sessions/<id>/` at the project root, which should be in `.gitignore`. Use the path each call returns. Promote keepers with `spectra_library action="add"`; never copy demo output into a public directory without review.
 
 A `.spectra/` directory at the project root stores session metadata and intermediate state. This should also be in `.gitignore`.
 

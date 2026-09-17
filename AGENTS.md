@@ -34,14 +34,14 @@ for a decision when the target register or mockup choice is ambiguous.
 
 | Tool | Purpose |
 |------|---------|
-| `spectra_connect` | Start session — URL, app name, or sim:device |
+| `spectra_connect` | Start session — URL, app name, `pid:<n>`, or sim:device |
 | `spectra_snapshot` | Read current AX tree (element inventory) |
 | `spectra_step` | Navigate by intent — "click the settings button" |
 | `spectra_act` | Act on a specific element by ID |
 | `spectra_capture` | Take screenshot or start/stop video. Modes: full, element, region, auto |
 | `spectra_analyze` | Score current screen — importance ranking, regions of interest, UI state |
 | `spectra_discover` | Auto-navigate entire app — BFS crawl, smart framing, state capture |
-| `spectra_session` | List, close, or manage sessions |
+| `spectra_session` | List, close, or manage sessions; `action=status` preflights the serving build and permissions |
 | `spectra_library` | Manage the persistent capture library — tag, find, gallery, export, status, delete, and migrate-from-showcase |
 
 ## Sessions vs Library (two storage dirs, different purposes)
