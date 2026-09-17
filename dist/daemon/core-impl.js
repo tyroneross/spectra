@@ -30,7 +30,7 @@ import { assessGrantStaleness, clearRegrantMarker, recordGrant } from '../native
 import { getSharedBridge } from '../native/bridge.js';
 import { COMPOSITE_WORKER_DEFAULTS, parseLuminance, recordCompositeWithWorker, } from './composite-worker.js';
 import { DaemonApiError } from './errors.js';
-import { health as daemonHealth } from './health.js';
+import { health as daemonHealth, parentExecutablePath } from './health.js';
 import { createKeepAwakeController } from './keep-awake.js';
 const execFileAsync = promisify(execFile);
 let screenCaptureKitWindowList;
@@ -1302,10 +1302,16 @@ async function getPermissionStatuses(filter) {
         'developer-tools',
     ];
     const now = Date.now();
+    // The parent is the process macOS charges only when a Spectra launcher
+    // (itself started by launchd) execs this daemon. Any other parent — a shell,
+    // a test runner, an MCP adapter's spawn — inherits a responsible process
+    // Node cannot read, so name nobody rather than guess.
+    const parent = permissions.includes('accessibility') ? await parentExecutablePath() : undefined;
+    const grantee = parent && /(^|\/)spectra-daemon-launcher$/.test(parent) ? parent : undefined;
     const states = await Promise.all(permissions.map(async (permission) => {
         const state = await probePermission(permission);
         const staleness = diagnoseStaleness(permission, state);
-        return permissionStatus(permission, state, now, staleness);
+        return permissionStatus(permission, state, now, staleness, grantee);
     }));
     return states;
 }
@@ -1385,7 +1391,7 @@ async function probePermission(permission) {
     // Keep these unknown rather than fabricating a value from brittle UI state.
     return 'unknown';
 }
-function permissionStatus(permission, state, lastCheckedAt, staleness) {
+function permissionStatus(permission, state, lastCheckedAt, staleness, grantee) {
     const requiredFor = {
         accessibility: ['macOS UI snapshots', 'macOS UI actions'],
         'screen-recording': ['screenshots', 'video capture'],
@@ -1400,7 +1406,9 @@ function permissionStatus(permission, state, lastCheckedAt, staleness) {
         settingsUrl: process.platform === 'darwin' ? settingsUrl(permission) : undefined,
         message: staleness === 'grant_stale_rebuild'
             ? 'Spectra was rebuilt since this permission was granted. Remove the old Spectra entry in System Settings › Privacy & Security and re-grant.'
-            : undefined,
+            : state === 'denied' && permission === 'accessibility' && grantee
+                ? `macOS checks ${grantee} for this daemon. Turn it on (or add it with +) in System Settings › Privacy & Security › Accessibility.`
+                : undefined,
         staleness,
         lastCheckedAt,
     };

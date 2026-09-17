@@ -323,9 +323,14 @@ enum ProxyClient {
     /// synthetic requestId) — this is a fresh outgoing request Swift originates
     /// itself, not a re-serialization of a tunneled request, so it does not
     /// touch ADR-01's "no re-serialization" guarantee for real client traffic.
-    static func shadowCall(operation: String, params: Any?, backendSocketPath: String) throws -> Any? {
+    static func shadowCall(operation: String, params: Any?, backendSocketPath: String, timeoutSeconds: Int = 5) throws -> Any? {
         let backendFD = try connectBackend(backendSocketPath)
         defer { close(backendFD) }
+        // A backend that accepts but never answers must not pin this thread:
+        // bound every read and write, then surface as unreachable.
+        var timeout = timeval(tv_sec: timeoutSeconds, tv_usec: 0)
+        _ = setsockopt(backendFD, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        _ = setsockopt(backendFD, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
         var envelope: [String: Any] = [
             "apiVersion": Wire.apiVersion,
@@ -352,6 +357,9 @@ enum ProxyClient {
             let n = read(backendFD, &chunk, chunk.count)
             if n <= 0 {
                 if n < 0 && errno == EINTR { continue }
+                if n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    throw ProxyError.backendUnreachable("shadow call: backend did not answer \(operation) within \(timeoutSeconds)s")
+                }
                 break
             }
             response.append(contentsOf: chunk[0..<n])

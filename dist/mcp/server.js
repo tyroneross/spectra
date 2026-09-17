@@ -278,8 +278,8 @@ export function createSpectraServer(client) {
         })).describe('Action plan to execute in order'),
         continueOnError: z.boolean().optional().describe('Continue past a failing step (default: false)'),
     }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_llm_step', args));
-    server.tool('spectra_session', 'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session.', {
-        action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage']),
+    server.tool('spectra_session', 'List, get, inspect run manifests, close, close all sessions, or record LLM token usage against a session. action=status is a preflight: the serving daemon build, its launcher, and Accessibility / Screen Recording state.', {
+        action: z.enum(['list', 'get', 'run', 'close', 'close_all', 'record_llm_usage', 'status']),
         sessionId: z.string().optional(),
         usage: z.unknown().optional().describe('For action=record_llm_usage: token usage payload to append to llm-usage.json.'),
     }, { readOnlyHint: false, destructiveHint: true, idempotentHint: false }, async (args) => forward(client, 'spectra_session', args));

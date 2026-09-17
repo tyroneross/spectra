@@ -23,7 +23,27 @@ export async function health(params = {}, options = {}) {
         permissions: params.includePermissions && options.permissionsProvider
             ? await options.permissionsProvider()
             : undefined,
+        servedBy: {
+            distRoot: daemonDistRoot(),
+            launcherPath: await (options.launcherPathProvider?.() ?? parentExecutablePath()),
+        },
     };
+}
+/** Package root of the running build (the directory holding its package.json). */
+export function daemonDistRoot() {
+    return join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+}
+/** Executable of the parent process (the daemon launcher in normal installs). */
+export async function parentExecutablePath(ppid = process.ppid) {
+    if (process.platform !== 'darwin' || ppid <= 1)
+        return undefined;
+    try {
+        const { stdout } = await execFileAsync('/bin/ps', ['-o', 'comm=', '-p', String(ppid)], { timeout: 1_000 });
+        return stdout.trim() || undefined;
+    }
+    catch {
+        return undefined;
+    }
 }
 export async function probeAquaSession() {
     if (process.platform !== 'darwin')

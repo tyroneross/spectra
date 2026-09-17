@@ -89,6 +89,10 @@ function mapSession(args) {
             return op('closeAllSessions', undefined);
         case 'record_llm_usage':
             return op('recordLlmUsage', pick(args, ['sessionId', 'usage']));
+        case 'status':
+            // Preflight: which daemon build answers, and whether it holds the
+            // permissions a capture needs — before a connect fails on them.
+            return op('health', { includePermissions: true });
         default:
             throw new ToolMappingError(`spectra_session: unknown action "${String(action)}"`);
     }
