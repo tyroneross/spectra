@@ -14,7 +14,10 @@
         "pid": "<PID>",
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.3.2-swift-g1"
+        "daemonVersion": "0.3.2-swift-g1",
+        "servedBy": {
+          "distRoot": "<PATH>"
+        }
       }
     }
   },
@@ -80,7 +83,11 @@
           }
         ],
         "apiVersion": 2,
-        "daemonVersion": "0.3.2-swift-g1"
+        "daemonVersion": "0.3.2-swift-g1",
+        "servedBy": {
+          "distRoot": "<PATH>",
+          "launcherPath": "<PATH>"
+        }
       }
     }
   },

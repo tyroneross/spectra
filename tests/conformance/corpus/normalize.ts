@@ -112,6 +112,8 @@ const HOST_SPECIFIC_NUMBER_KEYS = new Set(['pid', 'processId', 'windowId', 'port
 const PATH_KEYS = new Set([
   'path', 'outPath', 'rawPath', 'sourcePath', 'storageRoot', 'manifestPath', 'outputDir',
   'screenshotPath', 'snapshotBefore', 'snapshotAfter', 'cursorTelemetryPath', 'outDir',
+  // health.servedBy: which checkout/launcher answered — host-specific by design.
+  'distRoot', 'launcherPath',
 ])
 // Free-text log/description fields that legitimately embed a wall-clock
 // float duration inline (e.g. recordTerminal's timeline

@@ -1622,7 +1622,12 @@ async function getPermissionStatuses(filter?: PermissionKind[]): Promise<Permiss
     'developer-tools',
   ]
   const now = Date.now()
-  const grantee = permissions.includes('accessibility') ? await parentExecutablePath() : undefined
+  // The parent is the process macOS charges only when a Spectra launcher
+  // (itself started by launchd) execs this daemon. Any other parent — a shell,
+  // a test runner, an MCP adapter's spawn — inherits a responsible process
+  // Node cannot read, so name nobody rather than guess.
+  const parent = permissions.includes('accessibility') ? await parentExecutablePath() : undefined
+  const grantee = parent && /(^|\/)spectra-daemon-launcher$/.test(parent) ? parent : undefined
   const states = await Promise.all(permissions.map(async (permission) => {
     const state = await probePermission(permission)
     const staleness = diagnoseStaleness(permission, state)

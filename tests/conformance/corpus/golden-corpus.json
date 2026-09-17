@@ -1550,13 +1550,17 @@
       "result": {
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.4.0",
+        "daemonVersion": "0.4.2",
         "pid": "<PID>",
         "uptimeSec": "<TIMESTAMP>",
         "startedAt": "<TIMESTAMP>",
         "aquaSession": true,
         "windowServer": {
           "connected": true
+        },
+        "servedBy": {
+          "distRoot": "<PATH>",
+          "launcherPath": "<PATH>"
         }
       }
     }
@@ -1572,7 +1576,7 @@
       "result": {
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.4.0",
+        "daemonVersion": "0.4.2",
         "pid": "<PID>",
         "uptimeSec": "<TIMESTAMP>",
         "startedAt": "<TIMESTAMP>",
@@ -1624,7 +1628,11 @@
             "settingsUrl": "x-apple.systempreferences:com.apple.preference.security?Privacy_DeveloperTools",
             "lastCheckedAt": "<TIMESTAMP>"
           }
-        ]
+        ],
+        "servedBy": {
+          "distRoot": "<PATH>",
+          "launcherPath": "<PATH>"
+        }
       }
     }
   },
