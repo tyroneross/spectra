@@ -54,15 +54,30 @@ export function daemonDistRoot(): string {
   return join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 }
 
-/** Executable of the parent process (the daemon launcher in normal installs). */
-export async function parentExecutablePath(ppid: number = process.ppid): Promise<string | undefined> {
+/**
+ * The daemon launcher that started this process: the nearest ancestor (within
+ * a few hops — launcher → `spectra daemon` CLI → server) whose executable is
+ * `spectra-daemon-launcher`. macOS charges this daemon's privacy checks to that
+ * launcher. Falls back to the immediate parent's executable when none matches.
+ */
+export async function parentExecutablePath(ppid: number = process.ppid, maxHops = 4): Promise<string | undefined> {
   if (process.platform !== 'darwin' || ppid <= 1) return undefined
-  try {
-    const { stdout } = await execFileAsync('/bin/ps', ['-o', 'comm=', '-p', String(ppid)], { timeout: 1_000 })
-    return stdout.trim() || undefined
-  } catch {
-    return undefined
+  let pid = ppid
+  let immediate: string | undefined
+  for (let hop = 0; hop < maxHops && pid > 1; hop++) {
+    try {
+      const { stdout } = await execFileAsync('/bin/ps', ['-o', 'ppid=,comm=', '-p', String(pid)], { timeout: 1_000 })
+      const match = stdout.trim().match(/^(\d+)\s+(.+)$/)
+      if (!match) break
+      const comm = match[2].trim()
+      immediate ??= comm
+      if (/(^|\/)spectra-daemon-launcher$/.test(comm)) return comm
+      pid = Number(match[1])
+    } catch {
+      break
+    }
   }
+  return immediate
 }
 
 export async function probeAquaSession(): Promise<boolean> {

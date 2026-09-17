@@ -301,6 +301,8 @@ enum ProxyClient {
         var envelope: [String: Any] = [
             "apiVersion": Wire.apiVersion,
             "requestId": "internal-\(UUID().uuidString)",
+            // The TS backend rejects an envelope whose operation doesn't match the route.
+            "operation": operation,
         ]
         if !params.isEmpty { envelope["params"] = params }
         let body = (try? JSONSerialization.data(withJSONObject: envelope)) ?? Data("{}".utf8)
@@ -335,6 +337,7 @@ enum ProxyClient {
         var envelope: [String: Any] = [
             "apiVersion": Wire.apiVersion,
             "requestId": "dual-run-\(UUID().uuidString)",
+            "operation": operation,
         ]
         if let params { envelope["params"] = params }
         let body = (try? JSONSerialization.data(withJSONObject: envelope)) ?? Data("{}".utf8)

@@ -16,8 +16,13 @@ export declare function health(params?: {
 }, options?: HealthProbeOptions): Promise<HealthResult>;
 /** Package root of the running build (the directory holding its package.json). */
 export declare function daemonDistRoot(): string;
-/** Executable of the parent process (the daemon launcher in normal installs). */
-export declare function parentExecutablePath(ppid?: number): Promise<string | undefined>;
+/**
+ * The daemon launcher that started this process: the nearest ancestor (within
+ * a few hops — launcher → `spectra daemon` CLI → server) whose executable is
+ * `spectra-daemon-launcher`. macOS charges this daemon's privacy checks to that
+ * launcher. Falls back to the immediate parent's executable when none matches.
+ */
+export declare function parentExecutablePath(ppid?: number, maxHops?: number): Promise<string | undefined>;
 export declare function probeAquaSession(): Promise<boolean>;
 export declare function probeWindowServer(aquaSession: boolean): Promise<{
     connected: boolean;
