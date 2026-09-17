@@ -201,6 +201,7 @@ describe('mutation check — enriched spec detects semantics the legacy snapshot
       name: z.string(), // was z.string().optional()
       record: z.boolean().optional(),
       repoPath: z.string().optional(),
+      pid: z.number().int().positive().optional(),
     })
 
     const originalDescriptor = describeParamSchema(original)

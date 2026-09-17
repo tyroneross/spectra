@@ -347,6 +347,10 @@
                 "kind": "number",
                 "optional": true
               },
+              "sessionId": {
+                "kind": "string",
+                "optional": true
+              },
               "threshold": {
                 "kind": "number",
                 "optional": true
@@ -432,6 +436,10 @@
               "pid": {
                 "kind": "number",
                 "optional": true
+              },
+              "sessionId": {
+                "kind": "string",
+                "optional": true
               }
             },
             "required": [
@@ -458,6 +466,10 @@
               },
               "pid": {
                 "kind": "number",
+                "optional": true
+              },
+              "sessionId": {
+                "kind": "string",
                 "optional": true
               }
             },
@@ -808,6 +820,10 @@
         "properties": {
           "name": {
             "kind": "string",
+            "optional": true
+          },
+          "pid": {
+            "kind": "number",
             "optional": true
           },
           "record": {
@@ -8401,5 +8417,5 @@
       ]
     }
   },
-  "hash": "119ca6665c180ddb449d0f235c282d631bcb5e37e7cf5ce996f6fadaa1f2ed4d"
+  "hash": "2097964b2996b20b7f4f247a7988355fdb72440ef5d53305cc0e6adc239b98a2"
 }
