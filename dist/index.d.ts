@@ -27,6 +27,8 @@ export { CAPTURE_PRESETS, getCapturePresetDefinition, resolveRecordingCaptureOpt
 export type { CapturePresetDefinition, RecordingCaptureDefaults, RecordingPresetInput, ResolvedScreenshotCaptureOptions, ScreenshotCaptureDefaults, ScreenshotPresetInput, } from './media/presets.js';
 export { createProductionBundle } from './media/production.js';
 export type { ProductionAsset, ProductionAssetKind, ProductionBundleManifest, ProductionBundleOptions, ProductionBundleResult, ProductionBundleSource, ProductionQualityCheck, ProductionQualityLevel, ProductionQualityReport, ProductionQualityStatus, ProductionSourceType, } from './media/production.js';
+export { createAppleEditorHandoff } from './media/apple-editor-handoff.js';
+export type { AppleEditorAsset, AppleEditorAssetRole, AppleEditorHandoffFile, AppleEditorHandoffManifest, AppleEditorHandoffOptions, AppleEditorHandoffResult, } from './media/apple-editor-handoff.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 export type { RawImage } from './media/png.js';
 //# sourceMappingURL=index.d.ts.map

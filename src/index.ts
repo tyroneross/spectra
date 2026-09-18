@@ -144,5 +144,14 @@ export type {
   ProductionQualityStatus,
   ProductionSourceType,
 } from './media/production.js'
+export { createAppleEditorHandoff } from './media/apple-editor-handoff.js'
+export type {
+  AppleEditorAsset,
+  AppleEditorAssetRole,
+  AppleEditorHandoffFile,
+  AppleEditorHandoffManifest,
+  AppleEditorHandoffOptions,
+  AppleEditorHandoffResult,
+} from './media/apple-editor-handoff.js'
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js'
 export type { RawImage } from './media/png.js'

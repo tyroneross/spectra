@@ -25,5 +25,6 @@ export { prepareForCapture, restoreAfterCapture } from './media/clean.js';
 export { buildPosterFrameArgs, buildProbeArgs, extractPosterFrame, probeVideo, } from './media/pipeline.js';
 export { CAPTURE_PRESETS, getCapturePresetDefinition, resolveRecordingCaptureOptions, resolveScreenshotCaptureOptions, } from './media/presets.js';
 export { createProductionBundle } from './media/production.js';
+export { createAppleEditorHandoff } from './media/apple-editor-handoff.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 //# sourceMappingURL=index.js.map
