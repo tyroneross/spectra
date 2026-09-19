@@ -26,5 +26,6 @@ export { buildPosterFrameArgs, buildProbeArgs, extractPosterFrame, probeVideo, }
 export { CAPTURE_PRESETS, getCapturePresetDefinition, resolveRecordingCaptureOptions, resolveScreenshotCaptureOptions, } from './media/presets.js';
 export { createProductionBundle } from './media/production.js';
 export { createAppleEditorHandoff } from './media/apple-editor-handoff.js';
+export { compileEditPlan, editPlanBeatSchema, editPlanClaimSchema, editPlanNarrationSchema, editPlanSchema, narrationCacheKey, parseEditPlan, } from './media/edit-plan.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 //# sourceMappingURL=index.js.map

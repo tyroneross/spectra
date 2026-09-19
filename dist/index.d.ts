@@ -29,6 +29,8 @@ export { createProductionBundle } from './media/production.js';
 export type { ProductionAsset, ProductionAssetKind, ProductionBundleManifest, ProductionBundleOptions, ProductionBundleResult, ProductionBundleSource, ProductionQualityCheck, ProductionQualityLevel, ProductionQualityReport, ProductionQualityStatus, ProductionSourceType, } from './media/production.js';
 export { createAppleEditorHandoff } from './media/apple-editor-handoff.js';
 export type { AppleEditorAsset, AppleEditorAssetRole, AppleEditorHandoffFile, AppleEditorHandoffManifest, AppleEditorHandoffOptions, AppleEditorHandoffResult, } from './media/apple-editor-handoff.js';
+export { compileEditPlan, editPlanBeatSchema, editPlanClaimSchema, editPlanNarrationSchema, editPlanSchema, narrationCacheKey, parseEditPlan, } from './media/edit-plan.js';
+export type { CompiledEditPlan, CompiledNarrationJob, EditPlan, EditPlanBeat, EditPlanClaim, EditPlanInput, EditPlanManifest, EditPlanNarration, } from './media/edit-plan.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 export type { RawImage } from './media/png.js';
 //# sourceMappingURL=index.d.ts.map

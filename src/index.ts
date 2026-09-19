@@ -153,5 +153,24 @@ export type {
   AppleEditorHandoffOptions,
   AppleEditorHandoffResult,
 } from './media/apple-editor-handoff.js'
+export {
+  compileEditPlan,
+  editPlanBeatSchema,
+  editPlanClaimSchema,
+  editPlanNarrationSchema,
+  editPlanSchema,
+  narrationCacheKey,
+  parseEditPlan,
+} from './media/edit-plan.js'
+export type {
+  CompiledEditPlan,
+  CompiledNarrationJob,
+  EditPlan,
+  EditPlanBeat,
+  EditPlanClaim,
+  EditPlanInput,
+  EditPlanManifest,
+  EditPlanNarration,
+} from './media/edit-plan.js'
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js'
 export type { RawImage } from './media/png.js'

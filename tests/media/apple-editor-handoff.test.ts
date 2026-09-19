@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -55,5 +55,19 @@ describe('createAppleEditorHandoff', () => {
       { path: web, role: 'web-master', imovieImport: true },
       { path: edit, role: 'edit-master', imovieImport: true },
     ], { outDir: join(root, 'handoff'), title: 'Collision' })).rejects.toThrow('Duplicate handoff destination')
+  })
+
+  it('validates every input before creating the handoff directory', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'spectra-apple-handoff-'))
+    const valid = join(root, 'valid.mp4')
+    const outDir = join(root, 'handoff')
+    await writeFile(valid, 'valid')
+
+    await expect(createAppleEditorHandoff([
+      { path: valid, role: 'web-master', imovieImport: true },
+      { path: join(root, 'missing.mov'), role: 'edit-master' },
+    ], { outDir, title: 'Preflight' })).rejects.toThrow(/ENOENT/)
+
+    await expect(access(outDir)).rejects.toThrow()
   })
 })

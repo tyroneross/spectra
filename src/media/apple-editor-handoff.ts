@@ -75,6 +75,14 @@ export async function createAppleEditorHandoff(
     'iMovie import',
   )
 
+  for (const { asset, filename } of planned) {
+    const sourceStat = await stat(asset.path)
+    if (!sourceStat.isFile()) throw new Error(`Apple editor asset is not a file: ${asset.path}`)
+    if (asset.imovieImport && !isVideo(filename)) {
+      throw new Error(`iMovie import asset must be a video: ${asset.path}`)
+    }
+  }
+
   const files: AppleEditorHandoffFile[] = []
   const imovieAssets = assets.filter((asset) => asset.imovieImport)
   const imovieImportDir = imovieAssets.length > 0 ? join(options.outDir, 'iMovie Import') : undefined
@@ -84,7 +92,6 @@ export async function createAppleEditorHandoff(
 
   for (const { asset, filename, relativePath } of planned) {
     const sourceStat = await stat(asset.path)
-    if (!sourceStat.isFile()) throw new Error(`Apple editor asset is not a file: ${asset.path}`)
 
     const roleDir = join(options.outDir, ROLE_DIR[asset.role])
     await mkdir(roleDir, { recursive: true })
@@ -92,9 +99,6 @@ export async function createAppleEditorHandoff(
     await copyFile(asset.path, destination)
 
     if (asset.imovieImport) {
-      if (!isVideo(filename)) {
-        throw new Error(`iMovie import asset must be a video: ${asset.path}`)
-      }
       await copyFile(asset.path, join(imovieImportDir!, filename))
     }
 

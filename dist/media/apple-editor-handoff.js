@@ -25,6 +25,14 @@ export async function createAppleEditorHandoff(assets, options) {
     });
     rejectDuplicateTargets(planned.map((item) => item.relativePath), 'handoff');
     rejectDuplicateTargets(planned.flatMap((item) => item.imoviePath ? [item.imoviePath] : []), 'iMovie import');
+    for (const { asset, filename } of planned) {
+        const sourceStat = await stat(asset.path);
+        if (!sourceStat.isFile())
+            throw new Error(`Apple editor asset is not a file: ${asset.path}`);
+        if (asset.imovieImport && !isVideo(filename)) {
+            throw new Error(`iMovie import asset must be a video: ${asset.path}`);
+        }
+    }
     const files = [];
     const imovieAssets = assets.filter((asset) => asset.imovieImport);
     const imovieImportDir = imovieAssets.length > 0 ? join(options.outDir, 'iMovie Import') : undefined;
@@ -33,16 +41,11 @@ export async function createAppleEditorHandoff(assets, options) {
         await mkdir(imovieImportDir, { recursive: true });
     for (const { asset, filename, relativePath } of planned) {
         const sourceStat = await stat(asset.path);
-        if (!sourceStat.isFile())
-            throw new Error(`Apple editor asset is not a file: ${asset.path}`);
         const roleDir = join(options.outDir, ROLE_DIR[asset.role]);
         await mkdir(roleDir, { recursive: true });
         const destination = join(roleDir, filename);
         await copyFile(asset.path, destination);
         if (asset.imovieImport) {
-            if (!isVideo(filename)) {
-                throw new Error(`iMovie import asset must be a video: ${asset.path}`);
-            }
             await copyFile(asset.path, join(imovieImportDir, filename));
         }
         files.push({
