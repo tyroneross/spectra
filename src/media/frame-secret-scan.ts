@@ -12,9 +12,9 @@
 // © 2026 Tyrone Ross, Jr <46267523+tyroneross@users.noreply.github.com>
 
 import { execSync, spawn } from 'node:child_process'
-import { mkdir, readdir, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { basename, extname, join } from 'node:path'
 import { detectFfmpeg } from './ffmpeg.js'
 
 // ─── OCR engine seam ──────────────────────────────────────────
@@ -246,7 +246,10 @@ export function scanText(
     const re = toGlobalRegex(pattern.regex)
     for (const m of text.matchAll(re)) {
       const matched = m[0]
-      if (allow.some((a) => a.test(matched))) continue
+      if (allow.some((candidate) => {
+        candidate.lastIndex = 0
+        return candidate.test(matched)
+      })) continue
       findings.push({
         patternId: pattern.id,
         severity: pattern.severity,
@@ -402,6 +405,11 @@ export interface SampledFrame {
   tMs: number
 }
 
+export interface FrameScanRange {
+  startMs: number
+  endMs: number
+}
+
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg'])
 
 function isImageFile(input: string): boolean {
@@ -439,9 +447,10 @@ async function runFfmpeg(ffmpegPath: string, args: string[]): Promise<void> {
  */
 export async function sampleFrames(
   input: string,
-  opts: { fps?: number; outDir: string; maxFrames?: number },
+  opts: { fps?: number; outDir: string; maxFrames?: number; rangesMs?: FrameScanRange[] },
 ): Promise<SampledFrame[]> {
   const fps = opts.fps ?? 1
+  const ranges = validateRanges(opts.rangesMs)
 
   if (isImageFile(input)) {
     return [{ path: input, index: 0, tMs: 0 }]
@@ -452,25 +461,51 @@ export async function sampleFrames(
     throw new FfmpegUnavailableError('ffmpeg not found on PATH; required to sample video frames')
   }
 
-  await mkdir(opts.outDir, { recursive: true })
-  const pattern = join(opts.outDir, 'frame-%04d.png')
-  const args = [
-    '-y',
-    '-i', input,
-    '-vf', `fps=${fps},scale=1920:-2`,
-    ...(opts.maxFrames ? ['-frames:v', String(opts.maxFrames)] : []),
-    pattern,
-  ]
-  await runFfmpeg(ffmpegPath, args)
+  const effectiveRanges: Array<FrameScanRange | undefined> = ranges.length > 0 ? ranges : [undefined]
+  const sampled: SampledFrame[] = []
 
-  const files = (await readdir(opts.outDir))
-    .filter((f) => f.startsWith('frame-') && f.endsWith('.png'))
-    .sort()
-  return files.map((f, index) => ({
-    path: join(opts.outDir, f),
-    index,
-    tMs: Math.round((index / fps) * 1000),
-  }))
+  for (const [rangeIndex, range] of effectiveRanges.entries()) {
+    const rangeDir = join(opts.outDir, `range-${String(rangeIndex + 1).padStart(3, '0')}`)
+    await mkdir(rangeDir, { recursive: true })
+    const pattern = join(rangeDir, 'frame-%06d.png')
+    const args = [
+      '-y',
+      ...(range ? ['-ss', String(range.startMs / 1000), '-t', String((range.endMs - range.startMs) / 1000)] : []),
+      '-i', input,
+      '-vf', `fps=${fps},scale=1920:-2`,
+      ...(opts.maxFrames ? ['-frames:v', String(opts.maxFrames)] : []),
+      pattern,
+    ]
+    await runFfmpeg(ffmpegPath, args)
+
+    const files = (await readdir(rangeDir))
+      .filter((file) => file.startsWith('frame-') && file.endsWith('.png'))
+      .sort()
+    for (const [localIndex, file] of files.entries()) {
+      sampled.push({
+        path: join(rangeDir, file),
+        index: sampled.length,
+        tMs: Math.round((range?.startMs ?? 0) + (localIndex / fps) * 1000),
+      })
+    }
+  }
+
+  return sampled
+}
+
+function validateRanges(ranges: FrameScanRange[] | undefined): FrameScanRange[] {
+  if (!ranges) return []
+  let previousEndMs = -1
+  return ranges.map((range, index) => {
+    if (!Number.isInteger(range.startMs) || !Number.isInteger(range.endMs) || range.startMs < 0 || range.endMs <= range.startMs) {
+      throw new FrameScanInputError(`invalid frame range at index ${index}: expected non-negative integer startMs < endMs`)
+    }
+    if (range.startMs < previousEndMs) {
+      throw new FrameScanInputError(`frame ranges overlap or are out of order at index ${index}`)
+    }
+    previousEndMs = range.endMs
+    return { ...range }
+  })
 }
 
 // ─── Full frame scan ──────────────────────────────────────────
@@ -489,6 +524,7 @@ export interface FrameScanReport {
   engine: string
   fps: number
   frameCount: number
+  rangesMs?: FrameScanRange[]
   findings: FrameFinding[]
   verdict: FrameScanVerdict
   unscannedReason?: string
@@ -510,6 +546,7 @@ export async function scanFrames(
     patterns?: SecretPattern[]
     allow?: RegExp[]
     workDir?: string
+    rangesMs?: FrameScanRange[]
   } = {},
 ): Promise<FrameScanReport> {
   const fps = opts.fps ?? 1
@@ -527,11 +564,12 @@ export async function scanFrames(
   const isAvailable = await engine.available()
   if (!isAvailable) {
     return {
-      input,
+      input: basename(input),
       sampledAt,
       engine: engine.name,
       fps,
       frameCount: 0,
+      rangesMs: opts.rangesMs,
       findings: [],
       verdict: 'review',
       unscannedReason: `${engine.name} not available on PATH`,
@@ -539,7 +577,9 @@ export async function scanFrames(
     }
   }
 
-  const frames = await sampleFrames(input, { fps, outDir: workDir })
+  await mkdir(workDir, { recursive: true })
+  const frameDir = await mkdtemp(join(workDir, 'run-'))
+  const frames = await sampleFrames(input, { fps, outDir: frameDir, rangesMs: opts.rangesMs })
   const findings: FrameFinding[] = []
   let longLines = 0
 
@@ -548,16 +588,17 @@ export async function scanFrames(
     const result = scanOcrTextDetailed(text, { patterns: opts.patterns, allow: opts.allow })
     longLines += result.longLines
     for (const hit of result.findings) {
-      findings.push({ ...hit, frameIndex: frame.index, tMs: frame.tMs, framePath: frame.path })
+      findings.push({ ...hit, frameIndex: frame.index, tMs: frame.tMs, framePath: basename(frame.path) })
     }
   }
 
   return {
-    input,
+    input: basename(input),
     sampledAt,
     engine: engine.name,
     fps,
     frameCount: frames.length,
+    rangesMs: opts.rangesMs?.map((range) => ({ ...range })),
     findings,
     verdict: computeVerdict(findings),
     longLines,

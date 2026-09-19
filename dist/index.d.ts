@@ -33,4 +33,6 @@ export { compileEditPlan, editPlanBeatSchema, editPlanClaimSchema, editPlanNarra
 export type { CompiledEditPlan, CompiledNarrationJob, EditPlan, EditPlanBeat, EditPlanClaim, EditPlanInput, EditPlanManifest, EditPlanNarration, } from './media/edit-plan.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 export type { RawImage } from './media/png.js';
+export { DEFAULT_SECRET_PATTERNS, FfmpegUnavailableError, FrameScanInputError, TesseractOcrEngine, applyOcrConfusionMap, normalizeOcrText, sampleFrames, scanFrames, scanOcrText, scanText, } from './media/frame-secret-scan.js';
+export type { FrameFinding, FrameScanRange, FrameScanReport, FrameScanVerdict, OcrEngine, SampledFrame, SecretPattern, SecretSeverity, TextFinding, } from './media/frame-secret-scan.js';
 //# sourceMappingURL=index.d.ts.map

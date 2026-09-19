@@ -35,6 +35,7 @@ function parseScanFramesArgs(rest) {
     let out;
     let json = false;
     const allow = [];
+    const rangesMs = [];
     for (let i = 0; i < rest.length; i += 1) {
         const arg = rest[i];
         if (arg === '--fps') {
@@ -58,16 +59,32 @@ function parseScanFramesArgs(rest) {
                 return null;
             allow.push(value);
         }
+        else if (arg === '--range-ms') {
+            const value = rest[++i];
+            if (value === undefined)
+                return null;
+            const match = /^(\d+):(\d+)$/.exec(value);
+            if (!match)
+                return null;
+            const startMs = Number(match[1]);
+            const endMs = Number(match[2]);
+            if (!Number.isSafeInteger(startMs) || !Number.isSafeInteger(endMs) || endMs <= startMs)
+                return null;
+            rangesMs.push({ startMs, endMs });
+        }
         else if (arg === '--json') {
             json = true;
         }
         else if (!arg.startsWith('--') && input === undefined) {
             input = arg;
         }
+        else {
+            return null;
+        }
     }
     if (!input)
         return null;
-    return { input, fps, out, allow, json };
+    return { input, fps, out, allow, rangesMs, json };
 }
 function parseArgs(argv) {
     const rest = argv.slice(2);
@@ -110,6 +127,7 @@ scan-frames options:
   --fps <n>          Sample rate for video input (default: 1)
   --out <path>       Write the full JSON report to this path
   --allow <regex>    Suppress matches (repeatable) — e.g. your own home path
+  --range-ms <a:b>   Scan an exact millisecond range; repeat for disjoint sharp windows
   --json             Print the full JSON report to stdout instead of a summary
 
 scan-frames exit codes:
@@ -123,6 +141,7 @@ Examples:
   spectra createSession '{"target":"http://localhost:3000"}'
   spectra listSessions '{"includeClosed":true}'
   spectra scan-frames demo.mp4 --fps 2 --out report.json
+  spectra scan-frames demo.mp4 --fps 30 --range-ms 12000:18000 --range-ms 41000:56000
   spectra scan-frames screenshot.png --allow '/Users/tyrone.*'
 `;
 /** Resolve the compiled BE daemon entry (dist/daemon/server.js). */
@@ -234,7 +253,7 @@ function printScanFramesSummary(report) {
 }
 async function runScanFrames(args) {
     if (!args) {
-        process.stderr.write('spectra scan-frames: missing <input>\n\nUsage:\n  spectra scan-frames <video-or-image> [--fps 1] [--out <report.json>] [--allow <regex>]... [--json]\n');
+        process.stderr.write('spectra scan-frames: invalid arguments\n\nUsage:\n  spectra scan-frames <video-or-image> [--fps 1] [--range-ms start:end]... [--out <report.json>] [--allow <regex>]... [--json]\n');
         return 3;
     }
     const inputPath = isAbsolute(args.input) ? args.input : resolve(process.cwd(), args.input);
@@ -248,7 +267,7 @@ async function runScanFrames(args) {
     }
     let report;
     try {
-        report = await scanFrames(inputPath, { fps: args.fps, allow });
+        report = await scanFrames(inputPath, { fps: args.fps, allow, rangesMs: args.rangesMs });
     }
     catch (err) {
         if (err instanceof FrameScanInputError || err instanceof FfmpegUnavailableError) {

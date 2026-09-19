@@ -20,6 +20,7 @@ describe('library exports', () => {
     expect(spectra.probeVideo).toBeDefined()
     expect(spectra.extractPosterFrame).toBeDefined()
     expect(spectra.CAPTURE_PRESETS).toBeDefined()
+    expect(spectra.scanFrames).toBeDefined()
   })
 
   it('exports are the correct types', () => {
@@ -35,6 +36,7 @@ describe('library exports', () => {
     expect(typeof spectra.buildPosterFrameArgs).toBe('function')
     expect(typeof spectra.probeVideo).toBe('function')
     expect(typeof spectra.extractPosterFrame).toBe('function')
+    expect(typeof spectra.scanFrames).toBe('function')
   })
 
   it('SessionManager is a class (constructable)', () => {

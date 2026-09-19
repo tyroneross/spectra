@@ -50,6 +50,10 @@ export interface SampledFrame {
     index: number;
     tMs: number;
 }
+export interface FrameScanRange {
+    startMs: number;
+    endMs: number;
+}
 export declare class FrameScanInputError extends Error {
     readonly code = "INPUT_NOT_FOUND";
 }
@@ -65,6 +69,7 @@ export declare function sampleFrames(input: string, opts: {
     fps?: number;
     outDir: string;
     maxFrames?: number;
+    rangesMs?: FrameScanRange[];
 }): Promise<SampledFrame[]>;
 export interface FrameFinding extends TextFinding {
     frameIndex: number;
@@ -78,6 +83,7 @@ export interface FrameScanReport {
     engine: string;
     fps: number;
     frameCount: number;
+    rangesMs?: FrameScanRange[];
     findings: FrameFinding[];
     verdict: FrameScanVerdict;
     unscannedReason?: string;
@@ -90,5 +96,6 @@ export declare function scanFrames(input: string, opts?: {
     patterns?: SecretPattern[];
     allow?: RegExp[];
     workDir?: string;
+    rangesMs?: FrameScanRange[];
 }): Promise<FrameScanReport>;
 //# sourceMappingURL=frame-secret-scan.d.ts.map

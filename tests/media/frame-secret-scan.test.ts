@@ -21,6 +21,13 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(TEST_DIR, '..', '..')
 const FIXTURE_PNG = join(TEST_DIR, 'fixtures', 'secret-frame.png')
 
+function runCli(args: string[]) {
+  return spawnSync(process.execPath, [join(REPO_ROOT, 'dist', 'cli', 'index.js'), ...args], {
+    cwd: REPO_ROOT,
+    encoding: 'utf-8',
+  })
+}
+
 function tesseractAvailable(): boolean {
   try {
     const found = execSync('which tesseract', { stdio: 'pipe' }).toString().trim()
@@ -82,6 +89,11 @@ describe('scanText', () => {
 
     const withAllow = scanText(text, { allow: [/tyrone\.ross@gmail\.com/] })
     expect(withAllow.some((f) => f.patternId === 'email-address')).toBe(false)
+  })
+
+  it('resets stateful allow-list regexes before every match', () => {
+    const allow = /example@example\.com/g
+    expect(scanText('example@example.com example@example.com', { allow: [allow] })).toEqual([])
   })
 
   it('flags a home path even when OCR dropped the leading slash', () => {
@@ -249,6 +261,26 @@ describe('scanFrames verdict mapping', () => {
     expect(report.findings).toEqual([])
   })
 
+  it('does not expose absolute input or temporary frame paths in the report', async () => {
+    const dir = await makeWorkDir()
+    const png = join(dir, 'private-frame.png')
+    await encodeTinyPng(png)
+    const report = await scanFrames(png, { engine: fakeEngine('/Users/private/project') })
+    expect(report.input).toBe('private-frame.png')
+    expect(report.findings[0].framePath).toBe('private-frame.png')
+    expect(JSON.stringify(report)).not.toContain(dir)
+  })
+
+  it('rejects overlapping or invalid scan ranges before sampling', async () => {
+    const dir = await makeWorkDir()
+    const png = join(dir, 'frame.png')
+    await encodeTinyPng(png)
+    await expect(scanFrames(png, {
+      engine: fakeEngine('clean'),
+      rangesMs: [{ startMs: 1000, endMs: 2000 }, { startMs: 1500, endMs: 2500 }],
+    })).rejects.toThrow(/overlap/)
+  })
+
   it('is review when only medium/low findings are present', async () => {
     const dir = await makeWorkDir()
     const png = join(dir, 'frame.png')
@@ -313,21 +345,26 @@ describe('TesseractOcrEngine', () => {
 
 describe('scan-frames CLI argument parsing', () => {
   it('exits 3 with usage when --fps is given with no value', () => {
-    const result = spawnSync('npx', ['tsx', 'src/cli/index.ts', 'scan-frames', 'x.mp4', '--fps'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-    })
+    const result = runCli(['scan-frames', 'x.mp4', '--fps'])
     expect(result.status).toBe(3)
     expect(result.stderr).toContain('Usage')
   })
 
   it('exits 3 when --fps is non-numeric or non-positive', () => {
     for (const badFps of ['nope', '0', '-1']) {
-      const result = spawnSync('npx', ['tsx', 'src/cli/index.ts', 'scan-frames', 'x.mp4', '--fps', badFps], {
-        cwd: REPO_ROOT,
-        encoding: 'utf-8',
-      })
+      const result = runCli(['scan-frames', 'x.mp4', '--fps', badFps])
       expect(result.status, `--fps ${badFps} should exit 3`).toBe(3)
+    }
+  })
+
+  it('exits 3 for malformed ranges and unknown flags', () => {
+    for (const args of [
+      ['scan-frames', 'x.mp4', '--range-ms', '12:12'],
+      ['scan-frames', 'x.mp4', '--range-ms', 'nope'],
+      ['scan-frames', 'x.mp4', '--unknown'],
+    ]) {
+      const result = runCli(args)
+      expect(result.status).toBe(3)
     }
   })
 })
@@ -349,10 +386,7 @@ describe.skipIf(!tesseractAvailable())('scanFrames integration (tesseract)', () 
   })
 
   it('detects the fixture secret via the CLI and exits 2 (blocked)', () => {
-    const result = spawnSync('npx', ['tsx', 'src/cli/index.ts', 'scan-frames', FIXTURE_PNG, '--json'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-    })
+    const result = runCli(['scan-frames', FIXTURE_PNG, '--json'])
     expect(result.status).toBe(2)
     expect(result.stdout).not.toContain('TESTTESTTESTTESTTESTTEST')
     const report = JSON.parse(result.stdout) as { verdict: string }

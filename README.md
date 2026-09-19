@@ -280,7 +280,7 @@ Caption banner is a fixed reference style: full-width `#050709`@92% bar, `#27AFE
 Marketing recordings of terminal apps routinely show API keys, tokens, emails, and home-directory paths. Before sharing a clip, sample its frames, OCR them, and match against a library of secret/PII patterns:
 
 ```
-spectra scan-frames <video-or-image> [--fps 1] [--out <report.json>] [--allow <regex>]... [--json]
+spectra scan-frames <video-or-image> [--fps 1] [--range-ms <start:end>]... [--out <report.json>] [--allow <regex>]... [--json]
 ```
 
 | Exit code | Meaning |
@@ -291,6 +291,8 @@ spectra scan-frames <video-or-image> [--fps 1] [--out <report.json>] [--allow <r
 | `3` | ffmpeg/OCR engine unavailable, or input not found |
 
 `--allow <regex>` suppresses known-safe matches (e.g. your own home path or an intentionally shown demo account email). Findings only ever carry a redacted preview (first 4 chars + `…` + last 2) — the full match is never written to the report or the terminal.
+
+Use `--fps 30` with repeated `--range-ms` values to inspect every frame in intentionally sharp windows without OCR-scanning fully blurred sections. Reports store only the input filename and temporary frame filename, never their absolute paths.
 
 **This is a pre-publish gate, not proof of absence.** OCR misses low-contrast or small text, and the pattern library only covers known secret shapes. A `clean` verdict means "nothing obvious found," not "guaranteed safe" — still eyeball the frames before publishing.
 
