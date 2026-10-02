@@ -21,7 +21,7 @@
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/dist/mcp/server.js"
       ],
-      "tools": [
+      "enabled_tools": [
         "spectra_connect",
         "spectra_snapshot",
         "spectra_act",

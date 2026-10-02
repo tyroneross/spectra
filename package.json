@@ -19,6 +19,8 @@
     }
   },
   "files": [
+    "plugin.json",
+    "mcp.json",
     "dist/",
     "bin/",
     "scripts/postinstall.sh",
