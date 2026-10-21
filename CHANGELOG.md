@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.3](https://github.com/tyroneross/spectra/compare/spectra-v0.4.2...spectra-v0.4.3) (2026-09-17)
+
+
+### Features
+
+* **status:** spectra_session action=status preflight with serving build and grantee ([7b802a4](https://github.com/tyroneross/spectra/commit/7b802a4d4ef5b792bad8dfd6042e352e9d300a64))
+
+
+### Bug Fixes
+
+* **build:** include RecordingNotice.swift in build:composite ([cabf024](https://github.com/tyroneross/spectra/commit/cabf0244793eab0e2f7feaa89c8f15a6e0b3ba93))
+* **native:** refuse ambiguous app-name targets instead of binding the first match ([41439b8](https://github.com/tyroneross/spectra/commit/41439b804e560fc41b162b743a44c0fc0a1c33a4))
+* **permissions:** name the process macOS actually checks for Accessibility ([69aaca8](https://github.com/tyroneross/spectra/commit/69aaca8c0792ccf11a17282301b910470fb229e5))
+* **proxy:** bound health's backend shadow call to 5s; build dist ([3fcc083](https://github.com/tyroneross/spectra/commit/3fcc0838e053ac3d32d268cc73b0d346ddc63b8b))
+* **proxy:** send envelope operation on Swift→TS internal calls; find launcher across hops ([486cafb](https://github.com/tyroneross/spectra/commit/486cafb1508e08fdaefe2fa4fa16d1f191f42821))
+* **status:** name a grantee only for launcher-started daemons; record servedBy in corpus ([fde3d1a](https://github.com/tyroneross/spectra/commit/fde3d1aac604b421a45c686bafa013a2b4b29e99))
+
 ## [0.4.2](https://github.com/tyroneross/spectra/compare/spectra-v0.4.1...spectra-v0.4.2) (2026-09-13)
 
 

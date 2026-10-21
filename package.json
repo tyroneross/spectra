@@ -1,6 +1,6 @@
 {
   "name": "@tyroneross/spectra",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Product screenshots and demo clips go stale the moment the UI changes. Spectra drives your running web, macOS, iOS, and watchOS app to capture and tag them, so docs and launch posts stay current without reshooting.",
   "type": "module",
   "main": "dist/index.js",
