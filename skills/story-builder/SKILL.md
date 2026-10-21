@@ -1,0 +1,21 @@
+---
+name: story-builder
+description: Build a video storyline combining Spectra app captures, authored motion scenes, and imported renders. Use for educational explainers, generated videos from scratch, or hybrid product stories. Works through the same CLI/MCP in Claude, Codex and other agents.
+user-invocable: false
+---
+
+# Story builder
+
+Create the editable story and its sources, render it, then inspect the encoded result. Spectra keeps its real-app capture, voiceover, design presets, zoom, spotlight and audio tools. The composer adds a common clock and flexible generated scenes. No fixed scene template or external animation dependency is required.
+
+1. State audience, learning goal, one governing message, facts and evidence. Define each scene's purpose, claim boundary, entry state, exit state, duration and source. Keep real product facts distinct from illustrative film choices. Use `product-marketing` for marketing strategy and `video-design` for pacing/design; educational structure follows the learning goal.
+2. Capture real behavior using `content-capture` / `host-walkthrough`. Use existing `polish-script` to frame, zoom and caption app footage. A story capture scene can also contain `source.polish` with a beat script and `cool`, `warm` or `bold` preset. Its script has no title, actions or sound: create explicit opening scenes and use master SFX instead. Never recreate a product UI and label it captured proof.
+3. Author arbitrary offline HTML/CSS/SVG/canvas in a dedicated scene folder. Expose `window.renderFrame(ms, {width, height, props})`; set the complete visible state on every call. It may return a promise. Use only the supplied time, not timers, playback, live fetches or accumulated deltas. Spectra freezes Date/performance, seeds random per time, waits for fonts/images and checks a repeated seek. The check catches common mistakes; it does not certify every frame. Bundle fonts/assets locally for reproducibility.
+4. Write a version-1 story JSON following [the current contract](../../docs/story-studio.md). Use absolute input paths. Sources: `html` with entry/seed/props; `capture` with recording/evidence; `media` with video/producer/sourcePath. Import HyperFrames, Remotion or other render outputs as `media`; do not require those engines for core Spectra. `canvas` is authored per format; make separate vertical/square layouts rather than silently cropping.
+5. For narration, supply intentional audio clips with `sceneId`, `offsetMs`, `file`, `text`. Measure each clip: Spectra rejects overrun/overlap. No TTS provider is selected or credentialed automatically. Existing voice-generation workflow supplies audio files. Narration replaces source audio; music/SFX mix on master time. Pre-level music below speech, using `audio-cues`. Source audio defaults muted; `keepAudio` is explicit.
+6. Call `spectra_demo {"action":"compose","storyPath":"/absolute/story.json","outDir":"/absolute/new-output"}`. It acknowledges a durable job immediately. Poll `compose-status` with `outDir` until completed/failed/interrupted. CLI uses the identical JSON: `spectra demo '<json>'`. No shell-specific or model-specific wrapper is needed.
+7. Inspect master MP4, captions, poster, contact sheet and every cut strip. Check spoken/visual alignment, readability, entry/exit continuity, factual support and capture privacy. Fix the biggest concrete defects locally and render to a new output directory. Run `spectra scan-frames <master.mp4>` and review its findings before sharing. A completed render remains `needs-review`; it is not automatic privacy approval or learning-effectiveness proof.
+
+HTML runs in a fresh Chrome profile with restricted local assets and blocked network. Only trusted authored content is supported; this is not a hostile-code sandbox. Never access credentials or reuse a personal browser profile. No Keychain or service connection is required for composition.
+
+Outputs retain a validated story snapshot, input hashes, source provenance and references. Keep the original scene folders and captured inputs alongside the bundle; the snapshot does not copy every source asset. On daemon restart unfinished jobs become interrupted; retry in a new directory. Existing results are never overwritten.

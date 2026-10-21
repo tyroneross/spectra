@@ -73,6 +73,7 @@ export function buildDarkSpotlightFilter(opts: SpotlightStageOptions): string {
 }
 
 export interface SpotlightPrePassOptions extends SpotlightStageOptions {
+  signal?: AbortSignal
   input: string
   hasAudio: boolean
 }
@@ -104,7 +105,7 @@ export async function renderSpotlightPrePass(opts: SpotlightPrePassOptions): Pro
         '-crf', '18',
         ...crashSafeMp4Args(),
         outPath,
-      ], { stdio: 'pipe' })
+      ], { stdio: 'pipe', signal: opts.signal, timeout: 0, killSignal: 'SIGKILL' })
       const stderrChunks: Buffer[] = []
       proc.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(Buffer.from(chunk)))
       proc.on('error', reject)

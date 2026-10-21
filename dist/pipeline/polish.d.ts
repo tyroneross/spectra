@@ -37,6 +37,8 @@ export type AutoFocusOption = boolean | {
     title?: string;
 };
 export interface PolishClipOptions {
+    /** Library-only cancellation; transport jobs own this signal. */
+    signal?: AbortSignal;
     input: string;
     clicksJson: ClicksJsonInput;
     caption?: string;
@@ -54,6 +56,8 @@ export interface PolishClipOptions {
     style?: CaptionBannerStyle | CaptionBannerStyleName;
 }
 export interface PolishScriptOptions {
+    /** Library-only cancellation; transport jobs own this signal. */
+    signal?: AbortSignal;
     input: string;
     script: DemoScript;
     outPath: string;

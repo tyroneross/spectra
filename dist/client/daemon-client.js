@@ -194,17 +194,15 @@ function stripUndefined(value) {
     return out;
 }
 export function timeoutForOperation(operation, params, baseTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
-    if (operation !== 'recordComposite')
-        return baseTimeoutMs;
-    if (params?.async === true)
-        return baseTimeoutMs;
-    const durationSeconds = recordCompositeDurationSeconds(params);
-    return Math.max(baseTimeoutMs, Math.ceil(durationSeconds * 1000) + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS);
-}
-function recordCompositeDurationSeconds(params) {
-    const duration = params?.durationSeconds;
-    return typeof duration === 'number' && Number.isFinite(duration) && duration > 0
-        ? duration
-        : 5;
+    // Video length and encoding cost belong to the script, not a socket deadline.
+    // Zero disables Node's inactivity timeout. Cancellation/failure still propagates.
+    if (['recordComposite', 'autoRampDemo', 'recordTerminal', 'replayTerminal', 'walkthrough', 'stopRecording'].includes(operation))
+        return 0;
+    if (operation === 'demo') {
+        const action = params?.action;
+        if (action && action !== 'compose-status')
+            return 0;
+    }
+    return baseTimeoutMs;
 }
 //# sourceMappingURL=daemon-client.js.map

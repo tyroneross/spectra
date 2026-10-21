@@ -35,4 +35,8 @@ export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './m
 export type { RawImage } from './media/png.js';
 export { DEFAULT_SECRET_PATTERNS, FfmpegUnavailableError, FrameScanInputError, TesseractOcrEngine, applyOcrConfusionMap, normalizeOcrText, sampleFrames, scanFrames, scanOcrText, scanText, } from './media/frame-secret-scan.js';
 export type { FrameFinding, FrameScanRange, FrameScanReport, FrameScanVerdict, OcrEngine, SampledFrame, SecretPattern, SecretSeverity, TextFinding, } from './media/frame-secret-scan.js';
+export { composeStory, startStoryJob, getStoryStatus } from './pipeline/story.js';
+export type { StoryResult, StoryStatus } from './pipeline/story.js';
+export { storySchema, storyTimeline } from './pipeline/story-schema.js';
+export type { Story, StoryInput, StoryScene } from './pipeline/story-schema.js';
 //# sourceMappingURL=index.d.ts.map

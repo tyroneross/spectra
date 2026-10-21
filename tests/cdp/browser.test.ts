@@ -3,13 +3,14 @@ import { BrowserManager, findChrome, CHROME_PATHS } from '../../src/cdp/browser.
 
 // Mock child_process
 vi.mock('node:child_process', () => ({
-  spawn: vi.fn(() => ({
-    pid: 12345,
-    stderr: { on: vi.fn() },
-    stdout: { on: vi.fn() },
-    on: vi.fn(),
-    kill: vi.fn(),
-  })),
+  spawn: vi.fn(() => {
+    let close: (() => void) | undefined
+    return { pid: 12345, exitCode: null, signalCode: null,
+      once: vi.fn((event, done) => { if (event === 'close') close = done }),
+      stderr: { on: vi.fn() }, stdout: { on: vi.fn() }, on: vi.fn(),
+      kill: vi.fn(() => { queueMicrotask(() => close?.()) }),
+    }
+  }),
 }))
 
 // Mock fs
@@ -19,7 +20,7 @@ vi.mock('node:fs', () => ({
 
 // Mock fs/promises
 vi.mock('node:fs/promises', () => ({
-  mkdir: vi.fn(),
+  mkdir: vi.fn(), readFile: vi.fn(), rm: vi.fn(),
 }))
 
 import { spawn } from 'node:child_process'

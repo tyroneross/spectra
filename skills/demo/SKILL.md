@@ -101,3 +101,7 @@ Caption rules:
 - Concat merge uses `-c copy` — all segments must have the same codec, resolution, and frame rate. If segments differ, the merge step will fail with a codec error.
 - `captionPngPath` PNG overlay loops via `-loop 1 -shortest`. Static PNGs of any size work; animated GIFs do not.
 - The drawtext font path `/System/Library/Fonts/Helvetica.ttc` exists on macOS 11+. On other platforms, supply `captionPngPath` instead.
+
+## Hybrid stories
+
+For generated-from-scratch scenes or a storyline mixing captured app footage and explanations, use `story-builder`. It composes offline seekable HTML and imported renders with real captures, preserving this finishing workflow on one master clock. See [story studio](../../docs/story-studio.md).

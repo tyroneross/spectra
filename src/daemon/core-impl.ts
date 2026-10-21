@@ -1,3 +1,4 @@
+import { stopStoryJobs } from '../pipeline/story.js'
 import { execFile, spawn, spawnSync, type ChildProcess, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { stat, mkdir, rename } from 'node:fs/promises'
@@ -1061,6 +1062,7 @@ export class CoreApiImplementation implements CoreApi {
   }
 
   async close(): Promise<void> {
+    const storyShutdown = stopStoryJobs()
     await Promise.all(this.recordings.list().map(async (recording) => {
       this.recordings.remove(recording.recordingId)
       await recording.handle.abort().catch(() => {})
@@ -1097,6 +1099,7 @@ export class CoreApiImplementation implements CoreApi {
       }
     }))
     await this.keepAwake.close()
+    await storyShutdown
   }
 
   protected startCursorSampler(

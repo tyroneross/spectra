@@ -1,3 +1,4 @@
+import { composeParamsSchema, composeStatusParamsSchema, polishStyleSchema, autoFocusSchema, storySpotlightSchema } from '../pipeline/story-schema.js'
 // src/contract/schemas.ts
 //
 // Zod I/O schemas for the daemon contract. These validate the operation params
@@ -415,6 +416,7 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('record-composite'), ...recordCompositeShape }),
   z.object({
     action: z.literal('polish-clip'),
+    style: polishStyleSchema.optional(), autoFocus: autoFocusSchema.optional(),
     input: z.string(),
     clicksJson: demoClicksJsonSchema,
     caption: z.string().optional(),
@@ -424,6 +426,8 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('polish-script'),
+    style: polishStyleSchema.optional(), autoFocus: autoFocusSchema.optional(),
+    spotlight: storySpotlightSchema.optional(),
     input: z.string(),
     script: demoScriptSchema,
     out: z.string(),
@@ -437,6 +441,7 @@ export const demoParamsSchema = z.discriminatedUnion('action', [
     script: demoScriptSchema,
     cdpUrl: z.string(),
   }),
+  composeParamsSchema, composeStatusParamsSchema,
 ])
 
 // Computer-use — discriminated by `action`; the `act` op nests a `kind`-

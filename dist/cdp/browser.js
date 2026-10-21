@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 export const CHROME_PATHS = [
@@ -28,6 +28,9 @@ function randomPort() {
 export class BrowserManager {
     process = null;
     port = 0;
+    closed = Promise.resolve();
+    exited = false;
+    spawnError;
     async launch(options = {}) {
         const headless = options.headless ?? true;
         this.port = options.port ?? randomPort();
@@ -38,8 +41,11 @@ export class BrowserManager {
                 + `Checked: ${CHROME_PATHS.join(', ')}`);
         }
         await mkdir(userDataDir, { recursive: true });
+        if (this.port === 0)
+            await rm(join(userDataDir, 'DevToolsActivePort'), { force: true });
         const args = [
             `--remote-debugging-port=${this.port}`,
+            '--remote-debugging-address=127.0.0.1',
             `--user-data-dir=${userDataDir}`,
             '--no-first-run',
             '--no-default-browser-check',
@@ -57,16 +63,31 @@ export class BrowserManager {
         if (headless) {
             args.push('--headless=new');
         }
+        this.exited = false;
+        this.spawnError = undefined;
         this.process = spawn(chromePath, args, { stdio: 'pipe' });
+        this.closed = new Promise(resolve => this.process.once('close', () => { this.exited = true; resolve(); }));
+        this.process.stdout?.on('data', () => { });
+        this.process.stderr?.on('data', () => { });
         this.process.on('error', (err) => {
-            console.error(`Chrome process error: ${err.message}`);
+            this.spawnError = err;
         });
-        return this.waitForDebugger();
+        return this.waitForDebugger(options.debuggerTimeoutMs ?? 15000, this.port === 0 ? userDataDir : undefined);
     }
-    async waitForDebugger() {
-        const maxAttempts = 50; // 5 seconds at 100ms intervals
+    async waitForDebugger(timeoutMs, profile) {
+        const maxAttempts = Math.ceil(timeoutMs / 100);
         for (let i = 0; i < maxAttempts; i++) {
+            if (this.exited || this.spawnError)
+                throw this.spawnError ?? new Error('Chrome exited before its debugger started');
             try {
+                if (profile) {
+                    // Port zero writes the endpoint into THIS profile, avoiding unrelated browsers.
+                    const [port, path] = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).trim().split('\n');
+                    if (!/^\d+$/.test(port) || !path?.startsWith('/devtools/browser/'))
+                        throw new Error('Waiting for debugger endpoint');
+                    this.port = Number(port);
+                    return `ws://127.0.0.1:${port}${path}`;
+                }
                 const res = await fetch(`http://127.0.0.1:${this.port}/json/version`);
                 const data = (await res.json());
                 return data.webSocketDebuggerUrl;
@@ -75,13 +96,23 @@ export class BrowserManager {
                 await new Promise((r) => setTimeout(r, 100));
             }
         }
-        throw new Error(`Chrome debugger did not respond within 5s on port ${this.port}. `
+        throw new Error(`Chrome debugger did not respond within ${timeoutMs / 1000}s on port ${this.port}. `
             + 'Is another Chrome instance using this port?');
     }
     async close() {
         if (this.process) {
-            this.process.kill();
+            const child = this.process;
             this.process = null;
+            if (this.exited)
+                return;
+            const timer = setTimeout(() => { child.kill('SIGKILL'); }, 3000);
+            child.kill();
+            try {
+                await this.closed;
+            }
+            finally {
+                clearTimeout(timer);
+            }
         }
     }
     get running() {

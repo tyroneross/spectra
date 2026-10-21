@@ -551,35 +551,35 @@ export declare const recordCompositeParamsSchema: z.ZodObject<{
     sessionId: z.ZodOptional<z.ZodString>;
     async: z.ZodOptional<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
+    outPath: string;
     appA: string;
     appB: string;
-    outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
     caption?: string | undefined;
+    spotlight?: "none" | "a" | "b" | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
     labelB?: string | undefined;
     durationSeconds?: number | undefined;
-    spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     async?: boolean | undefined;
 }, {
+    outPath: string;
     appA: string;
     appB: string;
-    outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
     caption?: string | undefined;
+    spotlight?: "none" | "a" | "b" | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
     labelB?: string | undefined;
     durationSeconds?: number | undefined;
-    spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
@@ -651,13 +651,13 @@ export declare const terminalRecordParamsSchema: z.ZodObject<{
     outputDir: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     command: string;
-    outputDir?: string | undefined;
     timeout?: number | undefined;
+    outputDir?: string | undefined;
     watch_files?: string[] | undefined;
 }, {
     command: string;
-    outputDir?: string | undefined;
     timeout?: number | undefined;
+    outputDir?: string | undefined;
     watch_files?: string[] | undefined;
 }>;
 export declare const terminalReplayParamsSchema: z.ZodObject<{
@@ -786,10 +786,10 @@ export declare const libraryParamsSchema: z.ZodDiscriminatedUnion<"action", [z.Z
     groupBy: z.ZodOptional<z.ZodEnum<["feature", "date", "component", "platform", "type"]>>;
 }, "strip", z.ZodTypeAny, {
     action: "gallery";
-    groupBy?: "type" | "platform" | "feature" | "date" | "component" | undefined;
+    groupBy?: "type" | "platform" | "date" | "feature" | "component" | undefined;
 }, {
     action: "gallery";
-    groupBy?: "type" | "platform" | "feature" | "date" | "component" | undefined;
+    groupBy?: "type" | "platform" | "date" | "feature" | "component" | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"get">;
     id: z.ZodString;
@@ -910,22 +910,22 @@ export declare const autoRampDemoParamsSchema: z.ZodObject<{
     input: string;
     out: string;
     fps?: number | undefined;
+    threshold?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
     padSec?: number | undefined;
-    threshold?: number | undefined;
 }, {
     input: string;
     out: string;
     fps?: number | undefined;
+    threshold?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
     padSec?: number | undefined;
-    threshold?: number | undefined;
 }>;
 export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<{
     action: z.ZodLiteral<"scan">;
@@ -977,26 +977,26 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
             captionPngPath: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }, {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }>, "many">;
@@ -1008,14 +1008,14 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -1028,14 +1028,14 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -1053,14 +1053,14 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -1077,14 +1077,14 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -1107,23 +1107,23 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     input: string;
     out: string;
     fps?: number | undefined;
+    threshold?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
     padSec?: number | undefined;
-    threshold?: number | undefined;
 }, {
     action: "auto-ramp";
     input: string;
     out: string;
     fps?: number | undefined;
+    threshold?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
     padSec?: number | undefined;
-    threshold?: number | undefined;
 }>, z.ZodObject<{
     appA: z.ZodString;
     titleA: z.ZodOptional<z.ZodString>;
@@ -1144,42 +1144,53 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     action: z.ZodLiteral<"record-composite">;
 }, "strip", z.ZodTypeAny, {
     action: "record-composite";
+    outPath: string;
     appA: string;
     appB: string;
-    outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
     caption?: string | undefined;
+    spotlight?: "none" | "a" | "b" | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
     labelB?: string | undefined;
     durationSeconds?: number | undefined;
-    spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     async?: boolean | undefined;
 }, {
     action: "record-composite";
+    outPath: string;
     appA: string;
     appB: string;
-    outPath: string;
     fps?: number | undefined;
     sessionId?: string | undefined;
     caption?: string | undefined;
+    spotlight?: "none" | "a" | "b" | undefined;
     titleA?: string | undefined;
     labelA?: string | undefined;
     titleB?: string | undefined;
     labelB?: string | undefined;
     durationSeconds?: number | undefined;
-    spotlight?: "none" | "a" | "b" | undefined;
     cursor?: boolean | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     async?: boolean | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"polish-clip">;
+    style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+    autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+        app: z.ZodOptional<z.ZodString>;
+        title: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }>]>>;
     input: z.ZodString;
     clicksJson: z.ZodUnion<[z.ZodString, z.ZodArray<z.ZodObject<{
         tMs: z.ZodNumber;
@@ -1221,23 +1232,23 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
             tMs: number;
         }>, "many">>;
     }, "strip", z.ZodTypeAny, {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
     }, {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -1296,12 +1307,12 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         cy: number;
         tMs: number;
     }[] | {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -1309,6 +1320,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     };
     fps?: number | undefined;
     caption?: string | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     spotlight?: {
         focal: {
             x: number;
@@ -1319,6 +1331,10 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         dim?: number | undefined;
         blur?: number | undefined;
         feather?: number | undefined;
+    } | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
     } | undefined;
 }, {
     action: "polish-clip";
@@ -1329,12 +1345,12 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         cy: number;
         tMs: number;
     }[] | {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -1342,6 +1358,7 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
     };
     fps?: number | undefined;
     caption?: string | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     spotlight?: {
         focal: {
             x: number;
@@ -1353,8 +1370,64 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         blur?: number | undefined;
         feather?: number | undefined;
     } | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
+    } | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"polish-script">;
+    style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+    autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+        app: z.ZodOptional<z.ZodString>;
+        title: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }>]>>;
+    spotlight: z.ZodOptional<z.ZodObject<{
+        focal: z.ZodObject<{
+            x: z.ZodNumber;
+            y: z.ZodNumber;
+            w: z.ZodNumber;
+            h: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        }, {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        }>;
+        dim: z.ZodOptional<z.ZodNumber>;
+        blur: z.ZodOptional<z.ZodNumber>;
+        feather: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    }, {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    }>>;
     input: z.ZodString;
     script: z.ZodObject<{
         title: z.ZodOptional<z.ZodString>;
@@ -1410,8 +1483,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1430,8 +1503,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1452,8 +1525,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1476,8 +1549,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1519,8 +1592,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1535,12 +1608,28 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     voiceover?: string | undefined;
+    spotlight?: {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    } | undefined;
     music?: string | undefined;
     sfx?: {
         file: string;
         atMs: number;
     }[] | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
+    } | undefined;
 }, {
     action: "polish-script";
     input: string;
@@ -1555,8 +1644,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1571,12 +1660,28 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     voiceover?: string | undefined;
+    spotlight?: {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    } | undefined;
     music?: string | undefined;
     sfx?: {
         file: string;
         atMs: number;
     }[] | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
+    } | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"run-script">;
     script: z.ZodObject<{
@@ -1633,8 +1738,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1653,8 +1758,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1675,8 +1780,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1699,8 +1804,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1727,8 +1832,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1755,8 +1860,8 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -1771,6 +1876,27 @@ export declare const demoParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodO
         finalCaption?: string | undefined;
     };
     cdpUrl: string;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"compose">;
+    storyPath: z.ZodEffects<z.ZodString, string, string>;
+    outDir: z.ZodEffects<z.ZodString, string, string>;
+}, "strict", z.ZodTypeAny, {
+    action: "compose";
+    outDir: string;
+    storyPath: string;
+}, {
+    action: "compose";
+    outDir: string;
+    storyPath: string;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"compose-status">;
+    outDir: z.ZodEffects<z.ZodString, string, string>;
+}, "strict", z.ZodTypeAny, {
+    action: "compose-status";
+    outDir: string;
+}, {
+    action: "compose-status";
+    outDir: string;
 }>]>;
 export declare const computerUseParamsSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<{
     action: z.ZodLiteral<"snapshot">;
@@ -2316,35 +2442,35 @@ export declare const operationParamSchemas: {
         sessionId: z.ZodOptional<z.ZodString>;
         async: z.ZodOptional<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
+        outPath: string;
         appA: string;
         appB: string;
-        outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
         caption?: string | undefined;
+        spotlight?: "none" | "a" | "b" | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
         labelB?: string | undefined;
         durationSeconds?: number | undefined;
-        spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         async?: boolean | undefined;
     }, {
+        outPath: string;
         appA: string;
         appB: string;
-        outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
         caption?: string | undefined;
+        spotlight?: "none" | "a" | "b" | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
         labelB?: string | undefined;
         durationSeconds?: number | undefined;
-        spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
@@ -2416,13 +2542,13 @@ export declare const operationParamSchemas: {
         outputDir: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         command: string;
-        outputDir?: string | undefined;
         timeout?: number | undefined;
+        outputDir?: string | undefined;
         watch_files?: string[] | undefined;
     }, {
         command: string;
-        outputDir?: string | undefined;
         timeout?: number | undefined;
+        outputDir?: string | undefined;
         watch_files?: string[] | undefined;
     }>;
     replayTerminal: z.ZodObject<{
@@ -2551,10 +2677,10 @@ export declare const operationParamSchemas: {
         groupBy: z.ZodOptional<z.ZodEnum<["feature", "date", "component", "platform", "type"]>>;
     }, "strip", z.ZodTypeAny, {
         action: "gallery";
-        groupBy?: "type" | "platform" | "feature" | "date" | "component" | undefined;
+        groupBy?: "type" | "platform" | "date" | "feature" | "component" | undefined;
     }, {
         action: "gallery";
-        groupBy?: "type" | "platform" | "feature" | "date" | "component" | undefined;
+        groupBy?: "type" | "platform" | "date" | "feature" | "component" | undefined;
     }>, z.ZodObject<{
         action: z.ZodLiteral<"get">;
         id: z.ZodString;
@@ -2711,26 +2837,26 @@ export declare const operationParamSchemas: {
                 captionPngPath: z.ZodOptional<z.ZodString>;
             }, "strip", z.ZodTypeAny, {
                 input: string;
-                startSec: number;
-                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
+                startSec: number;
+                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }, {
                 input: string;
-                startSec: number;
-                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
+                startSec: number;
+                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }>, "many">;
@@ -2742,14 +2868,14 @@ export declare const operationParamSchemas: {
             };
             segments: {
                 input: string;
-                startSec: number;
-                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
+                startSec: number;
+                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
@@ -2762,14 +2888,14 @@ export declare const operationParamSchemas: {
             };
             segments: {
                 input: string;
-                startSec: number;
-                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
+                startSec: number;
+                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
@@ -2787,14 +2913,14 @@ export declare const operationParamSchemas: {
             };
             segments: {
                 input: string;
-                startSec: number;
-                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
+                startSec: number;
+                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
@@ -2811,14 +2937,14 @@ export declare const operationParamSchemas: {
             };
             segments: {
                 input: string;
-                startSec: number;
-                durationSec: number;
                 focal: {
                     x: number;
                     y: number;
                     w: number;
                     h: number;
                 };
+                startSec: number;
+                durationSec: number;
                 caption?: string | undefined;
                 captionPngPath?: string | undefined;
             }[];
@@ -2841,23 +2967,23 @@ export declare const operationParamSchemas: {
         input: string;
         out: string;
         fps?: number | undefined;
+        threshold?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         deadSpeed?: number | undefined;
         minDeadSec?: number | undefined;
         padSec?: number | undefined;
-        threshold?: number | undefined;
     }, {
         action: "auto-ramp";
         input: string;
         out: string;
         fps?: number | undefined;
+        threshold?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         deadSpeed?: number | undefined;
         minDeadSec?: number | undefined;
         padSec?: number | undefined;
-        threshold?: number | undefined;
     }>, z.ZodObject<{
         appA: z.ZodString;
         titleA: z.ZodOptional<z.ZodString>;
@@ -2878,42 +3004,53 @@ export declare const operationParamSchemas: {
         action: z.ZodLiteral<"record-composite">;
     }, "strip", z.ZodTypeAny, {
         action: "record-composite";
+        outPath: string;
         appA: string;
         appB: string;
-        outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
         caption?: string | undefined;
+        spotlight?: "none" | "a" | "b" | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
         labelB?: string | undefined;
         durationSeconds?: number | undefined;
-        spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         async?: boolean | undefined;
     }, {
         action: "record-composite";
+        outPath: string;
         appA: string;
         appB: string;
-        outPath: string;
         fps?: number | undefined;
         sessionId?: string | undefined;
         caption?: string | undefined;
+        spotlight?: "none" | "a" | "b" | undefined;
         titleA?: string | undefined;
         labelA?: string | undefined;
         titleB?: string | undefined;
         labelB?: string | undefined;
         durationSeconds?: number | undefined;
-        spotlight?: "none" | "a" | "b" | undefined;
         cursor?: boolean | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         async?: boolean | undefined;
     }>, z.ZodObject<{
         action: z.ZodLiteral<"polish-clip">;
+        style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+        autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+            app: z.ZodOptional<z.ZodString>;
+            title: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            app?: string | undefined;
+            title?: string | undefined;
+        }, {
+            app?: string | undefined;
+            title?: string | undefined;
+        }>]>>;
         input: z.ZodString;
         clicksJson: z.ZodUnion<[z.ZodString, z.ZodArray<z.ZodObject<{
             tMs: z.ZodNumber;
@@ -2955,23 +3092,23 @@ export declare const operationParamSchemas: {
                 tMs: number;
             }>, "many">>;
         }, "strip", z.ZodTypeAny, {
-            clicks?: {
+            cursorPath?: {
                 cx: number;
                 cy: number;
                 tMs: number;
             }[] | undefined;
-            cursorPath?: {
+            clicks?: {
                 cx: number;
                 cy: number;
                 tMs: number;
             }[] | undefined;
         }, {
-            clicks?: {
+            cursorPath?: {
                 cx: number;
                 cy: number;
                 tMs: number;
             }[] | undefined;
-            cursorPath?: {
+            clicks?: {
                 cx: number;
                 cy: number;
                 tMs: number;
@@ -3030,12 +3167,12 @@ export declare const operationParamSchemas: {
             cy: number;
             tMs: number;
         }[] | {
-            clicks?: {
+            cursorPath?: {
                 cx: number;
                 cy: number;
                 tMs: number;
             }[] | undefined;
-            cursorPath?: {
+            clicks?: {
                 cx: number;
                 cy: number;
                 tMs: number;
@@ -3043,6 +3180,7 @@ export declare const operationParamSchemas: {
         };
         fps?: number | undefined;
         caption?: string | undefined;
+        style?: "bold" | "cool" | "warm" | undefined;
         spotlight?: {
             focal: {
                 x: number;
@@ -3053,6 +3191,10 @@ export declare const operationParamSchemas: {
             dim?: number | undefined;
             blur?: number | undefined;
             feather?: number | undefined;
+        } | undefined;
+        autoFocus?: boolean | {
+            app?: string | undefined;
+            title?: string | undefined;
         } | undefined;
     }, {
         action: "polish-clip";
@@ -3063,12 +3205,12 @@ export declare const operationParamSchemas: {
             cy: number;
             tMs: number;
         }[] | {
-            clicks?: {
+            cursorPath?: {
                 cx: number;
                 cy: number;
                 tMs: number;
             }[] | undefined;
-            cursorPath?: {
+            clicks?: {
                 cx: number;
                 cy: number;
                 tMs: number;
@@ -3076,6 +3218,7 @@ export declare const operationParamSchemas: {
         };
         fps?: number | undefined;
         caption?: string | undefined;
+        style?: "bold" | "cool" | "warm" | undefined;
         spotlight?: {
             focal: {
                 x: number;
@@ -3087,8 +3230,64 @@ export declare const operationParamSchemas: {
             blur?: number | undefined;
             feather?: number | undefined;
         } | undefined;
+        autoFocus?: boolean | {
+            app?: string | undefined;
+            title?: string | undefined;
+        } | undefined;
     }>, z.ZodObject<{
         action: z.ZodLiteral<"polish-script">;
+        style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+        autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+            app: z.ZodOptional<z.ZodString>;
+            title: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            app?: string | undefined;
+            title?: string | undefined;
+        }, {
+            app?: string | undefined;
+            title?: string | undefined;
+        }>]>>;
+        spotlight: z.ZodOptional<z.ZodObject<{
+            focal: z.ZodObject<{
+                x: z.ZodNumber;
+                y: z.ZodNumber;
+                w: z.ZodNumber;
+                h: z.ZodNumber;
+            }, "strip", z.ZodTypeAny, {
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+            }, {
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+            }>;
+            dim: z.ZodOptional<z.ZodNumber>;
+            blur: z.ZodOptional<z.ZodNumber>;
+            feather: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            focal: {
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+            };
+            dim?: number | undefined;
+            blur?: number | undefined;
+            feather?: number | undefined;
+        }, {
+            focal: {
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+            };
+            dim?: number | undefined;
+            blur?: number | undefined;
+            feather?: number | undefined;
+        }>>;
         input: z.ZodString;
         script: z.ZodObject<{
             title: z.ZodOptional<z.ZodString>;
@@ -3144,8 +3343,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3164,8 +3363,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3186,8 +3385,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3210,8 +3409,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3253,8 +3452,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3269,12 +3468,28 @@ export declare const operationParamSchemas: {
             finalCaption?: string | undefined;
         };
         fps?: number | undefined;
+        style?: "bold" | "cool" | "warm" | undefined;
         voiceover?: string | undefined;
+        spotlight?: {
+            focal: {
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+            };
+            dim?: number | undefined;
+            blur?: number | undefined;
+            feather?: number | undefined;
+        } | undefined;
         music?: string | undefined;
         sfx?: {
             file: string;
             atMs: number;
         }[] | undefined;
+        autoFocus?: boolean | {
+            app?: string | undefined;
+            title?: string | undefined;
+        } | undefined;
     }, {
         action: "polish-script";
         input: string;
@@ -3289,8 +3504,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3305,12 +3520,28 @@ export declare const operationParamSchemas: {
             finalCaption?: string | undefined;
         };
         fps?: number | undefined;
+        style?: "bold" | "cool" | "warm" | undefined;
         voiceover?: string | undefined;
+        spotlight?: {
+            focal: {
+                x: number;
+                y: number;
+                w: number;
+                h: number;
+            };
+            dim?: number | undefined;
+            blur?: number | undefined;
+            feather?: number | undefined;
+        } | undefined;
         music?: string | undefined;
         sfx?: {
             file: string;
             atMs: number;
         }[] | undefined;
+        autoFocus?: boolean | {
+            app?: string | undefined;
+            title?: string | undefined;
+        } | undefined;
     }>, z.ZodObject<{
         action: z.ZodLiteral<"run-script">;
         script: z.ZodObject<{
@@ -3367,8 +3598,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3387,8 +3618,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3409,8 +3640,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3433,8 +3664,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3461,8 +3692,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3489,8 +3720,8 @@ export declare const operationParamSchemas: {
                     value?: string | undefined;
                     target?: string | undefined;
                 } | undefined;
-                stepLabel?: string | undefined;
                 stepText?: string | undefined;
+                stepLabel?: string | undefined;
                 zoom?: {
                     cx: number;
                     cy: number;
@@ -3505,6 +3736,27 @@ export declare const operationParamSchemas: {
             finalCaption?: string | undefined;
         };
         cdpUrl: string;
+    }>, z.ZodObject<{
+        action: z.ZodLiteral<"compose">;
+        storyPath: z.ZodEffects<z.ZodString, string, string>;
+        outDir: z.ZodEffects<z.ZodString, string, string>;
+    }, "strict", z.ZodTypeAny, {
+        action: "compose";
+        outDir: string;
+        storyPath: string;
+    }, {
+        action: "compose";
+        outDir: string;
+        storyPath: string;
+    }>, z.ZodObject<{
+        action: z.ZodLiteral<"compose-status">;
+        outDir: z.ZodEffects<z.ZodString, string, string>;
+    }, "strict", z.ZodTypeAny, {
+        action: "compose-status";
+        outDir: string;
+    }, {
+        action: "compose-status";
+        outDir: string;
     }>]>;
     autoRampDemo: z.ZodObject<{
         input: z.ZodString;
@@ -3520,22 +3772,22 @@ export declare const operationParamSchemas: {
         input: string;
         out: string;
         fps?: number | undefined;
+        threshold?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         deadSpeed?: number | undefined;
         minDeadSec?: number | undefined;
         padSec?: number | undefined;
-        threshold?: number | undefined;
     }, {
         input: string;
         out: string;
         fps?: number | undefined;
+        threshold?: number | undefined;
         maxWidth?: number | undefined;
         crf?: number | undefined;
         deadSpeed?: number | undefined;
         minDeadSec?: number | undefined;
         padSec?: number | undefined;
-        threshold?: number | undefined;
     }>;
     computerUse: z.ZodDiscriminatedUnion<"action", [z.ZodObject<{
         action: z.ZodLiteral<"snapshot">;
@@ -3695,7 +3947,7 @@ export declare const verifiedCallerSchema: z.ZodObject<{
     tokenId: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-    verifiedBy: "unix-peer" | "bearer-token";
+    verifiedBy: "bearer-token" | "unix-peer";
     capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
     pid?: number | undefined;
     uid?: number | undefined;
@@ -3703,7 +3955,7 @@ export declare const verifiedCallerSchema: z.ZodObject<{
     tokenId?: string | undefined;
 }, {
     surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-    verifiedBy: "unix-peer" | "bearer-token";
+    verifiedBy: "bearer-token" | "unix-peer";
     capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
     pid?: number | undefined;
     uid?: number | undefined;
@@ -3729,8 +3981,8 @@ export declare const apiRequestEnvelopeSchema: z.ZodObject<{
     }>>;
     params: z.ZodOptional<z.ZodUnknown>;
 }, "strip", z.ZodTypeAny, {
-    apiVersion: 2;
     requestId: string;
+    apiVersion: 2;
     operation: CoreApiOperation;
     params?: unknown;
     caller?: {
@@ -3739,8 +3991,8 @@ export declare const apiRequestEnvelopeSchema: z.ZodObject<{
         name?: string | undefined;
     } | undefined;
 }, {
-    apiVersion: 2;
     requestId: string;
+    apiVersion: 2;
     operation: CoreApiOperation;
     params?: unknown;
     caller?: {
@@ -3765,7 +4017,7 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
         tokenId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3773,7 +4025,7 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
         tokenId?: string | undefined;
     }, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3784,12 +4036,12 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     timestamp: number;
     ok: true;
-    apiVersion: 2;
     requestId: string;
+    apiVersion: 2;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3800,12 +4052,12 @@ export declare const apiSuccessEnvelopeSchema: z.ZodObject<{
 }, {
     timestamp: number;
     ok: true;
-    apiVersion: 2;
     requestId: string;
+    apiVersion: 2;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3848,7 +4100,7 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
         tokenId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3856,7 +4108,7 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
         tokenId?: string | undefined;
     }, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3878,7 +4130,7 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3900,7 +4152,7 @@ export declare const apiErrorEnvelopeSchema: z.ZodObject<{
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3925,7 +4177,7 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
         tokenId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3933,7 +4185,7 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
         tokenId?: string | undefined;
     }, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3944,12 +4196,12 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
 }, "strip", z.ZodTypeAny, {
     timestamp: number;
     ok: true;
-    apiVersion: 2;
     requestId: string;
+    apiVersion: 2;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -3960,12 +4212,12 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
 }, {
     timestamp: number;
     ok: true;
-    apiVersion: 2;
     requestId: string;
+    apiVersion: 2;
     result?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4007,7 +4259,7 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
         tokenId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4015,7 +4267,7 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
         tokenId?: string | undefined;
     }, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4037,7 +4289,7 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4059,7 +4311,7 @@ export declare const apiResponseEnvelopeSchema: z.ZodDiscriminatedUnion<"ok", [z
     requestId?: string | undefined;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4084,7 +4336,7 @@ export declare const daemonEventEnvelopeSchema: z.ZodObject<{
         tokenId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4092,7 +4344,7 @@ export declare const daemonEventEnvelopeSchema: z.ZodObject<{
         tokenId?: string | undefined;
     }, {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4110,7 +4362,7 @@ export declare const daemonEventEnvelopeSchema: z.ZodObject<{
     data?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;
@@ -4127,7 +4379,7 @@ export declare const daemonEventEnvelopeSchema: z.ZodObject<{
     data?: unknown;
     caller?: {
         surface: "unknown" | "stdio-mcp" | "cli" | "menubar" | "slash-command" | "http-mcp" | "test";
-        verifiedBy: "unix-peer" | "bearer-token";
+        verifiedBy: "bearer-token" | "unix-peer";
         capabilities: ("daemon:read" | "permissions:read" | "permissions:request" | "windows:read" | "sessions:read" | "sessions:write" | "ui:read" | "ui:act" | "analysis:read" | "discover:write" | "media:capture" | "media:record" | "terminal:read" | "terminal:record" | "library:read" | "library:write" | "demo:write")[];
         pid?: number | undefined;
         uid?: number | undefined;

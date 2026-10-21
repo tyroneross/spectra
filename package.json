@@ -30,7 +30,9 @@
     "commands/",
     "skills/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "docs/story-studio.md",
+    "examples/"
   ],
   "scripts": {
     "build": "tsc",

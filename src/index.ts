@@ -197,3 +197,9 @@ export type {
   SecretSeverity,
   TextFinding,
 } from './media/frame-secret-scan.js'
+
+// Host-neutral hybrid composition; MCP/CLI expose async compose + compose-status.
+export { composeStory, startStoryJob, getStoryStatus } from './pipeline/story.js'
+export type { StoryResult, StoryStatus } from './pipeline/story.js'
+export { storySchema, storyTimeline } from './pipeline/story-schema.js'
+export type { Story, StoryInput, StoryScene } from './pipeline/story-schema.js'

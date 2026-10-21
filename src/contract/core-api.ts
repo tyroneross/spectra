@@ -1161,6 +1161,8 @@ export interface DemoSpotlightOptions {
 }
 
 export interface DemoPolishClipParams {
+  style?: 'cool' | 'warm' | 'bold'
+  autoFocus?: boolean | { app?: string; title?: string }
   action: 'polish-clip'
   input: string
   clicksJson: DemoClicksJsonInput
@@ -1171,6 +1173,9 @@ export interface DemoPolishClipParams {
 }
 
 export interface DemoPolishScriptParams {
+  style?: 'cool' | 'warm' | 'bold'
+  autoFocus?: boolean | { app?: string; title?: string }
+  spotlight?: DemoSpotlightOptions
   action: 'polish-script'
   input: string
   script: DemoScript
@@ -1220,7 +1225,21 @@ export interface DemoRunScriptResult {
   log: DemoRunScriptLogEntry[]
 }
 
+/** Async-only transport: poll compose-status; the library composeStory awaits completion. */
+export interface DemoComposeParams { action: 'compose'; storyPath: string; outDir: string }
+export interface DemoComposeStatusParams { action: 'compose-status'; outDir: string }
+export interface DemoStoryResult {
+  outPath: string; manifestPath: string; captionsPath: string; contactSheet: string;
+  poster: string; strips: string[]; width: number; height: number; fps: number; frames: number; durationMs: number
+}
+export interface DemoStoryStatus {
+  ownerPid: number; jobId: string; status: 'running' | 'completed' | 'failed' | 'interrupted'; outDir: string;
+  completedScenes: number; totalScenes: number; startedAt: string; result?: DemoStoryResult; error?: string
+}
+
 export type DemoParams =
+  | DemoComposeParams
+  | DemoComposeStatusParams
   | DemoScanParams
   | DemoPolishParams
   | DemoAutoRampParams
@@ -1230,6 +1249,7 @@ export type DemoParams =
   | DemoRunScriptParams
 
 export type DemoResult =
+  | DemoStoryStatus
   | DemoScanResult
   | DemoPolishResult
   | AutoRampDemoResult

@@ -29,4 +29,7 @@ export { createAppleEditorHandoff } from './media/apple-editor-handoff.js';
 export { compileEditPlan, editPlanBeatSchema, editPlanClaimSchema, editPlanNarrationSchema, editPlanSchema, narrationCacheKey, parseEditPlan, } from './media/edit-plan.js';
 export { decodePng, encodePng, cropImage, resizeNearest, toGrayscale } from './media/png.js';
 export { DEFAULT_SECRET_PATTERNS, FfmpegUnavailableError, FrameScanInputError, TesseractOcrEngine, applyOcrConfusionMap, normalizeOcrText, sampleFrames, scanFrames, scanOcrText, scanText, } from './media/frame-secret-scan.js';
+// Host-neutral hybrid composition; MCP/CLI expose async compose + compose-status.
+export { composeStory, startStoryJob, getStoryStatus } from './pipeline/story.js';
+export { storySchema, storyTimeline } from './pipeline/story-schema.js';
 //# sourceMappingURL=index.js.map

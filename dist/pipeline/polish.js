@@ -66,8 +66,8 @@ export async function polishClip(options) {
         throw new Error('fps must be a positive integer');
     }
     const [metadata, hasAudio] = await Promise.all([
-        probeVideo(options.input),
-        probeHasAudio(options.input),
+        probeVideo(options.input, options.signal),
+        probeHasAudio(options.input, options.signal),
     ]);
     const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus);
     let renderInput = options.input;
@@ -81,6 +81,7 @@ export async function polishClip(options) {
             blur: spotlight.blur,
             feather: spotlight.feather,
             hasAudio,
+            signal: options.signal,
         });
         renderInput = spotlightTempPath;
     }
@@ -99,7 +100,7 @@ export async function polishClip(options) {
             cursorPath: parsed.cursorPath,
         });
         let nextInputIndex = 1;
-        const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
+        const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps, options.signal);
         nextInputIndex += 1;
         const captionText = options.caption?.trim();
         const captionOverlay = captionText
@@ -143,7 +144,7 @@ export async function polishClip(options) {
             '-crf', '18',
             '-movflags', '+faststart',
             options.outPath,
-        ]);
+        ], options.signal);
         return {
             outPath: options.outPath,
             width: OUTPUT_W,
@@ -164,8 +165,8 @@ export async function polishScript(options) {
         throw new Error('fps must be a positive integer');
     }
     const [metadata, hasAudio] = await Promise.all([
-        probeVideo(options.input),
-        probeHasAudio(options.input),
+        probeVideo(options.input, options.signal),
+        probeHasAudio(options.input, options.signal),
     ]);
     const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus);
     let renderInput = options.input;
@@ -179,6 +180,7 @@ export async function polishScript(options) {
             blur: spotlight.blur,
             feather: spotlight.feather,
             hasAudio,
+            signal: options.signal,
         });
         renderInput = spotlightTempPath;
     }
@@ -199,7 +201,7 @@ export async function polishScript(options) {
         const frames = frameCount(durationMs, fps);
         const finalCaption = script.finalCaption?.trim();
         let nextInputIndex = 1;
-        const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps);
+        const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps, options.signal);
         nextInputIndex += 1;
         // The caption's tail window and the step-card list come from ONE plan so
         // they cannot drift apart: whichever path draws the caption, the cards it
@@ -296,7 +298,7 @@ export async function polishScript(options) {
             '-crf', '18',
             '-movflags', '+faststart',
             options.outPath,
-        ]);
+        ], options.signal);
         return {
             outPath: options.outPath,
             width: OUTPUT_W,
@@ -334,7 +336,7 @@ export async function polishScript(options) {
  * metadata to negotiate over, so the reloaded mask is bit-identical to the
  * one ffmpeg would have computed inline.
  */
-async function renderFrameChromeAssets(inputIndexStart, outW, outH, fps) {
+async function renderFrameChromeAssets(inputIndexStart, outW, outH, fps, signal) {
     const plan = frameChromeRenderPlan({ outW, outH });
     const { contentW, contentH } = plan.layout;
     const cacheKey = createHash('sha256')
@@ -352,7 +354,7 @@ async function renderFrameChromeAssets(inputIndexStart, outW, outH, fps) {
             '-f', 'rawvideo',
             '-pix_fmt', 'gray',
             maskPath,
-        ]);
+        ], signal);
     }
     return {
         maskInputArgs: [
@@ -493,14 +495,14 @@ function seconds(ms) {
 function labelRef(label) {
     return label.startsWith('[') && label.endsWith(']') ? label : `[${label}]`;
 }
-async function probeVideo(input) {
+async function probeVideo(input, signal) {
     const stdout = await runProcess('ffprobe', [
         '-v', 'error',
         '-select_streams', 'v:0',
         '-show_entries', 'stream=width,height,duration:format=duration',
         '-of', 'json',
         input,
-    ]);
+    ], signal);
     const data = JSON.parse(stdout);
     const stream = data.streams?.[0];
     if (!stream?.width || !stream.height) {
@@ -518,14 +520,14 @@ async function probeVideo(input) {
  * polishScript can preserve audio when it exists instead of unconditionally
  * stripping it with `-an`.
  */
-async function probeHasAudio(input) {
+async function probeHasAudio(input, signal) {
     const stdout = await runProcess('ffprobe', [
         '-v', 'error',
         '-select_streams', 'a:0',
         '-show_entries', 'stream=index',
         '-of', 'csv=p=0',
         input,
-    ]).catch(() => '');
+    ], signal).catch(() => '');
     return stdout.trim().length > 0;
 }
 /**
@@ -684,9 +686,10 @@ async function ffmpegHasFilter(name) {
 function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-async function runProcess(cmd, args) {
+async function runProcess(cmd, args, signal) {
+    signal?.throwIfAborted();
     return new Promise((resolveProcess, reject) => {
-        const proc = spawn(cmd, args, { stdio: 'pipe' });
+        const proc = spawn(cmd, args, { stdio: 'pipe', signal, timeout: 0, killSignal: 'SIGKILL' });
         const stdoutChunks = [];
         const stderrChunks = [];
         proc.stdout?.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));

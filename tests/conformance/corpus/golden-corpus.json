@@ -1550,7 +1550,7 @@
       "result": {
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.4.2",
+        "daemonVersion": "0.4.3",
         "pid": "<PID>",
         "uptimeSec": "<TIMESTAMP>",
         "startedAt": "<TIMESTAMP>",
@@ -1576,7 +1576,7 @@
       "result": {
         "ok": true,
         "apiVersion": 2,
-        "daemonVersion": "0.4.2",
+        "daemonVersion": "0.4.3",
         "pid": "<PID>",
         "uptimeSec": "<TIMESTAMP>",
         "startedAt": "<TIMESTAMP>",

@@ -59,21 +59,26 @@ describe('DaemonClient — contract round-trip', () => {
     expect(await client.isUp()).toBe(false)
   })
 
-  it('scales recordComposite timeout by requested duration plus encode buffer', () => {
+  it('leaves video production unbounded while retaining ordinary control deadlines', () => {
     expect(timeoutForOperation('health', {}, 30_000)).toBe(30_000)
     expect(timeoutForOperation('recordComposite', {
       appA: 'Chrome',
       appB: 'Ghostty',
       outPath: '/tmp/out.mp4',
       durationSeconds: 15,
-    }, 30_000)).toBe(15_000 + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS)
+    }, 30_000)).toBe(0)
     expect(timeoutForOperation('recordComposite', {
       appA: 'Chrome',
       appB: 'Ghostty',
       outPath: '/tmp/out.mp4',
       durationSeconds: 15,
       async: true,
-    }, 30_000)).toBe(30_000)
+    }, 30_000)).toBe(0)
+    expect(timeoutForOperation('demo', { action: 'polish-script', script: { beats: [{ endMs: 3_600_000 }] } })).toBe(0)
+    expect(timeoutForOperation('demo', { action: 'compose' })).toBe(0)
+    expect(timeoutForOperation('demo', { action: 'run-script' })).toBe(0)
+    expect(timeoutForOperation('demo', { action: 'compose-status' })).toBe(30_000)
+
   })
 })
 

@@ -84,7 +84,7 @@ export async function renderSpotlightPrePass(opts) {
                 '-crf', '18',
                 ...crashSafeMp4Args(),
                 outPath,
-            ], { stdio: 'pipe' });
+            ], { stdio: 'pipe', signal: opts.signal, timeout: 0, killSignal: 'SIGKILL' });
             const stderrChunks = [];
             proc.stderr?.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
             proc.on('error', reject);

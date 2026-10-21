@@ -1,3 +1,5 @@
+import { startStoryJob, getStoryStatus } from '../../pipeline/story.js'
+import { composeParamsSchema, composeStatusParamsSchema, polishStyleSchema, autoFocusSchema, storySpotlightSchema } from '../../pipeline/story-schema.js'
 // src/mcp/tools/demo.ts
 // MCP tool handler for spectra_demo — polished agent demo video production.
 import { z } from 'zod'
@@ -120,6 +122,7 @@ export const DemoSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('polish-clip'),
+    style: polishStyleSchema.optional(), autoFocus: autoFocusSchema.optional(),
     input: z.string().describe('Path to the source clip to polish'),
     clicksJson: ClicksJsonSchema.describe('Click/cursor track driving the zoom — inline JSON, a path, or {clicks, cursorPath}'),
     caption: z.string().optional().describe('Lower-third caption text rendered as a caption banner'),
@@ -129,6 +132,8 @@ export const DemoSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('polish-script'),
+    style: polishStyleSchema.optional(), autoFocus: autoFocusSchema.optional(),
+    spotlight: storySpotlightSchema.optional(),
     input: z.string().describe('Path to the source recording'),
     script: DemoScriptSchema,
     out: z.string().describe('Output mp4 path'),
@@ -142,12 +147,15 @@ export const DemoSchema = z.discriminatedUnion('action', [
     script: DemoScriptSchema,
     cdpUrl: z.string().describe('WebSocket debugger URL of an already-open CDP page target to drive'),
   }),
+  composeParamsSchema, composeStatusParamsSchema,
 ])
 
 // ─── Handler ──────────────────────────────────────────────────
 
 export async function handleDemo(params: unknown, _ctx?: ToolContext): Promise<object> {
   const parsed = DemoSchema.parse(params)
+  if (parsed.action === 'compose') return startStoryJob(parsed.storyPath, parsed.outDir)
+  if (parsed.action === 'compose-status') return getStoryStatus(parsed.outDir)
 
   if (parsed.action === 'scan') {
     return scanActivity(parsed.input, { threshold: parsed.threshold })
@@ -172,6 +180,7 @@ export async function handleDemo(params: unknown, _ctx?: ToolContext): Promise<o
       outPath: parsed.out,
       fps: parsed.fps,
       spotlight: parsed.spotlight,
+      style: parsed.style, autoFocus: parsed.autoFocus,
     })
   }
 
@@ -182,6 +191,7 @@ export async function handleDemo(params: unknown, _ctx?: ToolContext): Promise<o
       outPath: parsed.out,
       fps: parsed.fps,
       voiceover: parsed.voiceover,
+      style: parsed.style, spotlight: parsed.spotlight, autoFocus: parsed.autoFocus,
       music: parsed.music,
       sfx: parsed.sfx,
     })

@@ -730,3 +730,7 @@ Primary Codex surface:
 - MCP config from `inline `mcpServers` metadata` when present
 
 Install the package from this package root using your current Codex plugin install flow. The Codex package is additive only: Claude-specific hooks, slash commands, and agent wiring remain unchanged for Claude Code.
+
+## Hybrid story studio
+
+Combine real app captures with generated HTML motion scenes or imported renders, using one frame clock for narration, captions and sound. Claude, Codex and other agents use the same async `spectra_demo` compose/status actions or `spectra demo` CLI. Existing app capture, polish styles, spotlight, zoom and voice/audio workflows remain available. See [story studio](docs/story-studio.md), [story-builder skill](skills/story-builder/SKILL.md) and [runnable example](examples/hybrid-story/render.mjs).

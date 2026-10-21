@@ -79,7 +79,7 @@ describe('enriched contract spec — freeze / drift gate', () => {
       expect(committed.operations.library.params.options).toHaveLength(9)
     }
     if (committed.operations.demo.params.kind === 'discriminatedUnion') {
-      expect(committed.operations.demo.params.options).toHaveLength(7)
+      expect(committed.operations.demo.params.options).toHaveLength(9)
     }
   })
 

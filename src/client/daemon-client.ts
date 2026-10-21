@@ -259,19 +259,12 @@ export function timeoutForOperation(
   params: unknown,
   baseTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 ): number {
-  if (operation !== 'recordComposite') return baseTimeoutMs
-  if ((params as Partial<RecordCompositeParams> | undefined)?.async === true) return baseTimeoutMs
-
-  const durationSeconds = recordCompositeDurationSeconds(params)
-  return Math.max(
-    baseTimeoutMs,
-    Math.ceil(durationSeconds * 1000) + RECORD_COMPOSITE_TIMEOUT_BUFFER_MS,
-  )
-}
-
-function recordCompositeDurationSeconds(params: unknown): number {
-  const duration = (params as Partial<RecordCompositeParams> | undefined)?.durationSeconds
-  return typeof duration === 'number' && Number.isFinite(duration) && duration > 0
-    ? duration
-    : 5
+  // Video length and encoding cost belong to the script, not a socket deadline.
+  // Zero disables Node's inactivity timeout. Cancellation/failure still propagates.
+  if (['recordComposite', 'autoRampDemo', 'recordTerminal', 'replayTerminal', 'walkthrough', 'stopRecording'].includes(operation)) return 0
+  if (operation === 'demo') {
+    const action = (params as { action?: string } | undefined)?.action
+    if (action && action !== 'compose-status') return 0
+  }
+  return baseTimeoutMs
 }

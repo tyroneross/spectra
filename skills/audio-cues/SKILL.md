@@ -207,3 +207,7 @@ prep was skipped — go back to Step 2.
   source, licensing).
 - `../video-design/references/sound.md` — music BPM by audience, VO levels, silence.
 - `../video-design/references/pacing.md` — beat/cut rate, pattern interrupts.
+
+## Hybrid stories
+
+For generated-from-scratch scenes or a storyline mixing captured app footage and explanations, use `story-builder`. It composes offline seekable HTML and imported renders with real captures, preserving this finishing workflow on one master clock. See [story studio](../../docs/story-studio.md).

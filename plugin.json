@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "spectra",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Capture product screenshots, walkthroughs, and demo videos.",
   "extensions": {
     "com.openai": {

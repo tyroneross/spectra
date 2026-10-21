@@ -50,26 +50,26 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             captionPngPath: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }, {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }>, "many">;
@@ -81,14 +81,14 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -101,14 +101,14 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -126,14 +126,14 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -150,14 +150,14 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -179,23 +179,34 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     input: string;
     out: string;
     fps?: number | undefined;
+    threshold?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
-    threshold?: number | undefined;
 }, {
     action: "auto-ramp";
     input: string;
     out: string;
     fps?: number | undefined;
+    threshold?: number | undefined;
     maxWidth?: number | undefined;
     crf?: number | undefined;
     deadSpeed?: number | undefined;
     minDeadSec?: number | undefined;
-    threshold?: number | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"polish-clip">;
+    style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+    autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+        app: z.ZodOptional<z.ZodString>;
+        title: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }>]>>;
     input: z.ZodString;
     clicksJson: z.ZodUnion<[z.ZodString, z.ZodArray<z.ZodObject<{
         tMs: z.ZodNumber;
@@ -237,23 +248,23 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
             tMs: number;
         }>, "many">>;
     }, "strip", z.ZodTypeAny, {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
     }, {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -312,12 +323,12 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         cy: number;
         tMs: number;
     }[] | {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -325,6 +336,7 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     };
     fps?: number | undefined;
     caption?: string | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     spotlight?: {
         focal: {
             x: number;
@@ -335,6 +347,10 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         dim?: number | undefined;
         blur?: number | undefined;
         feather?: number | undefined;
+    } | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
     } | undefined;
 }, {
     action: "polish-clip";
@@ -345,12 +361,12 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         cy: number;
         tMs: number;
     }[] | {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -358,6 +374,7 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
     };
     fps?: number | undefined;
     caption?: string | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     spotlight?: {
         focal: {
             x: number;
@@ -369,8 +386,64 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         blur?: number | undefined;
         feather?: number | undefined;
     } | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
+    } | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"polish-script">;
+    style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+    autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+        app: z.ZodOptional<z.ZodString>;
+        title: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }>]>>;
+    spotlight: z.ZodOptional<z.ZodObject<{
+        focal: z.ZodObject<{
+            x: z.ZodNumber;
+            y: z.ZodNumber;
+            w: z.ZodNumber;
+            h: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        }, {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        }>;
+        dim: z.ZodOptional<z.ZodNumber>;
+        blur: z.ZodOptional<z.ZodNumber>;
+        feather: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    }, {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    }>>;
     input: z.ZodString;
     script: z.ZodObject<{
         title: z.ZodOptional<z.ZodString>;
@@ -426,8 +499,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -446,8 +519,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -468,8 +541,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -492,8 +565,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -535,8 +608,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -551,12 +624,28 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     voiceover?: string | undefined;
+    spotlight?: {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    } | undefined;
     music?: string | undefined;
     sfx?: {
         file: string;
         atMs: number;
     }[] | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
+    } | undefined;
 }, {
     action: "polish-script";
     input: string;
@@ -571,8 +660,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -587,12 +676,28 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         finalCaption?: string | undefined;
     };
     fps?: number | undefined;
+    style?: "bold" | "cool" | "warm" | undefined;
     voiceover?: string | undefined;
+    spotlight?: {
+        focal: {
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        };
+        dim?: number | undefined;
+        blur?: number | undefined;
+        feather?: number | undefined;
+    } | undefined;
     music?: string | undefined;
     sfx?: {
         file: string;
         atMs: number;
     }[] | undefined;
+    autoFocus?: boolean | {
+        app?: string | undefined;
+        title?: string | undefined;
+    } | undefined;
 }>, z.ZodObject<{
     action: z.ZodLiteral<"run-script">;
     script: z.ZodObject<{
@@ -649,8 +754,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -669,8 +774,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -691,8 +796,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -715,8 +820,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -743,8 +848,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -771,8 +876,8 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -787,6 +892,27 @@ export declare const DemoSchema: z.ZodDiscriminatedUnion<"action", [z.ZodObject<
         finalCaption?: string | undefined;
     };
     cdpUrl: string;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"compose">;
+    storyPath: z.ZodEffects<z.ZodString, string, string>;
+    outDir: z.ZodEffects<z.ZodString, string, string>;
+}, "strict", z.ZodTypeAny, {
+    action: "compose";
+    outDir: string;
+    storyPath: string;
+}, {
+    action: "compose";
+    outDir: string;
+    storyPath: string;
+}>, z.ZodObject<{
+    action: z.ZodLiteral<"compose-status">;
+    outDir: z.ZodEffects<z.ZodString, string, string>;
+}, "strict", z.ZodTypeAny, {
+    action: "compose-status";
+    outDir: string;
+}, {
+    action: "compose-status";
+    outDir: string;
 }>]>;
 export declare function handleDemo(params: unknown, _ctx?: ToolContext): Promise<object>;
 //# sourceMappingURL=demo.d.ts.map

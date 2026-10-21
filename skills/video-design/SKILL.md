@@ -109,3 +109,7 @@ philosophy/color to the `style` (`cool`/`warm`/`bold`) preset used by
 This skill AMPLIFIES `product-marketing` — that skill decides what/when/where;
 this one decides how it feels. For the strategy layer (video type, length,
 channel, story spine, funnel), load `Skill("spectra:product-marketing")`.
+
+## Hybrid stories
+
+For generated-from-scratch scenes or a storyline mixing captured app footage and explanations, use `story-builder`. It composes offline seekable HTML and imported renders with real captures, preserving this finishing workflow on one master clock. See [story studio](../../docs/story-studio.md).

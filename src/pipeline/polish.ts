@@ -52,6 +52,8 @@ export interface PolishClipSpotlightOptions {
 export type AutoFocusOption = boolean | { app?: string; title?: string }
 
 export interface PolishClipOptions {
+  /** Library-only cancellation; transport jobs own this signal. */
+  signal?: AbortSignal
   input: string
   clicksJson: ClicksJsonInput
   caption?: string
@@ -70,6 +72,8 @@ export interface PolishClipOptions {
 }
 
 export interface PolishScriptOptions {
+  /** Library-only cancellation; transport jobs own this signal. */
+  signal?: AbortSignal
   input: string
   script: DemoScript
   outPath: string
@@ -197,8 +201,8 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
   }
 
   const [metadata, hasAudio] = await Promise.all([
-    probeVideo(options.input),
-    probeHasAudio(options.input),
+    probeVideo(options.input, options.signal),
+    probeHasAudio(options.input, options.signal),
   ])
 
   const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus)
@@ -213,6 +217,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
       blur: spotlight.blur,
       feather: spotlight.feather,
       hasAudio,
+      signal: options.signal,
     })
     renderInput = spotlightTempPath
   }
@@ -232,7 +237,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
       cursorPath: parsed.cursorPath,
     })
     let nextInputIndex = 1
-    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps)
+    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps, options.signal)
     nextInputIndex += 1
     const captionText = options.caption?.trim()
     const captionOverlay = captionText
@@ -276,7 +281,7 @@ export async function polishClip(options: PolishClipOptions): Promise<PolishClip
       '-crf', '18',
       '-movflags', '+faststart',
       options.outPath,
-    ])
+    ], options.signal)
 
     return {
       outPath: options.outPath,
@@ -298,8 +303,8 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
   }
 
   const [metadata, hasAudio] = await Promise.all([
-    probeVideo(options.input),
-    probeHasAudio(options.input),
+    probeVideo(options.input, options.signal),
+    probeHasAudio(options.input, options.signal),
   ])
 
   const spotlight = await resolveSpotlightOptions(options.spotlight, options.style, { w: metadata.width, h: metadata.height }, options.autoFocus)
@@ -314,6 +319,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
       blur: spotlight.blur,
       feather: spotlight.feather,
       hasAudio,
+      signal: options.signal,
     })
     renderInput = spotlightTempPath
   }
@@ -335,7 +341,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
     const frames = frameCount(durationMs, fps)
     const finalCaption = script.finalCaption?.trim()
     let nextInputIndex = 1
-    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps)
+    const chrome = await renderFrameChromeAssets(nextInputIndex, OUTPUT_W, OUTPUT_H, fps, options.signal)
     nextInputIndex += 1
     // The caption's tail window and the step-card list come from ONE plan so
     // they cannot drift apart: whichever path draws the caption, the cards it
@@ -433,7 +439,7 @@ export async function polishScript(options: PolishScriptOptions): Promise<Polish
       '-crf', '18',
       '-movflags', '+faststart',
       options.outPath,
-    ])
+    ], options.signal)
 
     return {
       outPath: options.outPath,
@@ -476,6 +482,7 @@ async function renderFrameChromeAssets(
   outW: number,
   outH: number,
   fps: number,
+  signal?: AbortSignal,
 ): Promise<FrameChromePlan> {
   const plan = frameChromeRenderPlan({ outW, outH })
   const { contentW, contentH } = plan.layout
@@ -495,7 +502,7 @@ async function renderFrameChromeAssets(
       '-f', 'rawvideo',
       '-pix_fmt', 'gray',
       maskPath,
-    ])
+    ], signal)
   }
 
   return {
@@ -697,14 +704,14 @@ function labelRef(label: string): string {
   return label.startsWith('[') && label.endsWith(']') ? label : `[${label}]`
 }
 
-async function probeVideo(input: string): Promise<VideoMetadata> {
+async function probeVideo(input: string, signal?: AbortSignal): Promise<VideoMetadata> {
   const stdout = await runProcess('ffprobe', [
     '-v', 'error',
     '-select_streams', 'v:0',
     '-show_entries', 'stream=width,height,duration:format=duration',
     '-of', 'json',
     input,
-  ])
+  ], signal)
   const data = JSON.parse(stdout) as {
     streams?: Array<{ width?: number; height?: number; duration?: string }>
     format?: { duration?: string }
@@ -727,14 +734,14 @@ async function probeVideo(input: string): Promise<VideoMetadata> {
  * polishScript can preserve audio when it exists instead of unconditionally
  * stripping it with `-an`.
  */
-async function probeHasAudio(input: string): Promise<boolean> {
+async function probeHasAudio(input: string, signal?: AbortSignal): Promise<boolean> {
   const stdout = await runProcess('ffprobe', [
     '-v', 'error',
     '-select_streams', 'a:0',
     '-show_entries', 'stream=index',
     '-of', 'csv=p=0',
     input,
-  ]).catch(() => '')
+  ], signal).catch(() => '')
   return stdout.trim().length > 0
 }
 
@@ -953,9 +960,10 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-async function runProcess(cmd: string, args: string[]): Promise<string> {
+async function runProcess(cmd: string, args: string[], signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted()
   return new Promise((resolveProcess, reject) => {
-    const proc = spawn(cmd, args, { stdio: 'pipe' })
+    const proc = spawn(cmd, args, { stdio: 'pipe', signal, timeout: 0, killSignal: 'SIGKILL' })
     const stdoutChunks: Buffer[] = []
     const stderrChunks: Buffer[] = []
     proc.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(Buffer.from(chunk)))

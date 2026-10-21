@@ -34,6 +34,7 @@ export interface SpotlightStageOptions {
  */
 export declare function buildDarkSpotlightFilter(opts: SpotlightStageOptions): string;
 export interface SpotlightPrePassOptions extends SpotlightStageOptions {
+    signal?: AbortSignal;
     input: string;
     hasAudio: boolean;
 }

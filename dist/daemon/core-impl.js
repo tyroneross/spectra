@@ -1,3 +1,4 @@
+import { stopStoryJobs } from '../pipeline/story.js';
 import { execFile, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { stat, mkdir, rename } from 'node:fs/promises';
@@ -861,6 +862,7 @@ export class CoreApiImplementation {
         return cu;
     }
     async close() {
+        const storyShutdown = stopStoryJobs();
         await Promise.all(this.recordings.list().map(async (recording) => {
             this.recordings.remove(recording.recordingId);
             await recording.handle.abort().catch(() => { });
@@ -899,6 +901,7 @@ export class CoreApiImplementation {
             }
         }));
         await this.keepAwake.close();
+        await storyShutdown;
     }
     startCursorSampler(binaryPath, recordingId, sessionDir, fps, maxDurationSeconds) {
         const outPath = join(sessionDir, `${recordingId}.cursor.json`);

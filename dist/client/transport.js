@@ -74,9 +74,10 @@ export function socketRequest(opts) {
                 resolve({ status: res.statusCode ?? 0, body: parsed, raw });
             });
         });
-        req.setTimeout(timeoutMs, () => {
-            req.destroy(new SocketConnectionError(`Daemon request timed out after ${timeoutMs}ms`, { code: 'ETIMEDOUT' }));
-        });
+        if (timeoutMs > 0)
+            req.setTimeout(timeoutMs, () => {
+                req.destroy(new SocketConnectionError(`Daemon request timed out after ${timeoutMs}ms`, { code: 'ETIMEDOUT' }));
+            });
         req.on('error', (err) => {
             if (err instanceof SocketConnectionError) {
                 reject(err);

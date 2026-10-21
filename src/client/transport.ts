@@ -97,7 +97,7 @@ export function socketRequest(opts: SocketRequestOptions): Promise<SocketRespons
       },
     )
 
-    req.setTimeout(timeoutMs, () => {
+    if (timeoutMs > 0) req.setTimeout(timeoutMs, () => {
       req.destroy(new SocketConnectionError(`Daemon request timed out after ${timeoutMs}ms`, { code: 'ETIMEDOUT' }))
     })
 

@@ -1203,6 +1203,29 @@
                 "kind": "literal",
                 "value": "polish-clip"
               },
+              "autoFocus": {
+                "kind": "union",
+                "options": [
+                  {
+                    "kind": "boolean"
+                  },
+                  {
+                    "kind": "object",
+                    "properties": {
+                      "app": {
+                        "kind": "string",
+                        "optional": true
+                      },
+                      "title": {
+                        "kind": "string",
+                        "optional": true
+                      }
+                    },
+                    "required": []
+                  }
+                ],
+                "optional": true
+              },
               "caption": {
                 "kind": "string",
                 "optional": true
@@ -1342,6 +1365,15 @@
                   "focal"
                 ],
                 "optional": true
+              },
+              "style": {
+                "kind": "enum",
+                "values": [
+                  "cool",
+                  "warm",
+                  "bold"
+                ],
+                "optional": true
               }
             },
             "required": [
@@ -1357,6 +1389,29 @@
               "action": {
                 "kind": "literal",
                 "value": "polish-script"
+              },
+              "autoFocus": {
+                "kind": "union",
+                "options": [
+                  {
+                    "kind": "boolean"
+                  },
+                  {
+                    "kind": "object",
+                    "properties": {
+                      "app": {
+                        "kind": "string",
+                        "optional": true
+                      },
+                      "title": {
+                        "kind": "string",
+                        "optional": true
+                      }
+                    },
+                    "required": []
+                  }
+                ],
+                "optional": true
               },
               "fps": {
                 "kind": "number",
@@ -1500,6 +1555,59 @@
                 },
                 "optional": true
               },
+              "spotlight": {
+                "kind": "object",
+                "properties": {
+                  "blur": {
+                    "kind": "number",
+                    "optional": true
+                  },
+                  "dim": {
+                    "kind": "number",
+                    "optional": true
+                  },
+                  "feather": {
+                    "kind": "number",
+                    "optional": true
+                  },
+                  "focal": {
+                    "kind": "object",
+                    "properties": {
+                      "h": {
+                        "kind": "number"
+                      },
+                      "w": {
+                        "kind": "number"
+                      },
+                      "x": {
+                        "kind": "number"
+                      },
+                      "y": {
+                        "kind": "number"
+                      }
+                    },
+                    "required": [
+                      "h",
+                      "w",
+                      "x",
+                      "y"
+                    ]
+                  }
+                },
+                "required": [
+                  "focal"
+                ],
+                "optional": true
+              },
+              "style": {
+                "kind": "enum",
+                "values": [
+                  "cool",
+                  "warm",
+                  "bold"
+                ],
+                "optional": true
+              },
               "voiceover": {
                 "kind": "string",
                 "optional": true
@@ -1637,12 +1745,181 @@
               "cdpUrl",
               "script"
             ]
+          },
+          {
+            "kind": "object",
+            "properties": {
+              "action": {
+                "kind": "literal",
+                "value": "compose"
+              },
+              "outDir": {
+                "kind": "string"
+              },
+              "storyPath": {
+                "kind": "string"
+              }
+            },
+            "required": [
+              "action",
+              "outDir",
+              "storyPath"
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": {
+              "action": {
+                "kind": "literal",
+                "value": "compose-status"
+              },
+              "outDir": {
+                "kind": "string"
+              }
+            },
+            "required": [
+              "action",
+              "outDir"
+            ]
           }
         ]
       },
       "result": {
         "kind": "union",
         "members": [
+          {
+            "kind": "interface",
+            "typeName": "DemoStoryStatus",
+            "properties": [
+              {
+                "name": "completedScenes",
+                "optional": false,
+                "typeText": "number"
+              },
+              {
+                "name": "error",
+                "optional": true,
+                "typeText": "string"
+              },
+              {
+                "name": "jobId",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "outDir",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "ownerPid",
+                "optional": false,
+                "typeText": "number"
+              },
+              {
+                "name": "result",
+                "optional": true,
+                "typeText": "DemoStoryResult",
+                "type": {
+                  "kind": "interface",
+                  "typeName": "DemoStoryResult",
+                  "properties": [
+                    {
+                      "name": "captionsPath",
+                      "optional": false,
+                      "typeText": "string"
+                    },
+                    {
+                      "name": "contactSheet",
+                      "optional": false,
+                      "typeText": "string"
+                    },
+                    {
+                      "name": "durationMs",
+                      "optional": false,
+                      "typeText": "number"
+                    },
+                    {
+                      "name": "fps",
+                      "optional": false,
+                      "typeText": "number"
+                    },
+                    {
+                      "name": "frames",
+                      "optional": false,
+                      "typeText": "number"
+                    },
+                    {
+                      "name": "height",
+                      "optional": false,
+                      "typeText": "number"
+                    },
+                    {
+                      "name": "manifestPath",
+                      "optional": false,
+                      "typeText": "string"
+                    },
+                    {
+                      "name": "outPath",
+                      "optional": false,
+                      "typeText": "string"
+                    },
+                    {
+                      "name": "poster",
+                      "optional": false,
+                      "typeText": "string"
+                    },
+                    {
+                      "name": "strips",
+                      "optional": false,
+                      "typeText": "string[]"
+                    },
+                    {
+                      "name": "width",
+                      "optional": false,
+                      "typeText": "number"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "startedAt",
+                "optional": false,
+                "typeText": "string"
+              },
+              {
+                "name": "status",
+                "optional": false,
+                "typeText": "'running' | 'completed' | 'failed' | 'interrupted'",
+                "type": {
+                  "kind": "union",
+                  "members": [
+                    {
+                      "kind": "literal",
+                      "value": "running"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "completed"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "failed"
+                    },
+                    {
+                      "kind": "literal",
+                      "value": "interrupted"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "totalScenes",
+                "optional": false,
+                "typeText": "number"
+              }
+            ]
+          },
           {
             "kind": "interface",
             "typeName": "DemoScanResult",
@@ -8438,5 +8715,5 @@
       ]
     }
   },
-  "hash": "e9316b8a8475c0ca4472d60f26e9f905f445bd8b906ac78feac4f6ea1fad9ba6"
+  "hash": "0f7ed8f3f41cf5ae5407cc6980022a9aea98f9a45cd0a75ee5b353342886c181"
 }

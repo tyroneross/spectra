@@ -1,3 +1,4 @@
+import { polishStyleSchema, autoFocusSchema } from '../pipeline/story-schema.js';
 // src/mcp/server.ts
 //
 // CORELESS stdio MCP proxy. This server holds NO core and imports NO core
@@ -42,14 +43,19 @@ function formatError(err, toolName) {
         isError: true,
     };
 }
+let activeForwards = 0;
 /** Forward a tool call and wrap the result as MCP text content. */
 async function forward(client, toolName, args) {
+    activeForwards += 1;
     try {
         const result = await forwardTool(client, toolName, args);
         return { content: [{ type: 'text', text: JSON.stringify({ ...Object(result), timestamp: Date.now() }, null, 2) }] };
     }
     catch (err) {
         return formatError(err, toolName);
+    }
+    finally {
+        activeForwards -= 1;
     }
 }
 // ─── spectra_demo: polish-clip / polish-script wire shapes ─────────────────
@@ -110,7 +116,11 @@ const demoSpotlightObjectShape = z.object({
  * discriminatedUnion) — that's what server.tool()'s SDK signature requires.
  */
 export const spectraDemoInputShape = {
-    action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script', 'run-script']).describe('scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP | polish-clip: render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional spotlight) from a clicks/cursor track | polish-script: render the rich pipeline from a structured beat script | run-script: execute a DemoScript beat-by-beat live against an already-open CDP page target (search/click/scroll/navigate), no rendering'),
+    storyPath: z.string().optional().describe('compose: absolute story JSON path; async render returns a job ID'),
+    outDir: z.string().optional().describe('compose: NEW absolute output directory; compose-status: existing job directory'),
+    style: polishStyleSchema.optional().describe('polish-clip/polish-script: existing caption preset'),
+    autoFocus: autoFocusSchema.optional().describe('polish-clip/polish-script: optional native focal-window detection'),
+    action: z.enum(['scan', 'polish', 'auto-ramp', 'record-composite', 'polish-clip', 'polish-script', 'run-script', 'compose', 'compose-status']).describe('compose: render authored offline HTML, captures and imported media on one story clock; returns async status, poll compose-status with outDir | scan: find active stretches | polish: render spotlight segments and merge | auto-ramp: auto-speed dead air, keep motion 1x | record-composite: window-isolated two-pane recording driven directly via MCP | polish-clip: render the rich pipeline (zoom, window chrome, caption banner + numbered step chips, optional spotlight) from a clicks/cursor track | polish-script: render the rich pipeline from a structured beat script | run-script: execute a DemoScript beat-by-beat live against an already-open CDP page target (search/click/scroll/navigate), no rendering'),
     input: z.string().optional().describe('scan/auto-ramp/polish-clip/polish-script: path to the source video file'),
     threshold: z.number().optional().describe('scan/auto-ramp: scene-change sensitivity (default: 0.04)'),
     deadSpeed: z.number().optional().describe('auto-ramp: speed multiplier for dead-air spans (default 1.8)'),
@@ -454,6 +464,10 @@ function installIdleTimeout(transport) {
     let lastFrameAt = Date.now();
     const pollMs = Math.min(MCP_IDLE_TIMEOUT_MS, 5_000);
     const timer = setInterval(() => {
+        if (activeForwards > 0) {
+            lastFrameAt = Date.now();
+            return;
+        }
         if (Date.now() - lastFrameAt >= MCP_IDLE_TIMEOUT_MS)
             lifecycleExit();
     }, pollMs);

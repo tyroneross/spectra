@@ -11,7 +11,20 @@ import { DaemonClient } from '../client/daemon-client.js';
  * discriminatedUnion) — that's what server.tool()'s SDK signature requires.
  */
 export declare const spectraDemoInputShape: {
-    action: z.ZodEnum<["scan", "polish", "auto-ramp", "record-composite", "polish-clip", "polish-script", "run-script"]>;
+    storyPath: z.ZodOptional<z.ZodString>;
+    outDir: z.ZodOptional<z.ZodString>;
+    style: z.ZodOptional<z.ZodEnum<["cool", "warm", "bold"]>>;
+    autoFocus: z.ZodOptional<z.ZodUnion<[z.ZodBoolean, z.ZodObject<{
+        app: z.ZodOptional<z.ZodString>;
+        title: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }, {
+        app?: string | undefined;
+        title?: string | undefined;
+    }>]>>;
+    action: z.ZodEnum<["scan", "polish", "auto-ramp", "record-composite", "polish-clip", "polish-script", "run-script", "compose", "compose-status"]>;
     input: z.ZodOptional<z.ZodString>;
     threshold: z.ZodOptional<z.ZodNumber>;
     deadSpeed: z.ZodOptional<z.ZodNumber>;
@@ -55,26 +68,26 @@ export declare const spectraDemoInputShape: {
             captionPngPath: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }, {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }>, "many">;
@@ -86,14 +99,14 @@ export declare const spectraDemoInputShape: {
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -106,14 +119,14 @@ export declare const spectraDemoInputShape: {
         };
         segments: {
             input: string;
-            startSec: number;
-            durationSec: number;
             focal: {
                 x: number;
                 y: number;
                 w: number;
                 h: number;
             };
+            startSec: number;
+            durationSec: number;
             caption?: string | undefined;
             captionPngPath?: string | undefined;
         }[];
@@ -214,23 +227,23 @@ export declare const spectraDemoInputShape: {
             tMs: number;
         }>, "many">>;
     }, "strip", z.ZodTypeAny, {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
     }, {
-        clicks?: {
+        cursorPath?: {
             cx: number;
             cy: number;
             tMs: number;
         }[] | undefined;
-        cursorPath?: {
+        clicks?: {
             cx: number;
             cy: number;
             tMs: number;
@@ -290,8 +303,8 @@ export declare const spectraDemoInputShape: {
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -310,8 +323,8 @@ export declare const spectraDemoInputShape: {
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -332,8 +345,8 @@ export declare const spectraDemoInputShape: {
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;
@@ -356,8 +369,8 @@ export declare const spectraDemoInputShape: {
                 value?: string | undefined;
                 target?: string | undefined;
             } | undefined;
-            stepLabel?: string | undefined;
             stepText?: string | undefined;
+            stepLabel?: string | undefined;
             zoom?: {
                 cx: number;
                 cy: number;

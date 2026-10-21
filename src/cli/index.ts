@@ -223,6 +223,12 @@ async function forwardOperation(operation: CoreApiOperation, paramsJson?: string
 }
 
 function normalizeForwardedParams(operation: CoreApiOperation, params: unknown): unknown {
+  if (operation === 'demo' && params && typeof params === 'object' && !Array.isArray(params)) {
+    const demo = params as { action?: string; storyPath?: string; outDir?: string }
+    if (demo.action === 'compose' || demo.action === 'compose-status') {
+      return { ...demo, ...(demo.storyPath ? { storyPath: resolve(process.cwd(), demo.storyPath) } : {}), ...(demo.outDir ? { outDir: resolve(process.cwd(), demo.outDir) } : {}) }
+    }
+  }
   if (operation === 'recordComposite') return resolveOutPath(params)
   if (
     operation === 'demo'
