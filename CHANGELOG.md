@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/tyroneross/spectra/compare/spectra-v0.4.3...spectra-v0.4.4) (2026-10-21)
+
+
+### Features
+
+* compose captured and generated video stories on one timeline ([c4a3892](https://github.com/tyroneross/spectra/commit/c4a3892f57afd4c51d9f54137c21773218db05da))
+
 ## [0.4.3](https://github.com/tyroneross/spectra/compare/spectra-v0.4.2...spectra-v0.4.3) (2026-09-17)
 
 
