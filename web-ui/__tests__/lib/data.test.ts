@@ -41,6 +41,13 @@ import {
   resolveMediaPath,
 } from '../../lib/data.js'
 
+// Where this checkout really sits. data.ts derives these from process.cwd(), so the mocks must too:
+// a literal folder name would pass only on the machine the tests were written on.
+const CWD = process.cwd()
+const PROJECT_ROOT = CWD.endsWith('/web-ui') ? CWD.slice(0, -'/web-ui'.length) : CWD
+const REPOS_ROOT = PROJECT_ROOT.slice(0, PROJECT_ROOT.lastIndexOf('/'))
+const PROJECT_NAME = PROJECT_ROOT.slice(PROJECT_ROOT.lastIndexOf('/') + 1)
+
 const mockedAccess = vi.mocked(fsp.access)
 const mockedCopyFile = vi.mocked(fsp.copyFile)
 const mockedMkdir = vi.mocked(fsp.mkdir)
@@ -310,14 +317,14 @@ describe('capture imports', () => {
       const dirStr = String(dir)
       const withFileTypes = (opts as { withFileTypes?: boolean } | undefined)?.withFileTypes
 
-      if (dirStr.endsWith('/git-folder') && withFileTypes) {
+      if (dirStr === REPOS_ROOT && withFileTypes) {
         return Promise.resolve([
-          mockDirent('spectra', 'directory'),
+          mockDirent(PROJECT_NAME, 'directory'),
           mockDirent('atomize-ai', 'directory'),
           mockDirent('notes', 'directory'),
         ]) as unknown as ReturnType<typeof fsp.readdir>
       }
-      if (dirStr.includes('/git-folder/atomize-ai/artifacts') && !dirStr.includes('/spectra/artifacts') && withFileTypes) {
+      if (dirStr.startsWith(`${REPOS_ROOT}/atomize-ai/artifacts`) && withFileTypes) {
         return Promise.resolve([
           mockDirent('dashboard.png', 'file'),
           mockDirent('notes.txt', 'file'),
@@ -380,23 +387,23 @@ describe('capture imports', () => {
       const pathStr = String(path)
       if (pathStr.endsWith('/atomize-ai/.git')) return Promise.resolve() as unknown as ReturnType<typeof fsp.access>
       if (pathStr.endsWith('/atomize-ai/artifacts')) return Promise.resolve() as unknown as ReturnType<typeof fsp.access>
-      if (pathStr.endsWith('/spectra/artifacts/atomize-ai/artifacts/dashboard.png')) return Promise.resolve() as unknown as ReturnType<typeof fsp.access>
+      if (pathStr === `${PROJECT_ROOT}/artifacts/atomize-ai/artifacts/dashboard.png`) return Promise.resolve() as unknown as ReturnType<typeof fsp.access>
       return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
     })
     mockedReaddir.mockImplementation((dir: unknown, opts?: unknown) => {
       const dirStr = String(dir)
       const withFileTypes = (opts as { withFileTypes?: boolean } | undefined)?.withFileTypes
 
-      if (dirStr.endsWith('/git-folder') && withFileTypes) {
+      if (dirStr === REPOS_ROOT && withFileTypes) {
         return Promise.resolve([
-          mockDirent('spectra', 'directory'),
+          mockDirent(PROJECT_NAME, 'directory'),
           mockDirent('atomize-ai', 'directory'),
         ]) as unknown as ReturnType<typeof fsp.readdir>
       }
-      if (dirStr.endsWith('/git-folder/atomize-ai/artifacts') && withFileTypes) {
+      if (dirStr === `${REPOS_ROOT}/atomize-ai/artifacts` && withFileTypes) {
         return Promise.resolve([mockDirent('dashboard.png', 'file')]) as unknown as ReturnType<typeof fsp.readdir>
       }
-      if (dirStr.endsWith('/git-folder/spectra/artifacts/atomize-ai/artifacts') && withFileTypes) {
+      if (dirStr === `${PROJECT_ROOT}/artifacts/atomize-ai/artifacts` && withFileTypes) {
         return Promise.resolve([mockDirent('dashboard.png', 'file')]) as unknown as ReturnType<typeof fsp.readdir>
       }
       return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
