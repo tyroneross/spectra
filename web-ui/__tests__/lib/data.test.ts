@@ -401,8 +401,11 @@ describe('capture imports', () => {
       }
       return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
     })
-    mockFileBytes.set('/Users/tyroneross/dev/git-folder/atomize-ai/artifacts/dashboard.png', 'new bytes')
-    mockFileBytes.set('/Users/tyroneross/dev/git-folder/spectra/artifacts/atomize-ai/artifacts/dashboard.png', 'old bytes')
+    const cwd = process.cwd()
+    const projectRoot = cwd.endsWith('/web-ui') ? cwd.slice(0, -'/web-ui'.length) : cwd
+    const reposRoot = projectRoot.slice(0, projectRoot.lastIndexOf('/'))
+    mockFileBytes.set(`${reposRoot}/atomize-ai/artifacts/dashboard.png`, 'new bytes')
+    mockFileBytes.set(`${projectRoot}/artifacts/atomize-ai/artifacts/dashboard.png`, 'old bytes')
 
     const result = await listCaptureImportCandidates()
 

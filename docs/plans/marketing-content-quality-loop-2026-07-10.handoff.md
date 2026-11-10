@@ -6,7 +6,7 @@ Implement the host-agent creative loop above Spectra's current capture/render en
 
 ## Ground truth
 
-- Worktree: `/Users/tyroneross/dev/git-folder/spectra-marketing-loop`
+- Worktree: `<repos-root>/spectra-marketing-loop`
 - Branch: `codex/marketing-content-loop`
 - Base: `f3129c8` (`main` and `origin/main` at assessment time)
 - Unique port source: `aefb40d` on `fix/recording-finalize-yuv420p`

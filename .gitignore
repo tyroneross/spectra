@@ -33,3 +33,6 @@ Spectra.dmg
 
 # build-loop working state — internal, archived to build-loop-memory
 .build-loop/
+
+# Local coordination pointer (machine paths)
+.build-loop/coordination/active.json

@@ -108,9 +108,9 @@ describe('scanText', () => {
   })
 
   it('allow-lists the demo user across both slashed and slash-dropped path forms', () => {
-    const slashed = 'saved to /Users/tyroneross/Downloads/demo.mp4'
-    const slashDropped = 'path was Users/tyroneross/dev/git-folder/spectra'
-    const allow = [/tyroneross/]
+    const slashed = 'saved to /Users/example/Downloads/demo.mp4'
+    const slashDropped = 'path was Users/example/dev/git-folder/spectra'
+    const allow = [/example/]
 
     expect(scanText(slashed).some((f) => f.patternId === 'home-path-unix')).toBe(true)
     expect(scanText(slashed, { allow }).some((f) => f.patternId === 'home-path-unix')).toBe(false)

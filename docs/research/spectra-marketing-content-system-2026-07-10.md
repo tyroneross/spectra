@@ -293,8 +293,8 @@ Recommended first benchmark: market Spectra itself to a developer/product builde
 
 ### User-supplied research
 
-- `/Users/tyroneross/.codex/attachments/34868906-28df-4ae8-9b24-4effccf29bd5/pasted-text.txt` — commercial job, ABCPD, three concepts, weighted selection, claim evidence, storyboard, audit rubric.
-- `/Users/tyroneross/.codex/attachments/88fee99a-846e-42e3-b593-df0cb99d6e08/pasted-text.txt` — viewer-intent runtime rule and distinct derivative narratives.
+- Pasted user research (local attachment, not in the repo) — commercial job, ABCPD, three concepts, weighted selection, claim evidence, storyboard, audit rubric.
+- Pasted user research (local attachment, not in the repo) — viewer-intent runtime rule and distinct derivative narratives.
 
 ### Current external sources
 
